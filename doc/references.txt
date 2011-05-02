@@ -1,0 +1,41 @@
+
+Biopython:
+	Bioinformatics. 2009 Jun 1;25(11):1422-3. Epub 2009 Mar 20.
+
+	Biopython: freely available Python tools for computational molecular biology and 
+	bioinformatics.
+	
+	Cock PJ, Antao T, Chang JT, Chapman BA, Cox CJ, Dalke A, Friedberg I, Hamelryck
+	T, Kauff F, Wilczynski B, de Hoon MJ.
+	
+	Plant Pathology, SCRI, Invergowrie, Dundee, UK. peter.cock@scri.ac.uk
+	
+	PMCID: PMC2682512
+	PMID: 19304878 [PubMed - indexed for MEDLINE]
+
+
+MCL:
+	Stijn van Dongen, Graph Clustering by Flow Simulation.
+	PhD thesis, University of Utrecht, May 2000.
+	( http://www.library.uu.nl/digiarchief/dip/diss/1895620/inhoud.htm )
+	
+	Stijn van Dongen. A cluster algorithm for graphs.  Technical Report
+	INS-R0010, National Research Institute for Mathematics and Computer
+	Science in the Netherlands, Amsterdam, May 2000.
+	( http://www.cwi.nl/ftp/CWIreports/INS/INS-R0010.ps.Z )
+	  
+	Enright A.J., Van Dongen S., Ouzounis C.A.
+	An efficient algorithm for large-scale detection of protein families,
+	Nucleic Acids Research 30(7):1575-1584 (2002).
+
+
+ORTHOMCL:
+	Chen F, Mackey AJ, Vermunt JK, Roos DS, 2007 
+	Assessing Performance of Orthology Detection Strategies Applied to Eukaryotic Genomes. 
+	PLoS ONE 2(4): e383. doi:10.1371/journal.pone.0000383
+
+
+TRANSLATORX:
+	Abascal F, Zardoya R, Telford MJ (2010) 
+	TranslatorX: multiple alignment of nucleotide sequences guided by amino acid translations 
+	Nucleic Acids Res. doi:10.1093/nar/gkq291

@@ -1,0 +1,285 @@
+     4	Genomes
+ 17958	Genes
+  3150	Orphan genes
+
+  2604	(57.53%)	Shared single-copy orthologs
+    73	( 1.61%)	Shared multi-copy orthologs
+  1849	(40.85%)	Partially shared orthologs
+  4526	(100.0%)	Total number of orthologs
+
+Multiple COGs found in 18 SICOs:
+sico_000291.ffn:	COG0857R	COG0280C
+sico_000349.ffn:	COG1245R	COG0437C
+sico_000384.ffn:	COG0167F	COG1143C
+sico_000521.ffn:	COG4106R	COG2226H
+sico_000572.ffn:	COG0861P	COG1253R
+sico_000696.ffn:	COG2207K	COG4977K
+sico_000725.ffn:	COG4106R	COG2230M
+sico_000761.ffn:	COG2207K	COG4977K
+sico_000911.ffn:	COG0494LR	COG1051F
+sico_000957.ffn:	COG1705NU	COG3951MNO
+sico_001415.ffn:	COG3829KT	COG1221KT
+sico_001724.ffn:	COG0062S	COG0063G
+sico_001898.ffn:	COG0663R	COG1044M
+sico_001903.ffn:	COG2153R	COG1246E
+sico_001992.ffn:	COG1252C	COG5295UW
+sico_002044.ffn:	COG0823U	COG4946S
+sico_002089.ffn:	COG3642T	COG0661R
+sico_002132.ffn:	COG1246E	COG0456R
+
+COGs transfered in 37 SICOs:
+sico_000161.ffn:	COG2199T
+sico_000267.ffn:	COG2814G
+sico_000326.ffn:	COG0406G
+sico_000486.ffn:	COG0366G
+sico_000552.ffn:	COG0639T
+sico_000574.ffn:	COG0494LR
+sico_000602.ffn:	COG1999R
+sico_000651.ffn:	COG3729R
+sico_000652.ffn:	COG4974L
+sico_000728.ffn:	COG1396K
+sico_000737.ffn:	COG1802K
+sico_000809.ffn:	COG5001T
+sico_000867.ffn:	COG0753P
+sico_000872.ffn:	COG2913J
+sico_000992.ffn:	COG3539NU
+sico_000996.ffn:	COG2197TK
+sico_001144.ffn:	COG1309K
+sico_001245.ffn:	COG1826U
+sico_001471.ffn:	COG2211G
+sico_001622.ffn:	COG1328F
+sico_001660.ffn:	COG1246E
+sico_001686.ffn:	COG0697GER
+sico_001756.ffn:	COG2207K
+sico_002009.ffn:	COG3312C
+sico_002060.ffn:	COG5006R
+sico_002061.ffn:	COG0697GER
+sico_002117.ffn:	COG0366G
+sico_002155.ffn:	COG2211G
+sico_002171.ffn:	COG3383R
+sico_002215.ffn:	COG1378K
+sico_002356.ffn:	COG4804S
+sico_002361.ffn:	COG0515RTKL
+sico_002433.ffn:	COG0525J
+sico_002434.ffn:	COG0322L
+sico_002467.ffn:	COG2816L
+sico_002504.ffn:	COG3518S
+sico_002516.ffn:	COG0762S
+
+No COGs found in 202 SICOs:
+sico_000018.ffn
+sico_000028.ffn
+sico_000035.ffn
+sico_000041.ffn
+sico_000076.ffn
+sico_000077.ffn
+sico_000103.ffn
+sico_000139.ffn
+sico_000160.ffn
+sico_000172.ffn
+sico_000193.ffn
+sico_000198.ffn
+sico_000220.ffn
+sico_000221.ffn
+sico_000241.ffn
+sico_000242.ffn
+sico_000246.ffn
+sico_000251.ffn
+sico_000264.ffn
+sico_000268.ffn
+sico_000289.ffn
+sico_000322.ffn
+sico_000323.ffn
+sico_000327.ffn
+sico_000328.ffn
+sico_000334.ffn
+sico_000360.ffn
+sico_000385.ffn
+sico_000394.ffn
+sico_000427.ffn
+sico_000459.ffn
+sico_000461.ffn
+sico_000466.ffn
+sico_000467.ffn
+sico_000485.ffn
+sico_000487.ffn
+sico_000496.ffn
+sico_000498.ffn
+sico_000503.ffn
+sico_000504.ffn
+sico_000516.ffn
+sico_000543.ffn
+sico_000548.ffn
+sico_000551.ffn
+sico_000553.ffn
+sico_000554.ffn
+sico_000563.ffn
+sico_000564.ffn
+sico_000588.ffn
+sico_000601.ffn
+sico_000608.ffn
+sico_000622.ffn
+sico_000646.ffn
+sico_000664.ffn
+sico_000667.ffn
+sico_000675.ffn
+sico_000677.ffn
+sico_000687.ffn
+sico_000689.ffn
+sico_000698.ffn
+sico_000711.ffn
+sico_000712.ffn
+sico_000726.ffn
+sico_000730.ffn
+sico_000733.ffn
+sico_000734.ffn
+sico_000740.ffn
+sico_000745.ffn
+sico_000747.ffn
+sico_000749.ffn
+sico_000750.ffn
+sico_000752.ffn
+sico_000757.ffn
+sico_000768.ffn
+sico_000779.ffn
+sico_000785.ffn
+sico_000793.ffn
+sico_000794.ffn
+sico_000829.ffn
+sico_000860.ffn
+sico_000862.ffn
+sico_000866.ffn
+sico_000883.ffn
+sico_000907.ffn
+sico_000928.ffn
+sico_000975.ffn
+sico_000977.ffn
+sico_000978.ffn
+sico_000985.ffn
+sico_000989.ffn
+sico_000993.ffn
+sico_000994.ffn
+sico_000995.ffn
+sico_000997.ffn
+sico_000998.ffn
+sico_001006.ffn
+sico_001007.ffn
+sico_001009.ffn
+sico_001035.ffn
+sico_001048.ffn
+sico_001090.ffn
+sico_001095.ffn
+sico_001100.ffn
+sico_001103.ffn
+sico_001105.ffn
+sico_001115.ffn
+sico_001140.ffn
+sico_001150.ffn
+sico_001171.ffn
+sico_001200.ffn
+sico_001209.ffn
+sico_001212.ffn
+sico_001213.ffn
+sico_001231.ffn
+sico_001249.ffn
+sico_001274.ffn
+sico_001284.ffn
+sico_001290.ffn
+sico_001329.ffn
+sico_001332.ffn
+sico_001333.ffn
+sico_001335.ffn
+sico_001377.ffn
+sico_001379.ffn
+sico_001397.ffn
+sico_001398.ffn
+sico_001402.ffn
+sico_001403.ffn
+sico_001405.ffn
+sico_001406.ffn
+sico_001407.ffn
+sico_001416.ffn
+sico_001421.ffn
+sico_001441.ffn
+sico_001447.ffn
+sico_001472.ffn
+sico_001505.ffn
+sico_001510.ffn
+sico_001626.ffn
+sico_001632.ffn
+sico_001645.ffn
+sico_001681.ffn
+sico_001695.ffn
+sico_001705.ffn
+sico_001706.ffn
+sico_001739.ffn
+sico_001740.ffn
+sico_001795.ffn
+sico_001802.ffn
+sico_001803.ffn
+sico_001806.ffn
+sico_001824.ffn
+sico_001850.ffn
+sico_001881.ffn
+sico_001891.ffn
+sico_001953.ffn
+sico_001969.ffn
+sico_001970.ffn
+sico_001971.ffn
+sico_001973.ffn
+sico_002050.ffn
+sico_002059.ffn
+sico_002065.ffn
+sico_002087.ffn
+sico_002107.ffn
+sico_002108.ffn
+sico_002124.ffn
+sico_002129.ffn
+sico_002141.ffn
+sico_002142.ffn
+sico_002143.ffn
+sico_002144.ffn
+sico_002147.ffn
+sico_002163.ffn
+sico_002166.ffn
+sico_002176.ffn
+sico_002184.ffn
+sico_002195.ffn
+sico_002223.ffn
+sico_002227.ffn
+sico_002232.ffn
+sico_002233.ffn
+sico_002247.ffn
+sico_002257.ffn
+sico_002297.ffn
+sico_002309.ffn
+sico_002312.ffn
+sico_002333.ffn
+sico_002337.ffn
+sico_002425.ffn
+sico_002430.ffn
+sico_002459.ffn
+sico_002462.ffn
+sico_002489.ffn
+sico_002495.ffn
+sico_002511.ffn
+sico_002552.ffn
+sico_002567.ffn
+sico_002569.ffn
+sico_002578.ffn
+sico_002587.ffn
+sico_002600.ffn
+
+  2586 sequence alignments trimmed
+96.97% sequence retained on average
+10 least percentages retained from sequence alignments:
+sico_000486.nt_ali.fasta: 24.65%
+sico_000996.nt_ali.fasta: 29.63%
+sico_002009.nt_ali.fasta: 31.54%
+sico_000727.nt_ali.fasta: 33.72%
+sico_001654.nt_ali.fasta: 33.82%
+sico_002488.nt_ali.fasta: 34.15%
+sico_001709.nt_ali.fasta: 38.36%
+sico_001151.nt_ali.fasta: 38.74%
+sico_001829.nt_ali.fasta: 40.86%
+sico_000334.nt_ali.fasta: 42.34%
