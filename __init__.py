@@ -20,7 +20,7 @@ log.basicConfig(level = log.INFO,
 assert 1.54 <= float(Bio.__version__), 'BioPython version 1.53 or higher is required'
 
 #Base output dir
-BASE_OUTPUT_PATH = '../../out/'
+BASE_OUTPUT_PATH = '../divergence-cache/'
 
 #Initialize shared cache for files downloaded through httplib2
 HTTP_CACHE = httplib2.Http(resource_filename(__name__, BASE_OUTPUT_PATH + '.cache'))
