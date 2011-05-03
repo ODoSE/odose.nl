@@ -57,3 +57,14 @@ def create_archive_of_files(target_archive_file, file_iterable):
     for some_file in file_iterable:
         write_handle.write(some_file, os.path.split(some_file)[1])
     write_handle.close()
+
+def extract_archive_of_files(archive_file, target_dir):
+    """Extract all files from archive to target directory, and return list of files extracted."""
+    extracted_files = []
+    read_handle = ZipFile(archive_file, mode = 'r')
+    for zipinfo in read_handle.infolist():
+        target_path = os.path.join(target_dir, zipinfo.filename)
+        extracted_path = read_handle.extract(zipinfo, path = target_path)
+        extracted_files.append(extracted_path)
+    read_handle.close()
+    return extracted_files

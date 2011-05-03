@@ -161,45 +161,42 @@ def _write_fasta(write_handle, headerline, sequence):
     if sequence:
         write_handle.write(sequence + '\n')
 
+def main(args):
+    """Main function called when run from command line or as part of pipeline."""
 
-def _parse_options(args):
-    """Use getopt to parse command line argument options"""
+    def _parse_options(args):
+        """Use getopt to parse command line argument options"""
 
-    def _usage():
-        """Print _usage information"""
-        print """
-        Usage: translate.py 
-            --genomes=FILE        file with refseq id from complete genomes table on each line 
-            --dna-zip=FILE        destination file path for zip archive of extracted DNA files
-            --protein-zip=FILE    destination file path for zip archive of translated protein files
-        """
+        def _usage():
+            """Print _usage information"""
+            print """
+Usage: translate.py 
+--genomes=FILE        file with refseq id from complete genomes table on each line 
+--dna-zip=FILE        destination file path for zip archive of extracted DNA files
+--protein-zip=FILE    destination file path for zip archive of translated protein files
+            """
 
-    options = ['genomes', 'dna-zip', 'protein-zip']
-    try:
-        #postfix '=' to indicate options require an argument
-        long_options = [opt + '=' for opt in options]
-        tuples = getopt.getopt(args, '', long_options)[0]
-        arguments = dict((opt[2:], value) for opt, value in tuples)
-    except getopt.GetoptError as err:
-        print str(err)
-        _usage()
-        sys.exit(1)
-
-    #Ensure all arguments were provided
-    for opt in options:
-        if opt not in arguments:
-            print 'Mandatory argument {0} not provided'.format(opt)
+        options = ['genomes', 'dna-zip', 'protein-zip']
+        try:
+            #postfix '=' to indicate options require an argument
+            long_options = [opt + '=' for opt in options]
+            tuples = getopt.getopt(args, '', long_options)[0]
+            arguments = dict((opt[2:], value) for opt, value in tuples)
+        except getopt.GetoptError as err:
+            print str(err)
             _usage()
             sys.exit(1)
 
-    #Retrieve files from dictionary
-    genomes_file = arguments[options[0]]
-    dna_zipfile = arguments[options[1]]
-    protein_zipfile = arguments[options[2]]
-    return genomes_file, dna_zipfile, protein_zipfile
+        #Ensure all arguments were provided
+        for opt in options:
+            if opt not in arguments:
+                print 'Mandatory argument {0} not provided'.format(opt)
+                _usage()
+                sys.exit(1)
 
-def main(args):
-    """Main function called when run from command line or as part of pipeline."""
+        #Retrieve & return file paths from dictionary
+        return [arguments[option] for option in options]
+
     genomes_file, dna_zipfile, protein_zipfile = _parse_options(args)
 
     #Read genomes ids from genomes_file, each on their own line
