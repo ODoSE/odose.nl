@@ -108,13 +108,13 @@ def main(args):
             """Print _usage information"""
             print """
 Usage: run_paml.py 
---genomes_a=FILE    file with RefSeq id from complete genomes table on each line for clade A
---genomes_b=FILE    file with RefSeq id from complete genomes table on each line for clade B
+--genomes-a=FILE    file with RefSeq id from complete genomes table on each line for clade A
+--genomes-b=FILE    file with RefSeq id from complete genomes table on each line for clade B
 --sico-zip=FILE     archive of aligned & trimmed single copy orthologous (SICO) genes
 --paml-zip=FILE     destination file path for archive of PAML output per SICO gene
 """
 
-        options = ['genomes_a', 'genomes_b', 'sico-zip', 'paml-zip']
+        options = ['genomes-a', 'genomes-b', 'sico-zip', 'paml-zip']
         try:
             #postfix '=' to indicate options require an argument
             long_options = [opt + '=' for opt in options]
