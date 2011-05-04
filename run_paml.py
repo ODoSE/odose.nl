@@ -3,10 +3,14 @@
 
 from Bio import SeqIO
 from Bio.Alphabet import generic_dna
-from divergence import create_directory
+from divergence import create_directory, extract_archive_of_files, create_archive_of_files
+from divergence.select_taxa import select_genomes_from_file
 from subprocess import check_call, STDOUT
+import getopt
 import logging as log
 import os.path
+import sys
+import tempfile
 
 def run_paml(genomes_a, genomes_b, sico_files):
     """Run PAML for representatives of clades A and B in each of the SICO files, to calculate dN/dS."""
@@ -17,11 +21,7 @@ def run_paml(genomes_a, genomes_b, sico_files):
     representative_b = genomes_b[0]['RefSeq project ID']
 
     log.info('Running PAML for {0} aligned and trimmed SICOs'.format(len(sico_files)))
-
-    for sico_file in sico_files:
-        _run_yn00(representative_a, representative_b, sico_file)
-
-    return None
+    return [_run_yn00(representative_a, representative_b, sico_file) for sico_file in sico_files]
 
 YN00 = '/projects/divergence/software/paml44/bin/yn00'
 
@@ -97,3 +97,62 @@ commonf3x4 = 0  * use one set of codon freqs for all pairs (0/1)?
 """.format(os.path.split(nexus_file)[1], os.path.split(output_file)[1])
     with open(config_file, mode = 'w') as write_handle:
         write_handle.write(config_contents)
+
+def main(args):
+    """Main function called when run from command line or as part of pipeline."""
+
+    def _parse_options(args):
+        """Use getopt to parse command line argument options"""
+
+        def _usage():
+            """Print _usage information"""
+            print """
+Usage: run_paml.py 
+--genomes_a=FILE    file with RefSeq id from complete genomes table on each line for clade A
+--genomes_b=FILE    file with RefSeq id from complete genomes table on each line for clade B
+--sico-zip=FILE     archive of aligned & trimmed single copy orthologous (SICO) genes
+--paml-zip=FILE     destination file path for archive of PAML output per SICO gene
+"""
+
+        options = ['genomes_a', 'genomes_b', 'sico-zip', 'paml-zip']
+        try:
+            #postfix '=' to indicate options require an argument
+            long_options = [opt + '=' for opt in options]
+            tuples = getopt.getopt(args, '', long_options)[0]
+            arguments = dict((opt[2:], value) for opt, value in tuples)
+        except getopt.GetoptError as err:
+            print str(err)
+            _usage()
+            sys.exit(1)
+
+        #Ensure all arguments were provided
+        for opt in options:
+            if opt not in arguments:
+                print 'Mandatory argument {0} not provided'.format(opt)
+                _usage()
+                sys.exit(1)
+
+        #Retrieve & return file paths from dictionary
+        return [arguments[option] for option in options]
+
+    genome_a_ids_file, genome_b_ids_file, sico_zip, paml_zip = _parse_options(args)
+
+    #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
+    genomes_a = select_genomes_from_file(genome_a_ids_file)
+    genomes_b = select_genomes_from_file(genome_b_ids_file)
+
+    #Extract files from zip archive
+    temp_dir = tempfile.mkdtemp()
+    sico_files = extract_archive_of_files(sico_zip, temp_dir)
+
+    #Actually run cleanup
+    paml_files = run_paml(genomes_a, genomes_b, sico_files)
+
+    #Write the produced files to command line argument filenames
+    create_archive_of_files(paml_zip, paml_files)
+
+    #Exit after a comforting log message
+    log.info("Produced: \n%s", paml_zip)
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
