@@ -13,7 +13,7 @@ import sys
 #Setup basic logging configuration with log level INFO  
 log.basicConfig(level = log.INFO,
                 stream = sys.stdout,
-                format = '%(levelname)s\t%(asctime)s   %(filename)s:%(lineno)d\t%(message)s',
+                format = '%(levelname)s\t%(asctime)s %(module)s.%(funcName)s:%(lineno)d\t%(message)s',
                 datefmt = '%H:%M:%S')
 
 #Require at least version 1.53 op BioPython

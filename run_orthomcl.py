@@ -398,7 +398,7 @@ def main(args):
         def _usage():
             """Print _usage information"""
             print """
-Usage: translate.py 
+Usage: run_orthomcl.py 
 --protein-zip=FILE    zip archive of translated protein files
 --groups=FILE         destination file path for file listing groups of orthologous proteins
             """

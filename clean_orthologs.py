@@ -4,12 +4,18 @@
 from __future__ import division
 from Bio import AlignIO, SeqIO
 from Bio.SeqRecord import SeqRecord
-from divergence import create_directory
+from divergence import create_directory, extract_archive_of_files, create_archive_of_files
+from divergence.select_taxa import select_genomes_from_file
 from multiprocessing import Pool
 from operator import itemgetter
 from subprocess import check_call, STDOUT
+import getopt
+import sys
+import tempfile
 import logging as log
 import os
+import shutil
+
 
 def trim_and_concat_sicos(genomes, dna_files, groups_file):
     """Invoke all cleanup operations sequentially and return the trimmed SICO files and their genome concatemers."""
@@ -386,3 +392,67 @@ def _concatemer_per_genome(genomes, trimmed_sicos):
         write_handle.close()
 
     return concatemer_sico_files
+
+def main(args):
+    """Main function called when run from command line or as part of pipeline."""
+
+    def _parse_options(args):
+        """Use getopt to parse command line argument options"""
+
+        def _usage():
+            """Print _usage information"""
+            print """
+Usage: clean_orthologs.py 
+--genomes=FILE           file with refseq id from complete genomes table on each line 
+--dna-zip=FILE           zip archive of extracted DNA files
+--groups=FILE            file listing groups of orthologous proteins
+--trimmed-zip=FILE       destination file path for archive of aligned & trimmed single copy orthologous (SICO) genes
+--concatemer-zip=FILE    destination file path for archive of SICO concatemer per genome
+--stats=FILE             destination file path for SICO cleanup statistics file
+            """
+
+        options = ['genomes', 'dna-zip', 'groups', 'trimmed-zip', 'concatemer-zip', 'stats']
+        try:
+            #postfix '=' to indicate options require an argument
+            long_options = [opt + '=' for opt in options]
+            tuples = getopt.getopt(args, '', long_options)[0]
+            arguments = dict((opt[2:], value) for opt, value in tuples)
+        except getopt.GetoptError as err:
+            print str(err)
+            _usage()
+            sys.exit(1)
+
+        #Ensure all arguments were provided
+        for opt in options:
+            if opt not in arguments:
+                print 'Mandatory argument {0} not provided'.format(opt)
+                _usage()
+                sys.exit(1)
+
+        #Retrieve & return file paths from dictionary
+        return [arguments[option] for option in options]
+
+    genome_ids_file, dna_zip, groups_file, trimmed_zip, concatemer_zip, target_stats_path = _parse_options(args)
+
+    #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
+    genomes = select_genomes_from_file(genome_ids_file)
+
+    #Extract files from zip archive
+    temp_dir = tempfile.mkdtemp()
+    dna_files = extract_archive_of_files(dna_zip, temp_dir)
+
+    #Actually run cleanup
+    trimmed_sico_files, concatemers, stats_file = trim_and_concat_sicos(genomes, dna_files, groups_file)
+
+    #Write the produced files to command line argument filenames
+    create_archive_of_files(trimmed_zip, trimmed_sico_files)
+    create_archive_of_files(concatemer_zip, concatemers)
+
+    #Move produced stats.txt file to target output path
+    shutil.move(stats_file, target_stats_path)
+
+    #Exit after a comforting log message
+    log.info("Produced: \n%s\n%s\n%s", trimmed_zip, concatemer_zip, target_stats_path)
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
