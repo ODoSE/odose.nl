@@ -219,6 +219,7 @@ def _step8_orthomcl_blast_parser(run_dir, blast_file, fasta_files_dir):
 
     return similar_sequences
 
+#FIXME Steps 9, 10 and 11 all use the same relational database, which could cause problems with simultaneous runs
 def _step9_orthomcl_load_blast(run_dir, similar_seqs_file, config_file = DEFAULT_ORTHOMCL_CONFIG):
     """Load Blast results into an Oracle or Mysql database.
 
