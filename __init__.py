@@ -22,18 +22,19 @@ assert 1.54 <= float(Bio.__version__), 'BioPython version 1.53 or higher is requ
 #Base output dir
 BASE_OUTPUT_PATH = '../divergence-cache/'
 
-def create_directory(dirname, delete_first = False, inside_dir = BASE_OUTPUT_PATH):
+def create_directory(dirname, inside_dir = BASE_OUTPUT_PATH):
     """Create a directory in the default output directory, and return the full path to the directory.
     
     Return directory if directory already exists, raise error if file by that name already exists."""
-    filename = resource_filename(__name__, os.path.join(inside_dir, dirname))
+    filename = os.path.join(inside_dir, dirname)
+    #For non-absolute paths, get filename relative to this module
+    if filename[0] != '/':
+        filename = resource_filename(__name__, filename)
+
+    #If file exists and is a directory, return the existing directory unaltered
     if os.path.exists(filename):
         if os.path.isdir(filename):
-            if delete_first:
-                shutil.rmtree(filename)
-                return create_directory(dirname)
-            else:
-                return filename
+            return filename
         else:
             raise IOError('Could not create directory {0}\nA file with that name already exists.')
     else:
