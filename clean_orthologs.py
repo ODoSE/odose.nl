@@ -10,38 +10,37 @@ from multiprocessing import Pool
 from operator import itemgetter
 from subprocess import check_call, STDOUT
 import getopt
-import sys
-import tempfile
 import logging as log
 import os
 import shutil
-
+import sys
+import tempfile
 
 def trim_and_concat_sicos(genomes, dna_files, groups_file):
     """Invoke all cleanup operations sequentially and return the trimmed SICO files and their genome concatemers."""
     #Subdivide orthologs into groups
     shared_single_copy, shared_multi_copy, non_shared = _extract_shared_orthologs(genomes, groups_file)
 
-    #Trash current cleanup dir, to ensure old SICOs, concatemers and stats_file are removed
-    create_directory('cleanup', delete_first = True)
+    #Run cleanup in a temporary folder, to prevent interference from simultaneous runs
+    run_dir = tempfile.mkdtemp(prefix = 'cleanup_run_')
 
     #Extract fasta files per orthologs
-    sico_files, nr_of_seqs = _dna_file_per_sico(dna_files, shared_single_copy)
+    sico_files, nr_of_seqs = _dna_file_per_sico(run_dir, dna_files, shared_single_copy)
 
     #Write statistics file
-    stats_file = _write_statistics_file(genomes, shared_single_copy, shared_multi_copy, non_shared, nr_of_seqs)
+    stats_file = _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, non_shared, nr_of_seqs)
 
     #Look at assigned COGs among orthologs; filter those with multiple COGs & carry over COGs to sequences without COG  
     sico_files = _cog_based_filtering(sico_files, stats_file)
 
     #Align SICO DNA sequences at protein level.
-    dna_alignments = _align_sicos(sico_files)
+    dna_alignments = _align_sicos(run_dir, sico_files)
 
     #Trim to retain equal length sequences with non-gap start & end codon
-    trimmed_sico_files = _trim_alignments(dna_alignments, stats_file)
+    trimmed_sico_files = _trim_alignments(run_dir, dna_alignments, stats_file)
 
     #Create concatemer of trimmed SICOs for each genome, resulting in equal length genome concatemers
-    concatemers = _concatemer_per_genome(genomes, trimmed_sico_files)
+    concatemers = _concatemer_per_genome(run_dir, genomes, trimmed_sico_files)
 
     return trimmed_sico_files, concatemers, stats_file
 
@@ -108,10 +107,9 @@ def _extract_shared_orthologs(genomes, groups_file):
     #Return three collections of dictionaries mapping refseq_id to proteins for all orthologs
     return shared_single_copy, shared_multi_copy, non_shared_orthologs
 
-def _write_statistics_file(genomes, shared_single_copy, shared_multi_copy, partially_shared, nr_of_seqs):
+def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, partially_shared, nr_of_seqs):
     """Write out file with some basic statistics about the genomes, orthologs and size of shared core genome."""
-    cleanup_dir = create_directory('cleanup')
-    stats_file = os.path.join(cleanup_dir, 'stats.txt')
+    stats_file = os.path.join(run_dir, 'stats.txt')
     with open(stats_file, mode = 'w') as writer:
         #Some easy statistics about genomes and orthologs
         nr_genomes = len(genomes)
@@ -142,10 +140,10 @@ def _write_statistics_file(genomes, shared_single_copy, shared_multi_copy, parti
     assert os.path.isfile(stats_file) and 0 < os.path.getsize(stats_file), stats_file + ' should exist with content.'
     return stats_file
 
-def _dna_file_per_sico(dna_files, shared_single_copy):
+def _dna_file_per_sico(run_dir, dna_files, shared_single_copy):
     """Create fasta files with all sequences per ortholog."""
     #Delete & create directory to remove any previously existing SICO files
-    sico_dir = create_directory('cleanup/sico')
+    sico_dir = create_directory('sico', inside_dir = run_dir)
 
     #Loop over DNA files to extract SICO genes from each genome to file per SICO
     sico_files = set()
@@ -254,21 +252,22 @@ def _append_cog_statistics(stats_file, cog_conflicts, cog_transferable, cog_miss
             append_handle.write('\n' + msg + ':\n')
             append_handle.write('\n'.join(os.path.split(sico_file)[1] for sico_file in cog_missing) + '\n')
 
-def _align_sicos(sico_files):
+def _align_sicos(run_dir, sico_files):
     """Align all SICO files given as argument in parallel and return the resulting alignment files."""
     log.info('Aligning {0} SICO genes using TranslatorX & muscle.'.format(len(sico_files)))
-    #We'll multiplex this embarrassingly parallel task using a pool of workers  
-    return Pool().map(_run_translatorx, sico_files)
+    #We'll multiplex this embarrassingly parallel task using a pool of workers
+    tuples = [(run_dir, sico_file) for sico_file in sico_files]
+    return Pool().map(_run_translatorx, tuples)
 
 TRANSLATORX = '/projects/divergence/software/translatorx/translatorx_v1.1.pl'
 
-def _run_translatorx(sico_file, translation_table = '11'):
+def _run_translatorx((run_dir, sico_file), translation_table = '11'):
     """Run TranslatorX to create DNA level alignment file of protein level aligned DNA sequences within sico_file."""
     assert os.path.exists(TRANSLATORX) and os.access(TRANSLATORX, os.X_OK), 'Could not find or run ' + TRANSLATORX
 
     #Determine output file name
     sico_base = os.path.splitext(os.path.split(sico_file)[1])[0]
-    alignment_dir = create_directory('cleanup/alignments/' + sico_base)
+    alignment_dir = create_directory('alignments/' + sico_base, inside_dir = run_dir)
 
     #Target output file
     file_base = os.path.join(alignment_dir, sico_base)
@@ -285,15 +284,16 @@ def _run_translatorx(sico_file, translation_table = '11'):
     assert os.path.isfile(dna_alignment) and 0 < os.path.getsize(dna_alignment), msg
     return dna_alignment
 
-def _trim_alignments(dna_alignments, stats_file):
+def _trim_alignments(run_dir, dna_alignments, stats_file):
     """Trim all DNA alignments using _trim_alignment (singular), and calculate some statistics about the trimming."""
     log.info('Trimming {0} DNA alignments from first non-gap codon to last non-gap codon'.format(len(dna_alignments)))
 
     #Create directory here, to prevent race-condition when folder does not exist, but is then created by another process
-    create_directory('cleanup/trimmed')
+    trimmed_dir = create_directory('trimmed', inside_dir = run_dir)
 
-    #algn_perct_tpls = [_trim_alignment(ali) for ali in dna_alignments]
-    algn_perct_tpls = Pool().map(_trim_alignment, dna_alignments)
+    #algn_perct_tpls = [_trim_alignment(trimmed_dir, ali) for ali in dna_alignments]
+    tuples = [(trimmed_dir, dna_alignment) for dna_alignment in dna_alignments]
+    algn_perct_tpls = Pool().map(_trim_alignment, tuples)
     algn_perct_tpls = sorted(algn_perct_tpls, key = itemgetter(1))
 
     remaining_percts = [tpl[1] for tpl in algn_perct_tpls]
@@ -308,7 +308,7 @@ def _trim_alignments(dna_alignments, stats_file):
     trimmed_alignments = [tpl[0] for tpl in algn_perct_tpls]
     return sorted(trimmed_alignments)
 
-def _trim_alignment(dna_alignment):
+def _trim_alignment((trimmed_dir, dna_alignment)):
     """Trim alignment to retain first & last non-gapped codons across alignment, and everything in between (+gaps!)."""
     with open(dna_alignment) as read_handle:
         #Read single alignment from fasta file
@@ -345,7 +345,7 @@ def _trim_alignment(dna_alignment):
         assert trimmed_length % 3 == 0, 'Length not a multiple of three: {} \n{2}'.format(trimmed_length, trimmed)
 
         #Write out trimmed alignment file
-        trimmed_file = os.path.join(create_directory('cleanup/trimmed'), os.path.split(dna_alignment)[1])
+        trimmed_file = os.path.join(trimmed_dir, os.path.split(dna_alignment)[1])
         with open(trimmed_file, mode = 'w') as write_handle:
             AlignIO.write(trimmed, write_handle, 'fasta')
 
@@ -355,9 +355,9 @@ def _trim_alignment(dna_alignment):
 
         return trimmed_file, trimmed_length / alignment_length
 
-def _concatemer_per_genome(genomes, trimmed_sicos):
+def _concatemer_per_genome(run_dir, genomes, trimmed_sicos):
     """Create a concatemer DNA file per genome containing all aligned & trimmed SICO genes."""
-    concatemer_dir = create_directory('cleanup/concatemers')
+    concatemer_dir = create_directory('concatemers', inside_dir = run_dir)
     log.info('Creating {0} concatemers from {1} SICOs'.format(len(genomes), len(trimmed_sicos)))
 
     #Open trimmed concatemer write handles
@@ -409,7 +409,7 @@ Usage: clean_orthologs.py
 --trimmed-zip=FILE       destination file path for archive of aligned & trimmed single copy orthologous (SICO) genes
 --concatemer-zip=FILE    destination file path for archive of SICO concatemer per genome
 --stats=FILE             destination file path for SICO cleanup statistics file
-            """
+"""
 
         options = ['genomes', 'dna-zip', 'groups', 'trimmed-zip', 'concatemer-zip', 'stats']
         try:
