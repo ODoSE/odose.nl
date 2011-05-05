@@ -12,10 +12,18 @@ def select_genomes_from_file(genomes_file):
     """Select genomes from complete genomes table if their RefSeq ID is in genome_file and return them as list."""
     #Read genomes ids from genomes_file, each on their own line
     with open(genomes_file, mode = 'r') as read_handle:
-        genome_ids = [line.strip() for line in read_handle]
+        genome_ids = [line.strip() for line in read_handle if line is not '']
 
     #Loop over genomes and return any genomes whose RefSeq project ID is in genome_ids
-    return [genome for genome in _parse_genomes_table() if genome['RefSeq project ID'] in genome_ids]
+    genomes = [genome for genome in _parse_genomes_table() if genome['RefSeq project ID'] in genome_ids]
+
+    #See if we matched all genomes, else log a warning
+    selected_ids = [genome['RefSeq project ID'] for genome in genomes]
+    for genome_id in genome_ids:
+        if genome_id not in selected_ids:
+            log.warning('Could not find genome with RefSeq Project ID %s in complete genomes table', genome_id)
+
+    return genomes
 
 def select_taxa(clade_a_ids, clade_b_ids):
     """From genomes table return two lists of genomes whose RefSeq project IDs are present clade_a_ids & clade_b_ids."""
