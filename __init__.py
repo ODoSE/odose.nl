@@ -22,15 +22,11 @@ assert 1.54 <= float(Bio.__version__), 'BioPython version 1.53 or higher is requ
 #Base output dir
 BASE_OUTPUT_PATH = '../divergence-cache/'
 
-#Initialize shared cache for files downloaded through httplib2
-HTTP_CACHE = httplib2.Http(resource_filename(__name__, BASE_OUTPUT_PATH + '.cache'))
-
-#Assure multiplexed directory creation/assertions do not conflict, by using a lock
-def create_directory(dirname, delete_first = False):
+def create_directory(dirname, delete_first = False, inside_dir = BASE_OUTPUT_PATH):
     """Create a directory in the default output directory, and return the full path to the directory.
     
     Return directory if directory already exists, raise error if file by that name already exists."""
-    filename = resource_filename(__name__, BASE_OUTPUT_PATH + dirname)
+    filename = resource_filename(__name__, os.path.join(inside_dir, dirname))
     if os.path.exists(filename):
         if os.path.isdir(filename):
             if delete_first:
@@ -44,8 +40,13 @@ def create_directory(dirname, delete_first = False):
         os.makedirs(filename)
         return filename
 
+#Initialize shared cache for files downloaded through httplib2
+HTTP_CACHE = httplib2.Http(create_directory('.cache'))
+
 def concatenate(target_path, source_files):
-    """Concatenate arbitrary number of files into target_path by reading and writing in binary mode."""
+    """Concatenate arbitrary number of files into target_path by reading and writing in binary mode.
+    
+    WARNING: The binary mode implies new \n characters will NOT be added in between files!"""
     with open(target_path, mode = 'wb') as write_handle:
         for source_file in source_files:
             shutil.copyfileobj(open(source_file, mode = 'rb'), write_handle)

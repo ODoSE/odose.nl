@@ -12,10 +12,10 @@ MAKEBLASTDB = NCBI_BLAST_DIR + 'makeblastdb'
 BLASTP = NCBI_BLAST_DIR + 'blastp'
 BLASTN = NCBI_BLAST_DIR + 'blastn'
 
-def reciprocal_blast(good_proteins_fasta, fasta_files):
+def reciprocal_blast(run_dir, good_proteins_fasta, fasta_files):
     """Create blast database for good_proteins_fasta, blast all fasta_files against this database & return hits."""
     #Create blast database, retrieve path & name
-    db_dir, db_name = _create_blast_database(good_proteins_fasta)
+    db_dir, db_name = _create_blast_database(run_dir, good_proteins_fasta)
 
     #Blast individual fasta files against the made blast databank, instead of the much larger good_proteins_fasta
     pool = Pool()#Pool size is initialized to multiprocessing.cpu_count(), or 1 if that fails.
@@ -26,18 +26,16 @@ def reciprocal_blast(good_proteins_fasta, fasta_files):
     x_vs_all_hits = (job.get() for job in submitted_jobs)
 
     #Concatenate the individual blast result files into one
-    blast_dir = create_directory('orthomcl/blast')
-    allvsall = os.path.join(blast_dir, 'all-vs-all.tsv')
+    allvsall = os.path.join(db_dir, 'all-vs-all.tsv')
     concatenate(allvsall, x_vs_all_hits)
-
     return allvsall
 
-def _create_blast_database(fasta_file, nucleotide = False):
+def _create_blast_database(run_dir, fasta_file, nucleotide = False):
     """Create blast database"""
     assert os.path.exists(MAKEBLASTDB) and os.access(MAKEBLASTDB, os.X_OK), 'Could not find or run ' + MAKEBLASTDB
 
     dbtype = 'nucl' if nucleotide else 'prot'
-    db_dir = create_directory('orthomcl/blast/')
+    db_dir = create_directory('blast', inside_dir = run_dir)
     db_name = 'my_{0}_blast_db'.format(dbtype)
     log_file = os.path.join(db_dir, 'makeblastdb.log')
     with open(log_file, mode = 'w') as open_file:

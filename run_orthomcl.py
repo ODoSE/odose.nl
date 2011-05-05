@@ -29,26 +29,26 @@ DEFAULT_ORTHOMCL_CONFIG = resource_filename(__name__, 'orthomcl.config')
 def run_orthomcl(proteome_files):
     """Run all the steps in the orthomcl pipeline, starting with a set of proteomes and ending up with groups.txt."""
     #Delete orthomcl directory to prevent lingering files from previous runs to influence new runs
-    create_directory('orthomcl', delete_first = True)
+    run_dir = tempfile.mkdtemp(prefix = 'orthomcl_run_')
 
     #Steps leading up to and performing the reciprocal blast, as well as minor post processing
-    adjusted_fasta_dir, fasta_files = _step5_orthomcl_adjust_fasta(proteome_files)
-    good = _step6_orthomcl_filter_fasta(adjusted_fasta_dir)
-    allvsall = _step7_blast_all_vs_all(good, fasta_files)
-    similar_sequences = _step8_orthomcl_blast_parser(allvsall, adjusted_fasta_dir)
+    adjusted_fasta_dir, fasta_files = _step5_orthomcl_adjust_fasta(run_dir, proteome_files)
+    good = _step6_orthomcl_filter_fasta(run_dir, adjusted_fasta_dir)
+    allvsall = _step7_blast_all_vs_all(run_dir, good, fasta_files)
+    similar_sequences = _step8_orthomcl_blast_parser(run_dir, allvsall, adjusted_fasta_dir)
 
     #Steps that occur in database, and thus do little to produce output files
-    _step9_orthomcl_load_blast(similar_sequences)
-    _step10_orthomcl_pairs()
+    _step9_orthomcl_load_blast(run_dir, similar_sequences)
+    _step10_orthomcl_pairs(run_dir)
 
     #MCL related steps: pre-, actual & post-processing, resulting in the groups.txt file
-    mcl_input = _step11_orthomcl_dump_pairs()[0]
-    mcl_output = _step12_mcl(mcl_input)
-    groups = _step13_orthomcl_mcl_to_groups(mcl_output)
+    mcl_input = _step11_orthomcl_dump_pairs(run_dir)[0]
+    mcl_output = _step12_mcl(run_dir, mcl_input)
+    groups = _step13_orthomcl_mcl_to_groups(run_dir, mcl_output)
 
     return groups
 
-def _step5_orthomcl_adjust_fasta(proteome_files, id_field = 3):
+def _step5_orthomcl_adjust_fasta(run_dir, proteome_files, id_field = 3):
     """Create an OrthoMCL compliant .fasta file, by adjusting definition lines.
 
     Usage:
@@ -82,7 +82,7 @@ def _step5_orthomcl_adjust_fasta(proteome_files, id_field = 3):
     EXAMPLE: orthomclSoftware/bin/orthomclAdjustFasta hsa Homo_sapiens.NCBI36.53.pep.all.fa 1
     """
     #Create directory to hold compliant fasta
-    adjusted_fasta_dir = create_directory('orthomcl/compliant_fasta', delete_first = True)
+    adjusted_fasta_dir = create_directory('compliant_fasta', inside_dir = run_dir)
     adjusted_fasta_files = []
     for proteome_file in proteome_files:
         #Use filename without extention as taxon code
@@ -100,7 +100,7 @@ def _step5_orthomcl_adjust_fasta(proteome_files, id_field = 3):
     #Return path to directory containing compliantFasta
     return adjusted_fasta_dir, adjusted_fasta_files
 
-def _step6_orthomcl_filter_fasta(input_dir, min_length = 10, max_percent_stop = 20):
+def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length = 10, max_percent_stop = 20):
     """Create goodProteins.fasta containing all good proteins and rejectProteins.fasta containing all rejects. Input is 
     a directory containing a set of compliant input .fasta files (as produced by orthomclAdjustFasta).
 
@@ -128,7 +128,7 @@ def _step6_orthomcl_filter_fasta(input_dir, min_length = 10, max_percent_stop = 
     EXAMPLE: orthomclSoftware/bin/orthomclFilterFasta my_orthomcl_dir/compliantFasta 10 20
     """
     #Run orthomclFilterFasta
-    out_dir = create_directory('orthomcl/filtered_fasta', delete_first = True)
+    out_dir = create_directory('filtered_fasta', inside_dir = run_dir)
     report = os.path.join(out_dir, 'filter_report.log')
     with open(report, mode = 'w') as report_file:
         command = [ORTHOMCL_FILTER_FASTA, input_dir, str(min_length), str(max_percent_stop)]
@@ -156,7 +156,7 @@ def _step6_orthomcl_filter_fasta(input_dir, min_length = 10, max_percent_stop = 
     #Only return good, as poor has no content
     return good
 
-def _step7_blast_all_vs_all(good_proteins_file, fasta_files):
+def _step7_blast_all_vs_all(run_dir, good_proteins_file, fasta_files):
     """Input:
       - goodProteins.fasta
     Output:
@@ -177,9 +177,9 @@ def _step7_blast_all_vs_all(good_proteins_file, fasta_files):
     Time estimate: highly dependent on your data and hardware
     """
     #Handled by reciprocal blast module
-    return reciprocal_blast(good_proteins_file, fasta_files)
+    return reciprocal_blast(run_dir, good_proteins_file, fasta_files)
 
-def _step8_orthomcl_blast_parser(blast_file, fasta_files_dir):
+def _step8_orthomcl_blast_parser(run_dir, blast_file, fasta_files_dir):
     """orthomclBlastParser blast_file fasta_files_dir
 
     where:
@@ -202,10 +202,9 @@ def _step8_orthomcl_blast_parser(blast_file, fasta_files_dir):
     EXAMPLE: orthomclSoftware/bin/orthomclBlastParser my_blast_results my_orthomcl_dir/compliantFasta >> my_orthomcl_dir/similar_sequences.txt
     """
     #Run orthomclBlastParser
-    orthomcl_dir = create_directory('orthomcl')
     command = [ORTHOMCL_BLAST_PARSER, blast_file, fasta_files_dir]
     log.info('Executing: %s', ' '.join(command))
-    similar_sequences = os.path.join(orthomcl_dir, 'similar_sequences.tsv')
+    similar_sequences = os.path.join(run_dir, 'similar_sequences.tsv')
     with open(similar_sequences, mode = 'w') as stdout_file:
         #check_call(command, stdout = stdout_file, stderr = open('/dev/null', mode = 'w'))
         process = Popen(command, stdout = stdout_file, stderr = PIPE)
@@ -220,7 +219,7 @@ def _step8_orthomcl_blast_parser(blast_file, fasta_files_dir):
 
     return similar_sequences
 
-def _step9_orthomcl_load_blast(similar_seqs_file, config_file = DEFAULT_ORTHOMCL_CONFIG):
+def _step9_orthomcl_load_blast(run_dir, similar_seqs_file, config_file = DEFAULT_ORTHOMCL_CONFIG):
     """Load Blast results into an Oracle or Mysql database.
 
     usage: orthomclLoadBlast config_file similar_seqs_file
@@ -236,8 +235,7 @@ def _step9_orthomcl_load_blast(similar_seqs_file, config_file = DEFAULT_ORTHOMCL
         
         Required additional changes to orthomclPairs (line 62) to also truncate SimiliarSequences when cleanup=all, as
         orthomcl by default did not truncate SimilarSequences when cleanup=yes in step 10"""
-        orthomcl_dir = create_directory('orthomcl')
-        pairs_log = os.path.join(orthomcl_dir, 'orthomclPairs_cleanup-all.log')
+        pairs_log = os.path.join(run_dir, 'orthomclPairs_cleanup-all.log')
         clean_command = [ORTHOMCL_PAIRS, config_file, pairs_log, 'cleanup=all']
         log.info('Executing: %s', ' '.join(clean_command))
         check_call(clean_command)
@@ -249,7 +247,7 @@ def _step9_orthomcl_load_blast(similar_seqs_file, config_file = DEFAULT_ORTHOMCL
     check_call(command)
     return
 
-def _step10_orthomcl_pairs(config_file = DEFAULT_ORTHOMCL_CONFIG):
+def _step10_orthomcl_pairs(run_dir, config_file = DEFAULT_ORTHOMCL_CONFIG):
     """Find pairs for OrthoMCL.
 
     usage: orthomclPairs config_file log_file cleanup=[yes|no|only|all] <startAfter=TAG>
@@ -278,15 +276,14 @@ def _step10_orthomcl_pairs(config_file = DEFAULT_ORTHOMCL_CONFIG):
     EXAMPLE: orthomclSoftware/bin/orthomclPairs my_orthomcl_dir/orthomcl.config my_orthomcl_dir/orthomcl_pairs.log cleanup=no
     """
     #Run orthomclPairs
-    orthomcl_dir = create_directory('orthomcl')
-    pairs_log = os.path.join(orthomcl_dir, 'orthomclPairs.log')
+    pairs_log = os.path.join(run_dir, 'orthomclPairs.log')
     command = [ORTHOMCL_PAIRS, config_file, pairs_log, 'cleanup=yes']
     log.info('Executing: %s', ' '.join(command))
     check_call(command)
 
     return pairs_log
 
-def _step11_orthomcl_dump_pairs(config_file = DEFAULT_ORTHOMCL_CONFIG):
+def _step11_orthomcl_dump_pairs(run_dir, config_file = DEFAULT_ORTHOMCL_CONFIG):
     """Dump files from the database produced by the orthomclPairs program.
 
     usage: orthomclDumpPairsFiles config_file
@@ -317,13 +314,13 @@ def _step11_orthomcl_dump_pairs(config_file = DEFAULT_ORTHOMCL_CONFIG):
     EXAMPLE: orthomclSoftware/bin/orthomclDumpPairsFile out_dir/orthomcl.config
     """
     #Run orthomclDumpPairsFile
-    out_dir = create_directory('orthomcl/orthologs', delete_first = True)
+    out_dir = create_directory('orthologs', inside_dir = run_dir)
     command = [ORTHOMCL_DUMP_PAIRS_FILES, config_file]
     log.info('Executing: %s', ' '.join(command))
     check_call(command, cwd = out_dir)
 
     #Desired destination output file paths
-    mcl_dir = create_directory('orthomcl/mcl')
+    mcl_dir = create_directory('mcl', inside_dir = run_dir)
     mclinput = os.path.join(mcl_dir, 'mclInput.tsv')
     orthologs = os.path.join(out_dir, 'potentialOrthologs.tsv')
     inparalogs = os.path.join(out_dir, 'potentialInparalogs.tsv')
@@ -340,7 +337,7 @@ def _step11_orthomcl_dump_pairs(config_file = DEFAULT_ORTHOMCL_CONFIG):
 
     return mclinput, orthologs, inparalogs, coorthologs
 
-def _step12_mcl(mcl_input_file):
+def _step12_mcl(run_dir, mcl_input_file):
     """Markov Cluster Algorithm: http://www.micans.org/mcl/
 
     Input:
@@ -351,7 +348,7 @@ def _step12_mcl(mcl_input_file):
     mcl my_orthomcl_dir/mclInput --abc -I 1.5 -o my_orthomcl_dir/mclOutput
     """
     #Run mcl
-    mcl_dir = create_directory('orthomcl/mcl')
+    mcl_dir = create_directory('mcl', inside_dir = run_dir)
     mcl_output_file = os.path.join(mcl_dir, 'mclOutput.tsv')
     mcl_log = os.path.join(mcl_dir, 'mcl.log')
     with open(mcl_log, mode = 'w') as open_file:
@@ -361,7 +358,7 @@ def _step12_mcl(mcl_input_file):
         check_call(command, stdout = open_file, stderr = STDOUT)
     return mcl_output_file
 
-def _step13_orthomcl_mcl_to_groups(mcl_output_file):
+def _step13_orthomcl_mcl_to_groups(run_dir, mcl_output_file):
     """mclOutput2groupsFile prefix starting_id_num
 
     create an orthomcl groups file from an mcl output file. just generate a group ID for each group, and prepend it to that group's line.
@@ -378,8 +375,7 @@ def _step13_orthomcl_mcl_to_groups(mcl_output_file):
     OG2_1009: osa|ENS1222992 pfa|PF11_0844
     """
     #Run orthomclMclToGroups
-    out_dir = create_directory('orthomcl')
-    groups = os.path.join(out_dir, 'groups.txt')
+    groups = os.path.join(run_dir, 'groups.txt')
     with open(mcl_output_file) as in_file:
         with open(groups, mode = 'w') as out_file:
             command = [ORTHOMCL_MCL_TO_GROUPS, 'group_', '1000']
@@ -401,7 +397,7 @@ def main(args):
 Usage: run_orthomcl.py 
 --protein-zip=FILE    zip archive of translated protein files
 --groups=FILE         destination file path for file listing groups of orthologous proteins
-            """
+"""
 
         options = ['protein-zip', 'groups']
         try:
