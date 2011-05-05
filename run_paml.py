@@ -14,18 +14,19 @@ import tempfile
 
 def run_paml(genomes_a, genomes_b, sico_files):
     """Run PAML for representatives of clades A and B in each of the SICO files, to calculate dN/dS."""
-    #Trash existing paml dir first
-    create_directory('paml', delete_first = True)
+    #PAML runs inside a temporary folder, to prevent interference with simultaneous runs 
+    paml_dir = tempfile.mkdtemp(prefix = 'paml_run_')
 
+    #Pick the first genomes as representatives for each clade
     representative_a = genomes_a[0]['RefSeq project ID']
     representative_b = genomes_b[0]['RefSeq project ID']
 
     log.info('Running PAML for {0} aligned and trimmed SICOs'.format(len(sico_files)))
-    return [_run_yn00(representative_a, representative_b, sico_file) for sico_file in sico_files]
+    return [_run_yn00(paml_dir, representative_a, representative_b, sico_file) for sico_file in sico_files]
 
 YN00 = '/projects/divergence/software/paml44/bin/yn00'
 
-def _run_yn00(repr_id_a, repr_id_b, sico_file):
+def _run_yn00(paml_dir, repr_id_a, repr_id_b, sico_file):
     """Run yn00 from PAML for selected sequence records from sico_file, returning main nexus output file."""
     #Find sequences from above chosen clade representatives in each SICO file
     seqr_a = None
@@ -43,7 +44,7 @@ def _run_yn00(repr_id_a, repr_id_b, sico_file):
 
     #Write the representative sequence records out to file in yn00 compatible format
     sico = os.path.splitext(os.path.split(sico_file)[1])[0]
-    yn00_dir = create_directory('paml/' + sico)
+    yn00_dir = create_directory(sico, inside_dir = paml_dir)
     nexus_file = os.path.join(yn00_dir, sico + '.nexus')
     _write_nexus_file(seqr_a, seqr_b, nexus_file)
 
