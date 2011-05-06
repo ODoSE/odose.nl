@@ -1,18 +1,21 @@
 #!/usr/bin/env python
 """Module to create, configure and dispose separate database instances for individual OrthoMCL runs."""
 
+from ConfigParser import SafeConfigParser
+from divergence import resource_filename
 import MySQLdb
 import logging as log
-import random
 import os.path
+import random
 
 def _get_root_credentials():
-    """Retrieve MySQL credentials to an account that is allowed to create new databases."""
-    #TODO Use onfiguration file instead
-    host = 'localhost'
-    port = 3307
-    user = 'root'
-    passwd = 'pass'
+    """Retrieve MySQL credentials from orthomcl.config to an account that is allowed to create new databases."""
+    config = SafeConfigParser()
+    config.read(resource_filename(__name__, 'orthomcl.cfg'))
+    host = config.get('mysql', 'host')
+    port = config.getint('mysql', 'port')
+    user = config.get('mysql', 'user')
+    passwd = config.get('mysql', 'pass')
     return host, port, user, passwd
 
 def create_database():
