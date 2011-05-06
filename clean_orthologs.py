@@ -42,11 +42,20 @@ def trim_and_concat_sicos(genomes, dna_files, groups_file):
     #Create concatemer of trimmed SICOs for each genome, resulting in equal length genome concatemers
     concatemers = _concatemer_per_genome(run_dir, genomes, trimmed_sico_files)
 
-    #Remove unused files to free disk space
-    [os.remove(path) for path in sico_files]
-    [os.remove(path) for path in dna_alignments]
+    #Create archives outside run_dir ahead of run_dir removal
+    trimmed_zip = tempfile.mkstemp('.zip', 'trimmed_run_')[1]
+    concatemer_zip = tempfile.mkstemp('.zip', 'concatemer_run_')[1]
+    create_archive_of_files(trimmed_zip, trimmed_sico_files)
+    create_archive_of_files(concatemer_zip, concatemers)
 
-    return trimmed_sico_files, concatemers, stats_file
+    #Move stats_file outside run_dir as well ahead of run_dir removal
+    target_stats_file = tempfile.mkstemp('.txt', 'stats_run_')[1]
+    shutil.move(stats_file, target_stats_file)
+
+    #Remove run_dir to free disk space
+    shutil.rmtree(run_dir)
+
+    return trimmed_zip, concatemer_zip, target_stats_file
 
 def _create_ortholog_dictionaries(groups_file):
     """Convert groups file into a list of ortholog dictionaries, which map refseq_id to their associated proteins."""
@@ -436,7 +445,7 @@ Usage: clean_orthologs.py
         #Retrieve & return file paths from dictionary
         return [arguments[option] for option in options]
 
-    genome_ids_file, dna_zip, groups_file, trimmed_zip, concatemer_zip, target_stats_path = _parse_options(args)
+    genome_ids_file, dna_zip, groups_file, target_trimmed, target_concatemer, target_stats_path = _parse_options(args)
 
     #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
     genomes = select_genomes_from_file(genome_ids_file)
@@ -446,19 +455,15 @@ Usage: clean_orthologs.py
     dna_files = extract_archive_of_files(dna_zip, temp_dir)
 
     #Actually run cleanup
-    trimmed_sico_files, concatemers, stats_file = trim_and_concat_sicos(genomes, dna_files, groups_file)
+    trimmed_zip, concatemer_zip, stats_file = trim_and_concat_sicos(genomes, dna_files, groups_file)
 
-    #Write the produced files to command line argument filenames
-    create_archive_of_files(trimmed_zip, trimmed_sico_files)
-    create_archive_of_files(concatemer_zip, concatemers)
-
-    #Move produced stats.txt file to target output path
+    #Move produced files to command line specified output paths
+    shutil.move(trimmed_zip, target_trimmed)
+    shutil.move(concatemer_zip, target_concatemer)
     shutil.move(stats_file, target_stats_path)
 
     #Remove unused files to free disk space 
     shutil.rmtree(temp_dir)
-    [os.remove(path) for path in trimmed_sico_files]
-    [os.remove(path) for path in concatemers]
 
     #Exit after a comforting log message
     log.info("Produced: \n%s\n%s\n%s", trimmed_zip, concatemer_zip, target_stats_path)
