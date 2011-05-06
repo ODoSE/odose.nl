@@ -2,6 +2,7 @@
 """Module to run orthoMCL."""
 
 from divergence import create_directory, resource_filename, extract_archive_of_files
+from divergence.orthomcl_database import create_database, get_configuration_file, delete_database
 from divergence.reciprocal_blast import reciprocal_blast
 from subprocess import Popen, PIPE, CalledProcessError, check_call, STDOUT
 import getopt
@@ -13,7 +14,7 @@ import tempfile
 import shutil
 
 ORTHOMCL_DIR = '/projects/divergence/software/orthomclSoftware-v2.0.2/bin/'
-
+ORTHOMCL_INSTALL_SCHEMA = ORTHOMCL_DIR + 'orthomclInstallSchema'
 ORTHOMCL_ADJUST_FASTA = ORTHOMCL_DIR + 'orthomclAdjustFasta'
 ORTHOMCL_FILTER_FASTA = ORTHOMCL_DIR + 'orthomclFilterFasta'
 ORTHOMCL_BLAST_PARSER = ORTHOMCL_DIR + 'orthomclBlastParser'
@@ -37,16 +38,43 @@ def run_orthomcl(proteome_files):
     allvsall = _step7_blast_all_vs_all(run_dir, good, fasta_files)
     similar_sequences = _step8_orthomcl_blast_parser(run_dir, allvsall, adjusted_fasta_dir)
 
+    #Create new database and install database schema in it, so individual runs do not interfere with each other
+    dbname = create_database()
+    config_file = get_configuration_file(run_dir, dbname)
+    _step4_orthomcl_install_schema(run_dir, config_file)
+
     #Steps that occur in database, and thus do little to produce output files
-    _step9_orthomcl_load_blast(run_dir, similar_sequences)
-    _step10_orthomcl_pairs(run_dir)
+    _step9_orthomcl_load_blast(run_dir, similar_sequences, config_file)
+    _step10_orthomcl_pairs(run_dir, config_file)
+    mcl_input = _step11_orthomcl_dump_pairs(run_dir, config_file)[0]
+
+    #Trash database now that we're done with it
+    delete_database(dbname)
 
     #MCL related steps: pre-, actual & post-processing, resulting in the groups.txt file
-    mcl_input = _step11_orthomcl_dump_pairs(run_dir)[0]
     mcl_output = _step12_mcl(run_dir, mcl_input)
     groups = _step13_orthomcl_mcl_to_groups(run_dir, mcl_output)
 
     return groups
+
+def _step4_orthomcl_install_schema(run_dir, config_file):
+    """Create OrthoMCL schema in an Oracle or Mysql database.
+
+    usage: orthomclInstallSchema config_file sql_log_file
+    
+    where:
+      config_file : orthomcl configuration file
+      sql_log_file : optional log of sql executed
+    
+    EXAMPLE: orthomclSoftware/bin/orthomclInstallSchema my_orthomcl_dir/orthomcl.config my_orthomcl_dir/install_schema.log
+    
+    NOTE: the database login in the config file must have update/insert/truncate privileges on the tables specified in the config file.
+    """
+    sql_log_file = tempfile.mkstemp('.log', 'orthomclInstallSchema_run_', dir = run_dir)[1]
+    command = [ORTHOMCL_INSTALL_SCHEMA, config_file, sql_log_file]
+    log.info('Executing: %s', ' '.join(command))
+    check_call(command)
+    return sql_log_file
 
 def _step5_orthomcl_adjust_fasta(run_dir, proteome_files, id_field = 3):
     """Create an OrthoMCL compliant .fasta file, by adjusting definition lines.
@@ -219,8 +247,8 @@ def _step8_orthomcl_blast_parser(run_dir, blast_file, fasta_files_dir):
 
     return similar_sequences
 
-#FIXME Steps 9, 10 and 11 all use the same relational database, which could cause problems with simultaneous runs
-def _step9_orthomcl_load_blast(run_dir, similar_seqs_file, config_file = DEFAULT_ORTHOMCL_CONFIG):
+#Steps 9, 10 and 11 all use the same relational database, which could cause problems with simultaneous runs
+def _step9_orthomcl_load_blast(run_dir, similar_seqs_file, config_file):
     """Load Blast results into an Oracle or Mysql database.
 
     usage: orthomclLoadBlast config_file similar_seqs_file
@@ -248,7 +276,7 @@ def _step9_orthomcl_load_blast(run_dir, similar_seqs_file, config_file = DEFAULT
     check_call(command)
     return
 
-def _step10_orthomcl_pairs(run_dir, config_file = DEFAULT_ORTHOMCL_CONFIG):
+def _step10_orthomcl_pairs(run_dir, config_file):
     """Find pairs for OrthoMCL.
 
     usage: orthomclPairs config_file log_file cleanup=[yes|no|only|all] <startAfter=TAG>
@@ -284,7 +312,7 @@ def _step10_orthomcl_pairs(run_dir, config_file = DEFAULT_ORTHOMCL_CONFIG):
 
     return pairs_log
 
-def _step11_orthomcl_dump_pairs(run_dir, config_file = DEFAULT_ORTHOMCL_CONFIG):
+def _step11_orthomcl_dump_pairs(run_dir, config_file):
     """Dump files from the database produced by the orthomclPairs program.
 
     usage: orthomclDumpPairsFiles config_file

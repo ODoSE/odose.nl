@@ -4,6 +4,7 @@
 		python-dev \
 		python-setuptools \
 		python-httplib2 \
+		python-mysqldb \
 		python-nose \
 		pylint \
 		sloccount \
