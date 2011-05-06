@@ -44,7 +44,7 @@ def run_orthomcl(proteome_files):
     _step4_orthomcl_install_schema(run_dir, config_file)
 
     #Steps that occur in database, and thus do little to produce output files
-    _step9_orthomcl_load_blast(run_dir, similar_sequences, config_file)
+    _step9_orthomcl_load_blast(similar_sequences, config_file)
     _step10_orthomcl_pairs(run_dir, config_file)
     mcl_input = _step11_orthomcl_dump_pairs(run_dir, config_file)[0]
 
@@ -248,7 +248,7 @@ def _step8_orthomcl_blast_parser(run_dir, blast_file, fasta_files_dir):
     return similar_sequences
 
 #Steps 9, 10 and 11 all use the same relational database, which could cause problems with simultaneous runs
-def _step9_orthomcl_load_blast(run_dir, similar_seqs_file, config_file):
+def _step9_orthomcl_load_blast(similar_seqs_file, config_file):
     """Load Blast results into an Oracle or Mysql database.
 
     usage: orthomclLoadBlast config_file similar_seqs_file
@@ -259,17 +259,6 @@ def _step9_orthomcl_load_blast(run_dir, similar_seqs_file, config_file):
     
     EXAMPLE: orthomclSoftware/bin/orthomclLoadBlast my_orthomcl_dir/orthomcl.config my_orthomcl_dir/similar_sequences.txt
     """
-    def _cleanup_database():
-        """Clean database to prevent previous runs from interfering with current results
-        
-        Required additional changes to orthomclPairs (line 62) to also truncate SimiliarSequences when cleanup=all, as
-        orthomcl by default did not truncate SimilarSequences when cleanup=yes in step 10"""
-        pairs_log = os.path.join(run_dir, 'orthomclPairs_cleanup-all.log')
-        clean_command = [ORTHOMCL_PAIRS, config_file, pairs_log, 'cleanup=all']
-        log.info('Executing: %s', ' '.join(clean_command))
-        check_call(clean_command)
-    _cleanup_database()
-
     #Run orthomclLoadBlast
     command = [ORTHOMCL_LOAD_BLAST, config_file, similar_seqs_file]
     log.info('Executing: %s', ' '.join(command))
@@ -306,7 +295,7 @@ def _step10_orthomcl_pairs(run_dir, config_file):
     """
     #Run orthomclPairs
     pairs_log = os.path.join(run_dir, 'orthomclPairs.log')
-    command = [ORTHOMCL_PAIRS, config_file, pairs_log, 'cleanup=yes']
+    command = [ORTHOMCL_PAIRS, config_file, pairs_log, 'cleanup=no']
     log.info('Executing: %s', ' '.join(command))
     check_call(command)
 
