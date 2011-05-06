@@ -9,6 +9,7 @@ from subprocess import check_call, STDOUT
 import getopt
 import logging as log
 import os.path
+import shutil
 import sys
 import tempfile
 
@@ -152,8 +153,13 @@ Usage: run_paml.py
     #Write the produced files to command line argument filenames
     create_archive_of_files(paml_zip, paml_files)
 
+    #Remove unused files to free disk space 
+    shutil.rmtree(temp_dir)
+    [os.remove(path) for path in paml_files]
+
     #Exit after a comforting log message
     log.info("Produced: \n%s", paml_zip)
+    return paml_zip
 
 if __name__ == '__main__':
     main(sys.argv[1:])

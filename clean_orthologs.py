@@ -42,6 +42,10 @@ def trim_and_concat_sicos(genomes, dna_files, groups_file):
     #Create concatemer of trimmed SICOs for each genome, resulting in equal length genome concatemers
     concatemers = _concatemer_per_genome(run_dir, genomes, trimmed_sico_files)
 
+    #Remove unused files to free disk space
+    [os.remove(path) for path in sico_files]
+    [os.remove(path) for path in dna_alignments]
+
     return trimmed_sico_files, concatemers, stats_file
 
 def _create_ortholog_dictionaries(groups_file):
@@ -451,8 +455,14 @@ Usage: clean_orthologs.py
     #Move produced stats.txt file to target output path
     shutil.move(stats_file, target_stats_path)
 
+    #Remove unused files to free disk space 
+    shutil.rmtree(temp_dir)
+    [os.remove(path) for path in trimmed_sico_files]
+    [os.remove(path) for path in concatemers]
+
     #Exit after a comforting log message
     log.info("Produced: \n%s\n%s\n%s", trimmed_zip, concatemer_zip, target_stats_path)
+    return trimmed_zip, concatemer_zip, target_stats_path
 
 if __name__ == '__main__':
     main(sys.argv[1:])

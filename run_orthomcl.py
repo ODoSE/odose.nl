@@ -55,7 +55,14 @@ def run_orthomcl(proteome_files):
     mcl_output = _step12_mcl(run_dir, mcl_input)
     groups = _step13_orthomcl_mcl_to_groups(run_dir, mcl_output)
 
-    return groups
+    #Move groups file outside run_dir ahead of removing run_dir
+    target_groups = tempfile.mkstemp('.txt', 'groups_')[1]
+    shutil.move(groups, target_groups)
+
+    #Remove run_dir to free disk space
+    shutil.rmtree(run_dir)
+
+    return target_groups
 
 def _step4_orthomcl_install_schema(run_dir, config_file):
     """Create OrthoMCL schema in an Oracle or Mysql database.
@@ -450,8 +457,12 @@ Usage: run_orthomcl.py
     #Move produced groups.txt file to target output path
     shutil.move(groups_file, target_groups_path)
 
+    #Remove unused files to free disk space 
+    shutil.rmtree(temp_dir)
+
     #Exit after a comforting log message
     log.info("Produced: \n%s", target_groups_path)
+    return target_groups_path
 
 if __name__ == '__main__':
     main(sys.argv[1:])

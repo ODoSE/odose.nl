@@ -174,7 +174,7 @@ Usage: translate.py
 --genomes=FILE        file with refseq id from complete genomes table on each line 
 --dna-zip=FILE        destination file path for zip archive of extracted DNA files
 --protein-zip=FILE    destination file path for zip archive of translated protein files
-            """
+"""
 
         options = ['genomes', 'dna-zip', 'protein-zip']
         try:
@@ -209,8 +209,11 @@ Usage: translate.py
     create_archive_of_files(dna_zipfile, dna_files)
     create_archive_of_files(protein_zipfile, protein_files)
 
+    #Do not clean up extracted DNA files or Protein translations: Keep them as cache
+
     #Exit after a comforting log message
     log.info("Produced: \n%s &\n%s", dna_zipfile, protein_zipfile)
+    return dna_zipfile, protein_zipfile
 
 if __name__ == '__main__':
     main(sys.argv[1:])
