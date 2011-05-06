@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Module to run Phylogenetic Analysis by Maximum Likelihood (PAML)."""
+"""Module to run Phylogenetic Analysis by Maximum Likelihood (yn00)."""
 
 from Bio import SeqIO
 from Bio.Alphabet import generic_dna
@@ -13,22 +13,22 @@ import shutil
 import sys
 import tempfile
 
-def run_paml(genomes_a, genomes_b, sico_files):
-    """Run PAML for representatives of clades A and B in each of the SICO files, to calculate dN/dS."""
-    #PAML runs inside a temporary folder, to prevent interference with simultaneous runs 
-    paml_dir = tempfile.mkdtemp(prefix = 'paml_run_')
+def run_yn00(genomes_a, genomes_b, sico_files):
+    """Run yn00 for representatives of clades A and B in each of the SICO files, to calculate dN/dS."""
+    #yn00 runs inside a temporary folder, to prevent interference with simultaneous runs 
+    yn00_dir = tempfile.mkdtemp(prefix = 'yn00_run_')
 
     #Pick the first genomes as representatives for each clade
     representative_a = genomes_a[0]['RefSeq project ID']
     representative_b = genomes_b[0]['RefSeq project ID']
 
-    log.info('Running PAML for {0} aligned and trimmed SICOs'.format(len(sico_files)))
-    return [_run_yn00(paml_dir, representative_a, representative_b, sico_file) for sico_file in sico_files]
+    log.info('Running yn00 for {0} aligned and trimmed SICOs'.format(len(sico_files)))
+    return [_run_yn00(yn00_dir, representative_a, representative_b, sico_file) for sico_file in sico_files]
 
 YN00 = '/projects/divergence/software/paml44/bin/yn00'
 
-def _run_yn00(paml_dir, repr_id_a, repr_id_b, sico_file):
-    """Run yn00 from PAML for selected sequence records from sico_file, returning main nexus output file."""
+def _run_yn00(yn00_dir, repr_id_a, repr_id_b, sico_file):
+    """Run yn00 from yn00 for selected sequence records from sico_file, returning main nexus output file."""
     #Find sequences from above chosen clade representatives in each SICO file
     seqr_a = None
     seqr_b = None
@@ -45,7 +45,7 @@ def _run_yn00(paml_dir, repr_id_a, repr_id_b, sico_file):
 
     #Write the representative sequence records out to file in yn00 compatible format
     sico = os.path.splitext(os.path.split(sico_file)[1])[0]
-    yn00_dir = create_directory(sico, inside_dir = paml_dir)
+    yn00_dir = create_directory(sico, inside_dir = yn00_dir)
     nexus_file = os.path.join(yn00_dir, sico + '.nexus')
     _write_nexus_file(seqr_a, seqr_b, nexus_file)
 
@@ -62,7 +62,7 @@ def _run_yn00(paml_dir, repr_id_a, repr_id_b, sico_file):
     return output_file
 
 def _write_nexus_file(seqr_a, seqr_b, nexus_file):
-    """Write representative sequences out to a file in the PAML compatible nexus format."""
+    """Write representative sequences out to a file in the yn00 compatible nexus format."""
     nexus_contents = """
 #NEXUS
 begin data; 
@@ -109,14 +109,14 @@ def main(args):
         def _usage():
             """Print _usage information"""
             print """
-Usage: run_paml.py 
+Usage: run_yn00.py 
 --genomes-a=FILE    file with RefSeq id from complete genomes table on each line for clade A
 --genomes-b=FILE    file with RefSeq id from complete genomes table on each line for clade B
 --sico-zip=FILE     archive of aligned & trimmed single copy orthologous (SICO) genes
---paml-zip=FILE     destination file path for archive of PAML output per SICO gene
+--yn00-zip=FILE     destination file path for archive of yn00 output per SICO gene
 """
 
-        options = ['genomes-a', 'genomes-b', 'sico-zip', 'paml-zip']
+        options = ['genomes-a', 'genomes-b', 'sico-zip', 'yn00-zip']
         try:
             #postfix '=' to indicate options require an argument
             long_options = [opt + '=' for opt in options]
@@ -137,7 +137,7 @@ Usage: run_paml.py
         #Retrieve & return file paths from dictionary
         return [arguments[option] for option in options]
 
-    genome_a_ids_file, genome_b_ids_file, sico_zip, paml_zip = _parse_options(args)
+    genome_a_ids_file, genome_b_ids_file, sico_zip, yn00_zip = _parse_options(args)
 
     #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
     genomes_a = select_genomes_from_file(genome_a_ids_file)
@@ -148,18 +148,18 @@ Usage: run_paml.py
     sico_files = extract_archive_of_files(sico_zip, temp_dir)
 
     #Actually run cleanup
-    paml_files = run_paml(genomes_a, genomes_b, sico_files)
+    yn00_files = run_yn00(genomes_a, genomes_b, sico_files)
 
     #Write the produced files to command line argument filenames
-    create_archive_of_files(paml_zip, paml_files)
+    create_archive_of_files(yn00_zip, yn00_files)
 
     #Remove unused files to free disk space 
     shutil.rmtree(temp_dir)
-    [os.remove(path) for path in paml_files]
+    [os.remove(path) for path in yn00_files]
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s", paml_zip)
-    return paml_zip
+    log.info("Produced: \n%s", yn00_zip)
+    return yn00_zip
 
 if __name__ == '__main__':
     main(sys.argv[1:])
