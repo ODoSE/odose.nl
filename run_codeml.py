@@ -25,10 +25,10 @@ def run_codeml(genomes_a, genomes_b, sico_files):
     log.info('Running codeml for {0} aligned and trimmed SICOs'.format(len(sico_files)))
     return [_run_codeml(codeml_dir, representative_a, representative_b, sico_file) for sico_file in sico_files]
 
-codeml = '/projects/divergence/software/paml44/bin/codeml'
+CODEML = '/projects/divergence/software/paml44/bin/codeml'
 
 def _run_codeml(codeml_dir, repr_id_a, repr_id_b, sico_file):
-    """Run codeml from codeml for selected sequence records from sico_file, returning main nexus output file."""
+    """Run codeml from PAML for selected sequence records from sico_file, returning main nexus output file."""
     #Find sequences from above chosen clade representatives in each SICO file
     seqr_a = None
     seqr_b = None
@@ -50,12 +50,12 @@ def _run_codeml(codeml_dir, repr_id_a, repr_id_b, sico_file):
     _write_nexus_file(seqr_a, seqr_b, nexus_file)
 
     #Generate codeml configuration file
-    output_file = os.path.join(codeml_dir, 'yn' + sico)
+    output_file = os.path.join(codeml_dir, 'codeml_' + sico)
     config_file = os.path.join(codeml_dir, 'codeml.ctl')
     _write_config_file(nexus_file, output_file, config_file)
 
     #Run codeml
-    command = [codeml, os.path.split(config_file)[1]]
+    command = [CODEML, os.path.split(config_file)[1]]
     check_call(command, cwd = codeml_dir, stdout = open('/dev/null', mode = 'w'), stderr = STDOUT)
 
     assert os.path.isfile(output_file) and os.path.getsize(output_file), 'Expected some content in ' + output_file
@@ -81,57 +81,57 @@ end;
 def _write_config_file(nexus_file, output_file, config_file):
     """Write a codeml configuration file using relative paths to the nexus file and output file."""
     config_contents = """
-      seqfile = sico_000000.nt_ali.nexus * sequence data filename
-      outfile = mlc           * main result file name
+      seqfile = {0} * sequence data filename
+      outfile = {1}           * main result file name
      treefile = test.tree      * tree structure file name
- 
+
         noisy = 9  * 0,1,2,3,9: how much rubbish on the screen
       verbose = 0  * 1: detailed output, 0: concise output
       runmode = -2  * 0: user tree;  1: semi-automatic;  2: automatic
                    * 3: StepwiseAddition; (4,5):PerturbationNNI; -2: pairwise
- 
+
       seqtype = 1  * 1:codons; 2:AAs; 3:codons-->AAs
     CodonFreq = 2  * 0:1/61 each, 1:F1X4, 2:F3X4, 3:codon table
- 
- 
+
+
        clock = 0   * 0:no clock, 1:global clock; 2:local clock; 3:TipDate
- 
- 
+
+
        aaDist = 0  * 0:equal, +:geometric; -:linear, 1-6:G1974,Miyata,c,p,v,a
    aaRatefile = wag.dat * only used for aa seqs with model=empirical(_F)
                    * dayhoff.dat, jones.dat, wag.dat, mtmam.dat, or your own
- 
+
         model = 0
                    * models for codons:
                        * 0:one, 1:b, 2:2 or more dN/dS ratios for branches
                    * models for AAs or codon-translated AAs:
                        * 0:poisson, 1:proportional, 2:Empirical, 3:Empirical+F
                        * 6:FromCodon, 7:AAClasses, 8:REVaa_0, 9:REVaa(nr=189)
- 
+
       NSsites = 0  * 0:one w;1:neutral;2:selection; 3:discrete;4:freqs;
                    * 5:gamma;6:2gamma;7:beta;8:beta&w;9:beta&gamma;
                    * 10:beta&gamma+1; 11:beta&normal>1; 12:0&2normal>1;
                    * 13:3normal>0
- 
+
         icode = 0  * 0:universal code; 1:mammalian mt; 2-10:see below
         Mgene = 1  * 0:rates, 1:separate; 
- 
+
     fix_kappa = 0  * 1: kappa fixed, 0: kappa to be estimated
         kappa = 2  * initial or fixed kappa
     fix_omega = 0  * 1: omega or omega_1 fixed, 0: estimate 
         omega = .4 * initial or fixed omega, for codons or codon-based AAs
- 
+
     fix_alpha = 1  * 0: estimate gamma shape parameter; 1: fix it at alpha
         alpha = 0. * initial or fixed alpha, 0:infinity (constant rate)
        Malpha = 0  * different alphas for genes
         ncatG = 8  * # of categories in dG of NSsites models
- 
+
       fix_rho = 1
           rho = 0.
- 
+
         getSE = 0  * 0: don't want them, 1: want S.E.s of estimates
  RateAncestor = 1  * (0,1,2): rates (alpha>0) or ancestral states (1 or 2)
- 
+
    Small_Diff = .5e-6
 *   cleandata = 0  * remove sites with ambiguity data (1:yes, 0:no)?
 * fix_blength = 0

@@ -28,7 +28,7 @@ def run_yn00(genomes_a, genomes_b, sico_files):
 YN00 = '/projects/divergence/software/paml44/bin/yn00'
 
 def _run_yn00(yn00_dir, repr_id_a, repr_id_b, sico_file):
-    """Run yn00 from yn00 for selected sequence records from sico_file, returning main nexus output file."""
+    """Run yn00 from PAML for selected sequence records from sico_file, returning main nexus output file."""
     #Find sequences from above chosen clade representatives in each SICO file
     seqr_a = None
     seqr_b = None
