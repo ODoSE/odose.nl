@@ -2,6 +2,7 @@
 """Module to translate between DNA and protein level."""
 
 from Bio import SeqIO
+from Bio.Data import CodonTable
 from Bio.Data.CodonTable import TranslationError
 from divergence import create_directory, concatenate, create_archive_of_files
 from divergence.select_taxa import download_genome_files, select_genomes_from_file
@@ -140,7 +141,8 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
 
     #Strip stopcodon from DNA sequence here, so it's removed by the time we align & trim the sequences
     last_codon = str(extracted_seq[-3:])
-    assert last_codon in ['TAA', 'TAG', 'TGA'], 'Expected stopcodon, after using cds=True above, but was ' + last_codon
+    codon_table = CodonTable.unambiguous_dna_by_id.get(int(transl_table))
+    assert last_codon in codon_table.stop_codons, 'Expected stopcodon after using cds=True, but was ' + last_codon
     extracted_seq = extracted_seq[:-3]
 
     #Write out fasta. Header format as requested: >refseq_id|genbank_ac|protein_id|cog|source (either core or plasmid)
