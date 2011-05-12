@@ -4,6 +4,7 @@
 from pkg_resources import resource_filename #IGNORE:E0611 @UnresolvedImport
 from zipfile import ZipFile, ZIP_DEFLATED
 import Bio
+import getopt
 import httplib2
 import logging as log
 import os
@@ -17,7 +18,7 @@ log.basicConfig(level = log.INFO,
                 datefmt = '%H:%M:%S')
 
 #Require at least version 1.53 op BioPython
-assert 1.54 <= float(Bio.__version__), 'BioPython version 1.53 or higher is required'
+assert 1.54 <= float(Bio.__version__), 'BioPython version 1.54 or higher is required'
 
 #Base output dir
 BASE_OUTPUT_PATH = '../divergence-cache/'
@@ -70,3 +71,35 @@ def extract_archive_of_files(archive_file, target_dir):
         extracted_files.append(extracted_path)
     read_handle.close()
     return extracted_files
+
+def parse_options(usage, options, args):
+    """Parse command line arguments in args, using mandatory options  
+    
+    Arguments:
+    usage -- Usage string detailing command line arguments
+    options -- List of command line arguments to parse
+    args -- Command line arguments supplied
+    """
+    try:
+        #postfix '=' to indicate options require an argument
+        long_options = [opt + '=' for opt in options]
+        tuples, remainder = getopt.getopt(args, '', long_options)
+        if remainder:
+            raise getopt.GetoptError('Unrecognized argument(s) passed', remainder)
+        arguments = dict((opt[2:], value) for opt, value in tuples)
+    except getopt.GetoptError as err:
+        #Print error & usage information to stderr 
+        print >> sys.stderr, str(err)
+        print >> sys.stderr, usage
+        sys.exit(1)
+
+    #Ensure all arguments were provided
+    for opt in options:
+        if opt not in arguments:
+            print >> sys.stderr, 'Mandatory argument {0} not provided'.format(opt)
+            print >> sys.stderr, usage
+            sys.exit(1)
+
+    #Retrieve & return file paths from dictionary
+    return [arguments[option] for option in options]
+

@@ -4,10 +4,9 @@
 from Bio import SeqIO
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import TranslationError
-from divergence import create_directory, concatenate, create_archive_of_files
+from divergence import create_directory, concatenate, create_archive_of_files, parse_options
 from divergence.select_taxa import download_genome_files, select_genomes_from_file
 from multiprocessing import Pool
-import getopt
 import logging as log
 import os
 import sys
@@ -165,41 +164,14 @@ def _write_fasta(write_handle, headerline, sequence):
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
-
-    def _parse_options(args):
-        """Use getopt to parse command line argument options"""
-
-        def _usage():
-            """Print _usage information"""
-            print """
+    usage = """
 Usage: translate.py 
 --genomes=FILE        file with refseq id from complete genomes table on each line 
 --dna-zip=FILE        destination file path for zip archive of extracted DNA files
 --protein-zip=FILE    destination file path for zip archive of translated protein files
 """
-
-        options = ['genomes', 'dna-zip', 'protein-zip']
-        try:
-            #postfix '=' to indicate options require an argument
-            long_options = [opt + '=' for opt in options]
-            tuples = getopt.getopt(args, '', long_options)[0]
-            arguments = dict((opt[2:], value) for opt, value in tuples)
-        except getopt.GetoptError as err:
-            print str(err)
-            _usage()
-            sys.exit(1)
-
-        #Ensure all arguments were provided
-        for opt in options:
-            if opt not in arguments:
-                print 'Mandatory argument {0} not provided'.format(opt)
-                _usage()
-                sys.exit(1)
-
-        #Retrieve & return file paths from dictionary
-        return [arguments[option] for option in options]
-
-    genome_ids_file, dna_zipfile, protein_zipfile = _parse_options(args)
+    options = ['genomes', 'dna-zip', 'protein-zip']
+    genome_ids_file, dna_zipfile, protein_zipfile = parse_options(usage, options, args)
 
     #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
     genomes = select_genomes_from_file(genome_ids_file)

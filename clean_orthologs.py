@@ -4,12 +4,11 @@
 from __future__ import division
 from Bio import AlignIO, SeqIO
 from Bio.SeqRecord import SeqRecord
-from divergence import create_directory, extract_archive_of_files, create_archive_of_files
+from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
 from divergence.select_taxa import select_genomes_from_file
 from multiprocessing import Pool
 from operator import itemgetter
 from subprocess import check_call, STDOUT
-import getopt
 import logging as log
 import os
 import shutil
@@ -408,13 +407,7 @@ def _concatemer_per_genome(run_dir, genomes, trimmed_sicos):
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
-
-    def _parse_options(args):
-        """Use getopt to parse command line argument options"""
-
-        def _usage():
-            """Print _usage information"""
-            print """
+    usage = """
 Usage: clean_orthologs.py 
 --genomes=FILE           file with refseq id from complete genomes table on each line 
 --dna-zip=FILE           zip archive of extracted DNA files
@@ -423,29 +416,8 @@ Usage: clean_orthologs.py
 --concatemer-zip=FILE    destination file path for archive of SICO concatemer per genome
 --stats=FILE             destination file path for SICO cleanup statistics file
 """
-
-        options = ['genomes', 'dna-zip', 'groups', 'trimmed-zip', 'concatemer-zip', 'stats']
-        try:
-            #postfix '=' to indicate options require an argument
-            long_options = [opt + '=' for opt in options]
-            tuples = getopt.getopt(args, '', long_options)[0]
-            arguments = dict((opt[2:], value) for opt, value in tuples)
-        except getopt.GetoptError as err:
-            print str(err)
-            _usage()
-            sys.exit(1)
-
-        #Ensure all arguments were provided
-        for opt in options:
-            if opt not in arguments:
-                print 'Mandatory argument {0} not provided'.format(opt)
-                _usage()
-                sys.exit(1)
-
-        #Retrieve & return file paths from dictionary
-        return [arguments[option] for option in options]
-
-    genome_ids_file, dna_zip, groups_file, target_trimmed, target_concatemer, target_stats_path = _parse_options(args)
+    options = ['genomes', 'dna-zip', 'groups', 'trimmed-zip', 'concatemer-zip', 'stats']
+    genome_ids_file, dna_zip, groups_file, target_trimmed, target_concatemer, target_stats_path = parse_options(usage, options, args)
 
     #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
     genomes = select_genomes_from_file(genome_ids_file)

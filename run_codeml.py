@@ -3,10 +3,9 @@
 
 from Bio import SeqIO
 from Bio.Alphabet import generic_dna
-from divergence import create_directory, extract_archive_of_files, create_archive_of_files
+from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
 from divergence.select_taxa import select_genomes_from_file
 from subprocess import check_call, STDOUT
-import getopt
 import logging as log
 import os.path
 import shutil
@@ -142,42 +141,15 @@ def _write_config_file(nexus_file, output_file, config_file):
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
-
-    def _parse_options(args):
-        """Use getopt to parse command line argument options"""
-
-        def _usage():
-            """Print _usage information"""
-            print """
+    usage = """
 Usage: run_codeml.py 
 --genomes-a=FILE    file with RefSeq id from complete genomes table on each line for clade A
 --genomes-b=FILE    file with RefSeq id from complete genomes table on each line for clade B
 --sico-zip=FILE     archive of aligned & trimmed single copy orthologous (SICO) genes
 --codeml-zip=FILE     destination file path for archive of codeml output per SICO gene
 """
-
-        options = ['genomes-a', 'genomes-b', 'sico-zip', 'codeml-zip']
-        try:
-            #postfix '=' to indicate options require an argument
-            long_options = [opt + '=' for opt in options]
-            tuples = getopt.getopt(args, '', long_options)[0]
-            arguments = dict((opt[2:], value) for opt, value in tuples)
-        except getopt.GetoptError as err:
-            print str(err)
-            _usage()
-            sys.exit(1)
-
-        #Ensure all arguments were provided
-        for opt in options:
-            if opt not in arguments:
-                print 'Mandatory argument {0} not provided'.format(opt)
-                _usage()
-                sys.exit(1)
-
-        #Retrieve & return file paths from dictionary
-        return [arguments[option] for option in options]
-
-    genome_a_ids_file, genome_b_ids_file, sico_zip, codeml_zip = _parse_options(args)
+    options = ['genomes-a', 'genomes-b', 'sico-zip', 'codeml-zip']
+    genome_a_ids_file, genome_b_ids_file, sico_zip, codeml_zip = parse_options(usage, options, args)
 
     #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
     genomes_a = select_genomes_from_file(genome_a_ids_file)

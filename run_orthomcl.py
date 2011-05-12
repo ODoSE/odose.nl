@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 """Module to run orthoMCL."""
 
-from divergence import create_directory, resource_filename, extract_archive_of_files
+from divergence import create_directory, resource_filename, extract_archive_of_files, parse_options
 from divergence.orthomcl_database import create_database, get_configuration_file, delete_database
 from divergence.reciprocal_blast import reciprocal_blast
 from subprocess import Popen, PIPE, CalledProcessError, check_call, STDOUT
-import getopt
 import logging as log
 import multiprocessing
 import os
+import shutil
 import sys
 import tempfile
-import shutil
 
 ORTHOMCL_DIR = '/projects/divergence/software/orthomclSoftware-v2.0.2/bin/'
 ORTHOMCL_INSTALL_SCHEMA = ORTHOMCL_DIR + 'orthomclInstallSchema'
@@ -412,40 +411,13 @@ def _step13_orthomcl_mcl_to_groups(run_dir, mcl_output_file):
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
-
-    def _parse_options(args):
-        """Use getopt to parse command line argument options"""
-
-        def _usage():
-            """Print _usage information"""
-            print """
+    usage = """
 Usage: run_orthomcl.py 
 --protein-zip=FILE    zip archive of translated protein files
 --groups=FILE         destination file path for file listing groups of orthologous proteins
 """
-
-        options = ['protein-zip', 'groups']
-        try:
-            #postfix '=' to indicate options require an argument
-            long_options = [opt + '=' for opt in options]
-            tuples = getopt.getopt(args, '', long_options)[0]
-            arguments = dict((opt[2:], value) for opt, value in tuples)
-        except getopt.GetoptError as err:
-            print str(err)
-            _usage()
-            sys.exit(1)
-
-        #Ensure all arguments were provided
-        for opt in options:
-            if opt not in arguments:
-                print 'Mandatory argument {0} not provided'.format(opt)
-                _usage()
-                sys.exit(1)
-
-        #Retrieve & return file paths from dictionary
-        return [arguments[option] for option in options]
-
-    protein_zipfile, target_groups_path = _parse_options(args)
+    options = ['protein-zip', 'groups']
+    protein_zipfile, target_groups_path = parse_options(usage, options, args)
 
     #Extract files from zip archive
     temp_dir = tempfile.mkdtemp()
