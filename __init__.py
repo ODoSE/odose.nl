@@ -55,7 +55,7 @@ def concatenate(target_path, source_files):
     assert os.path.isfile(target_path) and 0 < os.path.getsize(target_path), target_path + ' should exist with content'
 
 def create_archive_of_files(target_archive_file, file_iterable):
-    """Write all files contained in file_iterable to target_archive_file, with archived file names truncated to last part."""
+    """Write files in file_iterable to target_archive_file, using only filename for target path within archive_file."""
     write_handle = ZipFile(target_archive_file, mode = 'w', compression = ZIP_DEFLATED)
     for some_file in file_iterable:
         write_handle.write(some_file, os.path.split(some_file)[1])
@@ -73,25 +73,40 @@ def extract_archive_of_files(archive_file, target_dir):
     return extracted_files
 
 def parse_options(usage, options, args):
-    """Parse command line arguments in args, using mandatory options  
+    """Parse command line arguments in args. Options require argument by default; flags are indicated with '?' postfix.
     
-    Arguments:
+    Parameters:
     usage -- Usage string detailing command line arguments
     options -- List of command line arguments to parse
     args -- Command line arguments supplied
     """
+
+    #Extract flags from options
+    flags = [opt[:-1] for opt in options if opt[-1] == '?']
+
     try:
-        #postfix '=' to indicate options require an argument
-        long_options = [opt + '=' for opt in options]
+        #Add postfix '=' for options that require an argument & add flags without postfix
+        long_options = [opt + '=' for opt in options if opt[-1] != '?']
+        long_options += flags
+
+        #Call getopt with long arguments only
         tuples, remainder = getopt.getopt(args, '', long_options)
+        #If there's a remainder, not all arguments were recognized
         if remainder:
-            raise getopt.GetoptError('Unrecognized argument(s) passed', remainder)
+            raise getopt.GetoptError('Unrecognized argument(s) passed: ' + str(remainder), remainder)
         arguments = dict((opt[2:], value) for opt, value in tuples)
     except getopt.GetoptError as err:
         #Print error & usage information to stderr 
         print >> sys.stderr, str(err)
         print >> sys.stderr, usage
         sys.exit(1)
+
+    #Remove postfix '?' from options for flags
+    options = [opt[:-1] if opt[-1] == '?' else opt for opt in options]
+
+    #Correctly set True/False values for flags, regardless of whether flag was already passed as argument or not
+    for flag in flags:
+        arguments[flag] = flag in arguments
 
     #Ensure all arguments were provided
     for opt in options:
