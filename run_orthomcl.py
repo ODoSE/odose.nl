@@ -7,7 +7,7 @@ from divergence.reciprocal_blast import reciprocal_blast
 from subprocess import Popen, PIPE, CalledProcessError, check_call, STDOUT
 import logging as log
 import multiprocessing
-import os
+import os.path
 import shutil
 import sys
 import tempfile
@@ -129,7 +129,7 @@ def _step5_orthomcl_adjust_fasta(run_dir, proteome_files, id_field = 3):
         #Move resulting fasta file to compliantFasta directory
         adjusted_fasta_file = taxon_code + '.fasta'
         fasta_file_destination = os.path.join(adjusted_fasta_dir, adjusted_fasta_file)
-        os.renames(adjusted_fasta_file, fasta_file_destination)
+        shutil.move(adjusted_fasta_file, fasta_file_destination)
         adjusted_fasta_files.append(fasta_file_destination)
     #Return path to directory containing compliantFasta
     return adjusted_fasta_dir, adjusted_fasta_files
@@ -172,8 +172,8 @@ def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length = 10, max_percen
     #Move output files to out directory
     good = os.path.join(out_dir, 'good_proteins.fasta')
     poor = os.path.join(out_dir, 'poor_proteins.fasta')
-    os.renames('goodProteins.fasta', good)
-    os.renames('poorProteins.fasta', poor)
+    shutil.move('goodProteins.fasta', good)
+    shutil.move('poorProteins.fasta', poor)
 
     #Ensure neither of the proteomes is suspicious according to min_length & max_percent_stop
     with open(report) as report_file:
@@ -351,10 +351,10 @@ def _step11_orthomcl_dump_pairs(run_dir, config_file):
     coorthologs = os.path.join(out_dir, 'potentialCoorthologs.tsv')
 
     #Move output files to desired destinations
-    os.renames(os.path.join(out_dir, 'mclInput'), mclinput)
-    os.renames(os.path.join(out_dir, 'pairs/orthologs.txt'), orthologs)
-    os.renames(os.path.join(out_dir, 'pairs/inparalogs.txt'), inparalogs)
-    os.renames(os.path.join(out_dir, 'pairs/coorthologs.txt'), coorthologs)
+    shutil.move(os.path.join(out_dir, 'mclInput'), mclinput)
+    shutil.move(os.path.join(out_dir, 'pairs/orthologs.txt'), orthologs)
+    shutil.move(os.path.join(out_dir, 'pairs/inparalogs.txt'), inparalogs)
+    shutil.move(os.path.join(out_dir, 'pairs/coorthologs.txt'), coorthologs)
 
     #Assert mcl input file exists and has some content
     assert os.path.isfile(mclinput) and 0 < os.path.getsize(mclinput), mclinput + ' should exist and have some content'
