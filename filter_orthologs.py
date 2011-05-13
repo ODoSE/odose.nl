@@ -5,7 +5,6 @@ from __future__ import division
 from Bio import AlignIO, SeqIO
 from Bio.SeqRecord import SeqRecord
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
-from divergence.select_taxa import select_genomes_from_file
 from multiprocessing import Pool
 from operator import itemgetter
 from subprocess import check_call, STDOUT
@@ -14,178 +13,6 @@ import os
 import shutil
 import sys
 import tempfile
-
-def trim_and_concat_sicos(genomes, dna_files, groups_file):
-    """Invoke all cleanup operations sequentially and return the trimmed SICO files and their genome concatemers."""
-    #Subdivide orthologs into groups
-    shared_single_copy, shared_multi_copy, non_shared = _extract_shared_orthologs(genomes, groups_file)
-
-    #Run cleanup in a temporary folder, to prevent interference from simultaneous runs
-    run_dir = tempfile.mkdtemp(prefix = 'cleanup_run_')
-
-    #Extract fasta files per orthologs
-    sico_files, nr_of_seqs = _dna_file_per_sico(run_dir, dna_files, shared_single_copy)
-
-    #Write statistics file
-    stats_file = _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, non_shared, nr_of_seqs)
-
-    #Look at assigned COGs among orthologs; filter those with multiple COGs & carry over COGs to sequences without COG  
-    sico_files = _cog_based_filtering(sico_files, stats_file)
-
-    #Align SICO DNA sequences at protein level.
-    dna_alignments = _align_sicos(run_dir, sico_files)
-
-    #Trim to retain equal length sequences with non-gap start & end codon
-    trimmed_sico_files = _trim_alignments(run_dir, dna_alignments, stats_file)
-
-    #Create concatemer of trimmed SICOs for each genome, resulting in equal length genome concatemers
-    concatemers = _concatemer_per_genome(run_dir, genomes, trimmed_sico_files)
-
-    #Create archives outside run_dir ahead of run_dir removal
-    trimmed_zip = tempfile.mkstemp('.zip', 'trimmed_run_')[1]
-    concatemer_zip = tempfile.mkstemp('.zip', 'concatemer_run_')[1]
-    create_archive_of_files(trimmed_zip, trimmed_sico_files)
-    create_archive_of_files(concatemer_zip, concatemers)
-
-    #Move stats_file outside run_dir as well ahead of run_dir removal
-    target_stats_file = tempfile.mkstemp('.txt', 'stats_run_')[1]
-    shutil.move(stats_file, target_stats_file)
-
-    #Remove run_dir to free disk space
-    shutil.rmtree(run_dir)
-
-    return trimmed_zip, concatemer_zip, target_stats_file
-
-def _create_ortholog_dictionaries(groups_file):
-    """Convert groups file into a list of ortholog dictionaries, which map refseq_id to their associated proteins."""
-    #Sample line: group_5332: 58017|YP_219088.1 58191|YP_001572431.1 59431|YP_002149136.1
-    ortholog_proteins_per_genome = []
-    with open(groups_file) as read_handle:
-        for line in read_handle:
-            #Start at 1 to ignore incremental generated group_id
-            remainder = line.split()[1:]
-            proteins_per_genome = {}
-            for ortholog in remainder:
-                refseq_id, protein_id = ortholog.split('|')
-                #Use dict().get(key, fallback_value) here to retrieve and assign valid array values for missing keys 
-                proteins_per_genome[refseq_id] = proteins_per_genome.get(refseq_id, [])
-                proteins_per_genome[refseq_id].append(protein_id)
-            #Assign proteins per genome dictionary to orthologs per group as 
-            ortholog_proteins_per_genome.append(proteins_per_genome)
-    return ortholog_proteins_per_genome
-
-def _extract_shared_orthologs(genomes, groups_file):
-    """Filter orthologs to retain shared single and multiple copy orthologs from the collection of genomes."""
-    log.info('Extracting shared orthologs for %d genomes from %s', len(genomes), groups_file)
-    ortholog_proteins_per_genome = _create_ortholog_dictionaries(groups_file)
-
-    #Retrieve RefSeq project IDs for the above genomes, which will be used to filter extracted orthologs later
-    selected_genome_ids = []
-    for genome in genomes:
-        selected_genome_ids.append(genome['RefSeq project ID'])
-
-    #Group orthologs into the following categories
-    shared_multi_copy = []
-    shared_single_copy = []
-    non_shared_orthologs = []
-    for prot_per_genomes in ortholog_proteins_per_genome:
-        #Assume both shared and single copy
-        is_shared_genome = True
-        is_single_copy = True
-
-        #Test validity of above boolean statements against proteins per genome 
-        for selected_genome in selected_genome_ids:
-            if selected_genome not in prot_per_genomes:
-                #If any selected genome does not have proteins in this ortholog, it is not shared (no need to go on)
-                is_shared_genome = False
-                break
-            elif 1 < len(prot_per_genomes[selected_genome]):
-                #If any selected genome has more than one protein in this ortholog, it is not a single copy ortholog
-                is_single_copy = False
-
-        #Based on the now validated above boolean statements, optionally add proteins per genome to shared collections
-        if is_shared_genome:
-            if is_single_copy:
-                shared_single_copy.append(prot_per_genomes)
-            else:
-                shared_multi_copy.append(prot_per_genomes)
-        else:
-            non_shared_orthologs.append(prot_per_genomes)
-
-    #Assert all orthologs are binned
-    sum_length = len(shared_single_copy) + len(shared_multi_copy) + len(non_shared_orthologs)
-    assert len(ortholog_proteins_per_genome) == sum_length, 'All orthologs should fall into any one of three groups'
-
-    #Return three collections of dictionaries mapping refseq_id to proteins for all orthologs
-    return shared_single_copy, shared_multi_copy, non_shared_orthologs
-
-def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, partially_shared, nr_of_seqs):
-    """Write out file with some basic statistics about the genomes, orthologs and size of shared core genome."""
-    stats_file = os.path.join(run_dir, 'stats.txt')
-    with open(stats_file, mode = 'w') as writer:
-        #Some easy statistics about genomes and orthologs
-        nr_genomes = len(genomes)
-        nr_shared_sico = len(shared_single_copy)
-        nr_shared_muco = len(shared_multi_copy)
-        nr_part_shared = len(partially_shared)
-        nr_orthologs = nr_shared_sico + nr_shared_muco + nr_part_shared
-
-        #Determine number of ORFans
-        nr_orfans = nr_of_seqs
-        nr_orfans -= sum(len(genome_proteins) for genome_proteins in shared_single_copy)
-        nr_orfans -= sum(len(genome_proteins) for genome_proteins in shared_multi_copy)
-        nr_orfans -= sum(len(genome_proteins) for genome_proteins in partially_shared)
-
-        #Write statistics to file        
-        writer.write('{0:6}\tGenomes\n'.format(nr_genomes))
-        writer.write('{0:6}\tGenes\n'.format(nr_of_seqs))
-        writer.write('{0:6}\tOrphan genes\n\n'.format(nr_orfans))
-
-        def perc(number):
-            """Calculate a number as percentage of the number of orthologs"""
-            return number / nr_orthologs
-        writer.write('{0:6}\t({1:6.2%})\tShared single-copy orthologs\n'.format(nr_shared_sico, perc(nr_shared_sico)))
-        writer.write('{0:6}\t({1:6.2%})\tShared multi-copy orthologs\n'.format(nr_shared_muco, perc(nr_shared_muco)))
-        writer.write('{0:6}\t({1:6.2%})\tPartially shared orthologs\n'.format(nr_part_shared, perc(nr_part_shared)))
-        writer.write('{0:6}\t({1:6.1%})\tTotal number of orthologs\n'.format(nr_orthologs, perc(nr_orthologs)))
-
-    assert os.path.isfile(stats_file) and 0 < os.path.getsize(stats_file), stats_file + ' should exist with content.'
-    return stats_file
-
-def _dna_file_per_sico(run_dir, dna_files, shared_single_copy):
-    """Create fasta files with all sequences per ortholog."""
-    #Delete & create directory to remove any previously existing SICO files
-    sico_dir = create_directory('sico', inside_dir = run_dir)
-
-    #Loop over DNA files to extract SICO genes from each genome to file per SICO
-    sico_files = set()
-    number_of_sequences = 0
-    for dna_file in dna_files:
-        log.info('Extracting SICO genes from %s', dna_file)
-        with open(dna_file) as read_handle:
-            for record in SeqIO.parse(read_handle, 'fasta'):
-                number_of_sequences += 1
-
-                #Sample header line:    >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
-                #Corresponding ortholog: {'58191': ['YP_001569097.1'], ...}
-                split_header = record.id.split('|')
-                refseq_id = split_header[0]
-                protein_id = split_header[2]
-
-                #Loop over SICO's to write each gene from this DNA file to it's target SICO file
-                for number, sico in enumerate(shared_single_copy):
-                    #Create sico_file, with same filename formula as above
-                    sico_file = os.path.join(sico_dir, 'sico_{0:06}.ffn'.format(number))
-                    sico_files.add(sico_file)
-
-                    #Write header & sequence to SICO file if protein ID matches SICO mapped protein ID for refseq_id
-                    if protein_id == sico[refseq_id][0]:
-                        #Append to the SICO files here to group the orthologs from various genomes in the same file
-                        with open(sico_file, mode = 'a') as write_handle:
-                            SeqIO.write([record], write_handle, 'fasta')
-    return sorted(sico_files), number_of_sequences
-
-#TODO Add option to filter out SICOs when any ortholog has been flagged as 'mobile element', 'phage' or 'IS element'
 
 def _cog_based_filtering(sico_files, stats_file):
     """Inspect COGs for sequences marked as orthologs by OrthoMCL, and append some details about this to stats_file."""
@@ -281,7 +108,7 @@ def _run_translatorx((run_dir, sico_file), translation_table = '11'):
     sico_base = os.path.splitext(os.path.split(sico_file)[1])[0]
     alignment_dir = create_directory('alignments/' + sico_base, inside_dir = run_dir)
 
-    #Target output file
+    #Created output file
     file_base = os.path.join(alignment_dir, sico_base)
     dna_alignment = file_base + '.nt_ali.fasta'
 
@@ -367,29 +194,27 @@ def _trim_alignment((trimmed_dir, dna_alignment)):
 
         return trimmed_file, trimmed_length / alignment_length
 
-def _concatemer_per_genome(run_dir, genomes, trimmed_sicos):
+def _concatemer_per_genome(run_dir, genome_ids, trimmed_sicos):
     """Create a concatemer DNA file per genome containing all aligned & trimmed SICO genes."""
     concatemer_dir = create_directory('concatemers', inside_dir = run_dir)
-    log.info('Creating {0} concatemers from {1} SICOs'.format(len(genomes), len(trimmed_sicos)))
+    log.info('Creating {0} concatemers from {1} SICOs'.format(len(genome_ids), len(trimmed_sicos)))
 
     #Open trimmed concatemer write handles
-    concatemer_sico_files = []
+    concatemer_files = []
     write_handles = {}
 
     #For each genome, open a file for the trimmed SICO genes concatemer
-    for genome in genomes:
-        refseq_id = genome['RefSeq project ID']
-
+    for refseq_id in genome_ids:
         #Build up output file path
         concatemer_file = os.path.join(concatemer_dir, refseq_id + '.trimmed.concatemer.fasta')
-        concatemer_sico_files.append(concatemer_file)
+        concatemer_files.append(concatemer_file)
 
         #Open write handle
         write_handle = open(concatemer_file, mode = 'w')
         write_handles[refseq_id] = write_handle
 
         #Write initial fasta header
-        write_handle.write('> {0}|{1}|trimmed concatemer\n'.format(refseq_id, genome['Organism Name']))
+        write_handle.write('> {0}|trimmed concatemer\n'.format(refseq_id))
 
     #Loop over trimmed sico files to append each sequence to the right concatemer
     for trimmed_sico in trimmed_sicos:
@@ -403,43 +228,74 @@ def _concatemer_per_genome(run_dir, genomes, trimmed_sicos):
     for write_handle in write_handles.values():
         write_handle.close()
 
-    return concatemer_sico_files
+    return concatemer_files
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
-Usage: clean_orthologs.py 
---genomes=FILE           file with refseq id from complete genomes table on each line 
---dna-zip=FILE           zip archive of extracted DNA files
---groups=FILE            file listing groups of orthologous proteins
---trimmed-zip=FILE       destination file path for archive of aligned & trimmed single copy orthologous (SICO) genes
---concatemer-zip=FILE    destination file path for archive of SICO concatemer per genome
---stats=FILE             destination file path for SICO cleanup statistics file
-"""
-    options = ['genomes', 'dna-zip', 'groups', 'trimmed-zip', 'concatemer-zip', 'stats']
-    genome_ids_file, dna_zip, groups_file, target_trimmed, target_concatemer, target_stats_path = parse_options(usage, options, args)
+Usage: filter_orthologs.py
+--genomes=FILE               file with refseq id from complete genomes table on each line 
+--orthologs-zip=FILE         archive of orthologous genes in FASTA format
 
-    #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
-    genomes = select_genomes_from_file(genome_ids_file)
+--filter-multiple-cogs       filter orthologs with multiple COG annotations among genes
+--filter-recombination       filter orthologs that show recombination when comparing phylogenetic trees
+--retained-threshold=PERC    filter orthologs that retain less than PERC % of sequence after trimming alignment 
+
+--trimmed-zip=FILE         destination file path for archive of aligned & trimmed orthologous genes
+--concatemer-zip=FILE        destination file path for archive of concatemers per genome
+--stats=FILE                 destination file path for ortholog filtering statistics file
+"""
+    options = ['genomes', 'orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination?', 'retained-threshold', \
+               'trimmed-zip', 'concatemer-zip', 'stats']
+    genome_ids_file, orthologs_zip, filter_cogs, filter_recombination, retained_threshold, \
+    target_trimmed, target_concatemer, target_stats_path = parse_options(usage, options, args)
+
+    #Convert retained threshold to integer, so we can fail fast if argument was passed incorrectly
+    retained_threshold = int(retained_threshold)
+
+    #Parse file containing RefSeq project IDs to extract RefSeq project IDs
+    with open(genome_ids_file) as read_handle:
+        genomes = [line.strip() for line in read_handle.readline()]
+
+    #Run cleanup in a temporary folder, to prevent interference from simultaneous runs
+    run_dir = tempfile.mkdtemp(prefix = 'cleanup_run_')
 
     #Extract files from zip archive
-    temp_dir = tempfile.mkdtemp()
-    dna_files = extract_archive_of_files(dna_zip, temp_dir)
+    temp_dir = create_directory('orthologs', inside_dir = run_dir)
+    sico_files = extract_archive_of_files(orthologs_zip, temp_dir)
 
-    #Actually run cleanup
-    trimmed_zip, concatemer_zip, stats_file = trim_and_concat_sicos(genomes, dna_files, groups_file)
+    stats_file = os.path.join(run_dir, 'filter-stats.txt')
 
-    #Move produced files to command line specified output paths
-    shutil.move(trimmed_zip, target_trimmed)
-    shutil.move(concatemer_zip, target_concatemer)
+    #Filter orthologs with multiple COG annotations among genes if flag was set
+    if filter_cogs:
+        #Look COG assignment among orthologs; filter those with multiple COGs & carry over COGs to unannotated sequences
+        sico_files = _cog_based_filtering(sico_files, stats_file)
+
+    #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
+    if filter_recombination:
+        #TODO Implement filtering out orthologs with evidence of recombination through comparing phylogenetic trees
+        pass
+
+    #TODO Add option to filter out SICOs when any ortholog has been flagged as 'mobile element', 'phage' or 'IS element'
+
+    #Filter orthologs that retain less than PERC % of sequence after trimming alignment
+    aligned_files = _align_sicos(run_dir, sico_files)
+    trimmed_files = _trim_alignments(run_dir, aligned_files, stats_file)
+
+    #Concatenate trimmed_files per genome
+    concatemer_files = _concatemer_per_genome(run_dir, genomes, trimmed_files)
+
+    #Create archives of files on command line specified output paths & move stats_file
+    create_archive_of_files(target_trimmed, trimmed_files)
+    create_archive_of_files(target_concatemer, concatemer_files)
     shutil.move(stats_file, target_stats_path)
 
     #Remove unused files to free disk space 
-    shutil.rmtree(temp_dir)
+    shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s\n%s\n%s", trimmed_zip, concatemer_zip, target_stats_path)
-    return trimmed_zip, concatemer_zip, target_stats_path
+    log.info("Produced: \n%s\n%s\n%s", target_trimmed, target_concatemer, target_stats_path)
+    return target_trimmed, target_concatemer, target_stats_path
 
 if __name__ == '__main__':
     main(sys.argv[1:])
