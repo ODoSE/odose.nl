@@ -12,12 +12,12 @@ import sys
 import tempfile
 
 def extract_orthologs(genomes, dna_files, groups_file):
-    """Invoke all cleanup operations sequentially and return the trimmed SICO files and their genome concatemers."""
+    """Extract DNA sequences for SICO, MUCO & partially shared orthologs to a single file per ortholog."""
     #Subdivide orthologs into groups
     shared_single_copy, shared_multi_copy, non_shared = _extract_shared_orthologs(genomes, groups_file)
 
-    #Run cleanup in a temporary folder, to prevent interference from simultaneous runs
-    run_dir = tempfile.mkdtemp(prefix = 'cleanup_run_')
+    #Run extraction in a temporary folder, to prevent interference from simultaneous runs
+    run_dir = tempfile.mkdtemp(prefix = 'extract_run_')
 
     #Extract fasta files per orthologs
     sico_files, muco_files, subset_files, nr_of_seqs = \
@@ -67,8 +67,8 @@ def _extract_shared_orthologs(selected_genome_ids, groups_file):
     ortholog_proteins_per_genome = _create_ortholog_dictionaries(groups_file)
 
     #Group orthologs into the following categories
-    shared_multi_copy = []
     shared_single_copy = []
+    shared_multi_copy = []
     non_shared_orthologs = []
     for prot_per_genomes in ortholog_proteins_per_genome:
         #Assume both shared and single copy
