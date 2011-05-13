@@ -255,10 +255,10 @@ Usage: filter_orthologs.py
 
     #Parse file containing RefSeq project IDs to extract RefSeq project IDs
     with open(genome_ids_file) as read_handle:
-        genomes = [line.strip() for line in read_handle.readline()]
+        genomes = [line.strip() for line in read_handle]
 
-    #Run cleanup in a temporary folder, to prevent interference from simultaneous runs
-    run_dir = tempfile.mkdtemp(prefix = 'cleanup_run_')
+    #Run filtering in a temporary folder, to prevent interference from simultaneous runs
+    run_dir = tempfile.mkdtemp(prefix = 'filter_run_')
 
     #Extract files from zip archive
     temp_dir = create_directory('orthologs', inside_dir = run_dir)

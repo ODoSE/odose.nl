@@ -159,7 +159,7 @@ Usage: run_codeml.py
     temp_dir = tempfile.mkdtemp()
     sico_files = extract_archive_of_files(sico_zip, temp_dir)
 
-    #Actually run cleanup
+    #Actually run codeml
     codeml_files = run_codeml(genomes_a, genomes_b, sico_files)
 
     #Write the produced files to command line argument filenames

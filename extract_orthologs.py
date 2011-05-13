@@ -194,7 +194,7 @@ Usage: extract_orthologs.py
 --sico-zip=FILE      destination file path for archive of shared single copy orthologous (SICO) genes
 --muco-zip=FILE      destination file path for archive of shared multiple copy orthologous genes
 --subset-zip=FILE    destination file path for archive of variable copy orthologous genes shared for a subset only
---stats=FILE         destination file path for SICO cleanup statistics file
+--stats=FILE         destination file path for ortholog statistics file
 """
     options = ['genomes', 'dna-zip', 'groups', 'sico-zip', 'muco-zip', 'subset-zip', 'stats']
     genome_ids_file, dna_zip, groups_file, target_sico, target_muco, target_subset, target_stats_path = \
@@ -202,7 +202,7 @@ Usage: extract_orthologs.py
 
     #Parse file containing RefSeq project IDs to extract RefSeq project IDs
     with open(genome_ids_file) as read_handle:
-        genomes = [line.strip() for line in read_handle.readline()]
+        genomes = [line.strip() for line in read_handle]
 
     #Create temporary directory within which to extract orthologs
     run_dir = tempfile.mkdtemp(prefix = 'extract_orthologs_run_')
@@ -211,7 +211,7 @@ Usage: extract_orthologs.py
     temp_dir = create_directory('dna_files', inside_dir = run_dir)
     dna_files = extract_archive_of_files(dna_zip, temp_dir)
 
-    #Actually run cleanup
+    #Actually run ortholog extraction
     sico_files, muco_files, subset_files, stats_file = extract_orthologs(run_dir, genomes, dna_files, groups_file)
 
     #Move produced files to command line specified output paths
