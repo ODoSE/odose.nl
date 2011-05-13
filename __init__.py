@@ -54,12 +54,15 @@ def concatenate(target_path, source_files):
             shutil.copyfileobj(open(source_file, mode = 'rb'), write_handle)
     assert os.path.isfile(target_path) and 0 < os.path.getsize(target_path), target_path + ' should exist with content'
 
-def create_archive_of_files(target_archive_file, file_iterable):
-    """Write files in file_iterable to target_archive_file, using only filename for target path within archive_file."""
-    write_handle = ZipFile(target_archive_file, mode = 'w', compression = ZIP_DEFLATED)
+def create_archive_of_files(archive_file, file_iterable):
+    """Write files in file_iterable to archive_file, using only filename for target path within archive_file."""
+    write_handle = ZipFile(archive_file, mode = 'w', compression = ZIP_DEFLATED)
+    written = False
     for some_file in file_iterable:
         write_handle.write(some_file, os.path.split(some_file)[1])
+        written = True
     write_handle.close()
+    assert written, 'At least some file should have been written to ' + archive_file
 
 def extract_archive_of_files(archive_file, target_dir):
     """Extract all files from archive to target directory, and return list of files extracted."""
@@ -70,6 +73,7 @@ def extract_archive_of_files(archive_file, target_dir):
         extracted_path = read_handle.extract(zipinfo, path = target_path)
         extracted_files.append(extracted_path)
     read_handle.close()
+    assert extracted_files, 'At least some files should have been read from ' + archive_file
     return extracted_files
 
 def parse_options(usage, options, args):
