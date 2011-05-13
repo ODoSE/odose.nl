@@ -20,6 +20,14 @@ def extract_orthologs(run_dir, genomes, dna_files, groups_file):
     sico_files, muco_files, subset_files, nr_of_seqs = \
         _dna_file_per_sico(run_dir, dna_files, shared_single_copy, shared_multi_copy, non_shared)
 
+    #Assertions
+    if shared_single_copy:
+        assert sico_files
+    if shared_multi_copy:
+        assert muco_files
+    if non_shared:
+        assert subset_files
+
     #Write statistics file
     stats_file = _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, non_shared, nr_of_seqs)
 

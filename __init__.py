@@ -69,8 +69,7 @@ def extract_archive_of_files(archive_file, target_dir):
     extracted_files = []
     read_handle = ZipFile(archive_file, mode = 'r')
     for zipinfo in read_handle.infolist():
-        target_path = os.path.join(target_dir, zipinfo.filename)
-        extracted_path = read_handle.extract(zipinfo, path = target_path)
+        extracted_path = read_handle.extract(zipinfo, path = target_dir)
         extracted_files.append(extracted_path)
     read_handle.close()
     assert extracted_files, 'At least some files should have been read from ' + archive_file
