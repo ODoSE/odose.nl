@@ -11,13 +11,10 @@ import shutil
 import sys
 import tempfile
 
-def extract_orthologs(genomes, dna_files, groups_file):
+def extract_orthologs(run_dir, genomes, dna_files, groups_file):
     """Extract DNA sequences for SICO, MUCO & partially shared orthologs to a single file per ortholog."""
     #Subdivide orthologs into groups
     shared_single_copy, shared_multi_copy, non_shared = _extract_shared_orthologs(genomes, groups_file)
-
-    #Run extraction in a temporary folder, to prevent interference from simultaneous runs
-    run_dir = tempfile.mkdtemp(prefix = 'extract_run_')
 
     #Extract fasta files per orthologs
     sico_files, muco_files, subset_files, nr_of_seqs = \
@@ -26,22 +23,7 @@ def extract_orthologs(genomes, dna_files, groups_file):
     #Write statistics file
     stats_file = _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, non_shared, nr_of_seqs)
 
-    #Create archives outside run_dir ahead of run_dir removal
-    sico_zip = tempfile.mkstemp('.zip', 'single_copy_orthologs_')[1]
-    muco_zip = tempfile.mkstemp('.zip', 'multiple_copy_orthologs_')[1]
-    subset_zip = tempfile.mkstemp('.zip', 'subset_orthologs_')[1]
-    create_archive_of_files(sico_zip, sico_files)
-    create_archive_of_files(muco_zip, muco_files)
-    create_archive_of_files(subset_zip, subset_files)
-
-    #Move stats_file outside run_dir as well ahead of run_dir removal
-    target_stats_file = tempfile.mkstemp('.txt', 'stats_run_')[1]
-    shutil.move(stats_file, target_stats_file)
-
-    #Remove run_dir to free disk space
-    shutil.rmtree(run_dir)
-
-    return sico_zip, muco_zip, subset_zip, target_stats_file
+    return sico_files, muco_files, subset_files, stats_file
 
 def _create_ortholog_dictionaries(groups_file):
     """Convert groups file into a list of ortholog dictionaries, which map refseq_id to their associated proteins."""
@@ -160,25 +142,21 @@ def _write_record_to_ortholog_file(directory, ortholog_dictionaries, record):
 def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, partially_shared, nr_of_seqs):
     """Write out file with some basic statistics about the genomes, orthologs and size of shared core genome."""
     #Some easy statistics about genomes and orthologs
-    nr_genomes = len(genomes)
     nr_shared_sico = len(shared_single_copy)
     nr_shared_muco = len(shared_multi_copy)
     nr_part_shared = len(partially_shared)
     nr_orthologs = nr_shared_sico + nr_shared_muco + nr_part_shared
 
     #Determine number of ORFans by deducting unique proteins identified as orthologs from total number of genes
-    p_sico = chain.from_iterable(proteins for per_genome in shared_single_copy for proteins in per_genome.values())
-    p_muco = chain.from_iterable(proteins for per_genome in shared_multi_copy for proteins in per_genome.values())
-    p_subset = chain.from_iterable(proteins for per_genome in partially_shared for proteins in per_genome.values())
-    proteins = set(p_sico)
-    proteins.update(p_muco)
-    proteins.update(p_subset)
+    proteins = set(chain.from_iterable(prot for per_genome in shared_single_copy for prot in per_genome.values()))
+    proteins.update(chain.from_iterable(prot for per_genome in shared_multi_copy for prot in per_genome.values()))
+    proteins.update(chain.from_iterable(prot for per_genome in partially_shared for prot in per_genome.values()))
     nr_orfans = nr_of_seqs - len(proteins)
 
-    stats_file = os.path.join(run_dir, 'stats.txt')
+    stats_file = os.path.join(run_dir, 'extract-stats.txt')
     with open(stats_file, mode = 'w') as writer:
         #Write Genome & gene count statistics to file        
-        writer.write('#{0:7}\tGenomes\n'.format(nr_genomes))
+        writer.write('#{0:7}\tGenomes\n'.format(len(genomes)))
         writer.write('#{0:7}\tGenes\n'.format(nr_of_seqs))
         writer.write('#{0:7}\tORFan genes (no orthologs)\n\n'.format(nr_orfans))
 
@@ -186,9 +164,12 @@ def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_co
         def perc(number):
             """Calculate a number as percentage of the number of the number of orthologs"""
             return number / nr_orthologs
-        writer.write('{0:8}\t{1:8.2%}\tSingle-copy orthologs shared across all genomes\n'.format(nr_shared_sico, perc(nr_shared_sico)))
-        writer.write('{0:8}\t{1:8.2%}\tMultiple-copy orthologs shared across all genomes\n'.format(nr_shared_muco, perc(nr_shared_muco)))
-        writer.write('{0:8}\t{1:8.2%}\tVariable-copy orthologs shared across a subset of genomes\n'.format(nr_part_shared, perc(nr_part_shared)))
+        writer.write('{0:8}\t{1:8.2%}\tSingle-copy orthologs shared across all genomes\n' \
+                     .format(nr_shared_sico, perc(nr_shared_sico)))
+        writer.write('{0:8}\t{1:8.2%}\tMultiple-copy orthologs shared across all genomes\n' \
+                     .format(nr_shared_muco, perc(nr_shared_muco)))
+        writer.write('{0:8}\t{1:8.2%}\tVariable-copy orthologs shared across a subset of genomes\n' \
+                     .format(nr_part_shared, perc(nr_part_shared)))
         writer.write('{0:8}\t{1:8.2%}\tTotal number of orthologs\n'.format(nr_orthologs, perc(nr_orthologs)))
 
     assert os.path.isfile(stats_file) and 0 < os.path.getsize(stats_file), stats_file + ' should exist with content.'
@@ -215,24 +196,27 @@ Usage: extract_orthologs.py
     with open(genome_ids_file) as read_handle:
         genomes = [line.strip() for line in read_handle.readline()]
 
+    #Create temporary directory within which to extract orthologs
+    run_dir = tempfile.mkdtemp(prefix = 'extract_orthologs_run_')
+
     #Extract files from zip archive
-    temp_dir = tempfile.mkdtemp()
+    temp_dir = create_directory('dna_files', inside_dir = run_dir)
     dna_files = extract_archive_of_files(dna_zip, temp_dir)
 
     #Actually run cleanup
-    sico_zip, muco_zip, subset_zip, stats_file = extract_orthologs(genomes, dna_files, groups_file)
+    sico_files, muco_files, subset_files, stats_file = extract_orthologs(run_dir, genomes, dna_files, groups_file)
 
     #Move produced files to command line specified output paths
-    shutil.move(sico_zip, target_sico)
-    shutil.move(muco_zip, target_muco)
-    shutil.move(subset_zip, target_subset)
+    create_archive_of_files(target_sico, sico_files)
+    create_archive_of_files(target_muco, muco_files)
+    create_archive_of_files(target_subset, subset_files)
     shutil.move(stats_file, target_stats_path)
 
     #Remove unused files to free disk space 
-    shutil.rmtree(temp_dir)
+    shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s\n%s\n%s", target_sico, target_muco, target_subset, target_stats_path)
+    log.info("Produced: \n%s\n%s\n%s\n%s", target_sico, target_muco, target_subset, target_stats_path)
     return target_sico, target_muco, target_subset, target_stats_path
 
 if __name__ == '__main__':
