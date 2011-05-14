@@ -131,23 +131,23 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
     trimmed_alignments = [tpl[0] for tpl in trim_tpls if retained_threshold <= tpl[3]]
 
     with open(stats_file, mode = 'w') as append_handle:
-        msg = '#{0:6} sequence alignments trimmed'.format(len(trim_tpls))
+        msg = '{0:6} sequence alignments trimmed'.format(len(trim_tpls))
         log.info(msg)
-        append_handle.write(msg + '\n')
+        append_handle.write('#' + msg + '\n')
 
         average_retained = sum(remaining_percts) / len(remaining_percts)
-        msg = '#{0:6.2}% sequence retained on average overall'.format(average_retained)
+        msg = '{0:6.2}% sequence retained on average overall'.format(average_retained)
         log.info(msg)
-        append_handle.write(msg + '\n')
+        append_handle.write('#' + msg + '\n')
 
         filtered = len(trim_tpls) - len(trimmed_alignments)
-        msg = '#{0:6} orthologs filtered as they retained less than {1:6}%'.format(filtered, retained_threshold)
+        msg = '{0:6} orthologs filtered as they retained less than {1:6}%'.format(filtered, retained_threshold)
         log.info(msg)
-        append_handle.write(msg + '\n')
+        append_handle.write('#' + msg + '\n')
 
         append_handle.write('# Trimmed file\tOrginal length\tTrimmed length\tPercentage retained\n')
         for tpl in sorted(trim_tpls, key = itemgetter(3)):
-            append_handle.write('\t'.join(tpl) + '\n')
+            append_handle.write('\t'.join(str(value) for value in tpl) + '\n')
 
     return sorted(trimmed_alignments)
 
