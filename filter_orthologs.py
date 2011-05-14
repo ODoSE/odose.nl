@@ -36,7 +36,7 @@ def _cog_based_filtering(sico_files, stats_file):
                 SeqIO.write(seqr, write_handle, 'fasta')
 
     #Append statistics to stats file
-    _append_cog_statistics(stats_file, cog_conflicts, cog_transferable, cog_missing)
+    _write_cog_statistics(stats_file, cog_conflicts, cog_transferable, cog_missing)
 
     return sico_files
 
@@ -68,28 +68,28 @@ def _group_cog_issues(sico_files):
     return cog_conflicts, cog_transferable, cog_missing
 
 
-def _append_cog_statistics(stats_file, cog_conflicts, cog_transferable, cog_missing):
+def _write_cog_statistics(stats_file, cog_conflicts, cog_transferable, cog_missing):
     """Append COG statistics to stats_file"""
-    with open(stats_file, mode = 'a') as append_handle:
+    with open(stats_file, mode = 'w') as write_handle:
         if cog_conflicts:
             msg = 'Multiple COGs found in {0} SICOs'.format(len(cog_conflicts))
             log.warn(msg)
-            append_handle.write('\n' + msg + ':\n')
+            write_handle.write(msg + ':\n')
             for sico_file in sorted(cog_conflicts.keys()):
                 cogs = cog_conflicts[sico_file]
-                append_handle.write('{0}:\t{1}'.format(os.path.split(sico_file)[1], '\t'.join(cogs) + '\n'))
+                write_handle.write('{0}:\t{1}'.format(os.path.split(sico_file)[1], '\t'.join(cogs) + '\n'))
         if cog_transferable:
             msg = 'COGs transfered in {0} SICOs'.format(len(cog_transferable))
             log.info(msg)
-            append_handle.write('\n' + msg + ':\n')
+            write_handle.write('\n' + msg + ':\n')
             for sico_file in sorted(cog_transferable.keys()):
                 cog = cog_transferable[sico_file]
-                append_handle.write('{0}:\t{1}'.format(os.path.split(sico_file)[1], cog + '\n'))
+                write_handle.write('{0}:\t{1}'.format(os.path.split(sico_file)[1], cog + '\n'))
         if cog_missing:
             msg = 'No COGs found in {0} SICOs'.format(len(cog_missing))
             log.info(msg)
-            append_handle.write('\n' + msg + ':\n')
-            append_handle.write('\n'.join(os.path.split(sico_file)[1] for sico_file in cog_missing) + '\n')
+            write_handle.write('\n' + msg + ':\n')
+            write_handle.write('\n'.join(os.path.split(sico_file)[1] for sico_file in cog_missing) + '\n')
 
 def _align_sicos(run_dir, sico_files):
     """Align all SICO files given as argument in parallel and return the resulting alignment files."""
@@ -149,50 +149,49 @@ def _trim_alignments(run_dir, dna_alignments, stats_file):
 
 def _trim_alignment((trimmed_dir, dna_alignment)):
     """Trim alignment to retain first & last non-gapped codons across alignment, and everything in between (+gaps!)."""
-    with open(dna_alignment) as read_handle:
-        #Read single alignment from fasta file
-        alignment = AlignIO.read(read_handle, 'fasta')
-        #print '\n'.join([str(seqr.seq) for seqr in alignment])
+    #Read single alignment from fasta file
+    alignment = AlignIO.read(dna_alignment, 'fasta')
+    #print '\n'.join([str(seqr.seq) for seqr in alignment])
 
-        #Total alignment should be just as long as first sequence of alignment
-        alignment_length = len (alignment[0])
+    #Total alignment should be just as long as first sequence of alignment
+    alignment_length = len (alignment[0])
 
-        #After using protein alignment only for CDS, all alignment lengths should be multiples of three 
-        assert alignment_length % 3 == 0, 'Length not a multiple of three: {} \n{2}'.format(alignment_length, alignment)
+    #After using protein alignment only for CDS, all alignment lengths should be multiples of three 
+    assert alignment_length % 3 == 0, 'Length not a multiple of three: {} \n{2}'.format(alignment_length, alignment)
 
-        #Assert all codons are either full length codons or gaps, but not a mix of gaps and letters such as AA- or A--
-        for index in range(0, alignment_length, 3):
-            for ali in alignment:
-                codon = ali.seq[index:index + 3]
-                assert not ('-' in codon and str(codon) != '---'), '{0} at {1} in \n{2}'.format(codon, index, alignment)
+    #Assert all codons are either full length codons or gaps, but not a mix of gaps and letters such as AA- or A--
+    for index in range(0, alignment_length, 3):
+        for ali in alignment:
+            codon = ali.seq[index:index + 3]
+            assert not ('-' in codon and str(codon) != '---'), '{0} at {1} in \n{2}'.format(codon, index, alignment)
 
-        #Loop over alignment, taking 3 DNA characters each time, representing a single codon
-        first_full_codon_start = None
-        last_full_codon_end = None
-        for index in range(0, alignment_length, 3):
-            codon_concatemer = ''.join([str(seqr.seq) for seqr in alignment[:, index:index + 3]])
-            if '-' in codon_concatemer:
-                continue
-            if first_full_codon_start is None:
-                first_full_codon_start = index
-            else:
-                last_full_codon_end = index + 3
+    #Loop over alignment, taking 3 DNA characters each time, representing a single codon
+    first_full_codon_start = None
+    last_full_codon_end = None
+    for index in range(0, alignment_length, 3):
+        codon_concatemer = ''.join([str(seqr.seq) for seqr in alignment[:, index:index + 3]])
+        if '-' in codon_concatemer:
+            continue
+        if first_full_codon_start is None:
+            first_full_codon_start = index
+        else:
+            last_full_codon_end = index + 3
 
-        #Create sub alignment consisting of all trimmed sequences from full alignment
-        trimmed = alignment[:, first_full_codon_start:last_full_codon_end]
-        trimmed_length = len(trimmed[0])
-        assert trimmed_length % 3 == 0, 'Length not a multiple of three: {} \n{2}'.format(trimmed_length, trimmed)
+    #Create sub alignment consisting of all trimmed sequences from full alignment
+    trimmed = alignment[:, first_full_codon_start:last_full_codon_end]
+    trimmed_length = len(trimmed[0])
+    assert trimmed_length % 3 == 0, 'Length not a multiple of three: {} \n{2}'.format(trimmed_length, trimmed)
 
-        #Write out trimmed alignment file
-        trimmed_file = os.path.join(trimmed_dir, os.path.split(dna_alignment)[1])
-        with open(trimmed_file, mode = 'w') as write_handle:
-            AlignIO.write(trimmed, write_handle, 'fasta')
+    #Write out trimmed alignment file
+    trimmed_file = os.path.join(trimmed_dir, os.path.split(dna_alignment)[1])
+    with open(trimmed_file, mode = 'w') as write_handle:
+        AlignIO.write(trimmed, write_handle, 'fasta')
 
-        #Assert file now exists with content
-        assert os.path.isfile(trimmed_file) and os.path.getsize(trimmed_file), \
-            'Expected trimmed alignment file to exist with some content now: {0}'.format(trimmed_file)
+    #Assert file now exists with content
+    assert os.path.isfile(trimmed_file) and os.path.getsize(trimmed_file), \
+        'Expected trimmed alignment file to exist with some content now: {0}'.format(trimmed_file)
 
-        return trimmed_file, trimmed_length / alignment_length
+    return trimmed_file, trimmed_length / alignment_length
 
 def _concatemer_per_genome(run_dir, genome_ids, trimmed_sicos):
     """Create a concatemer DNA file per genome containing all aligned & trimmed SICO genes."""
