@@ -216,7 +216,7 @@ def _concatemer_per_genome(run_dir, genome_ids, trimmed_sicos):
     #For each genome, open a file for the trimmed SICO genes concatemer
     for refseq_id in genome_ids:
         #Build up output file path
-        concatemer_file = os.path.join(concatemer_dir, refseq_id + '.trimmed.concatemer.fasta')
+        concatemer_file = os.path.join(concatemer_dir, refseq_id + '.trim.concat.fna')
         concatemer_files.append(concatemer_file)
 
         #Open write handle
@@ -228,11 +228,10 @@ def _concatemer_per_genome(run_dir, genome_ids, trimmed_sicos):
 
     #Loop over trimmed sico files to append each sequence to the right concatemer
     for trimmed_sico in trimmed_sicos:
-        with open(trimmed_sico) as read_handle:
-            for seqr in SeqIO.parse(read_handle, 'fasta'):
-                #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core                
-                refseq_id = seqr.id.split('|')[0]
-                write_handles[refseq_id].write('{0}\n'.format(str(seqr.seq)))
+        for seqr in SeqIO.parse(trimmed_sico, 'fasta'):
+            #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core                
+            refseq_id = seqr.id.split('|')[0]
+            write_handles[refseq_id].write('{0}\n'.format(str(seqr.seq)))
 
     #Close genomes trimmed concatemer write handles 
     for write_handle in write_handles.values():
