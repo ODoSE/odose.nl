@@ -14,7 +14,7 @@ import shutil
 import sys
 import tempfile
 
-def _cog_based_filtering(sico_files, stats_file):
+def _cog_based_filtering(sico_files):
     """Inspect COGs for sequences marked as orthologs by OrthoMCL, and append some details about this to stats_file."""
     #Retrieve SICO to cog dictionaries of cog conflicts & transferable cog annotations, and list of SICOs missing cog
     cog_conflicts, cog_transferable, cog_missing = _group_cog_issues(sico_files)
@@ -35,8 +35,8 @@ def _cog_based_filtering(sico_files, stats_file):
                 seqr = SeqRecord(seqr.seq, id = '|'.join(split), description = '')
                 SeqIO.write(seqr, write_handle, 'fasta')
 
-    #Append statistics to stats file
-    _write_cog_statistics(stats_file, cog_conflicts, cog_transferable, cog_missing)
+    #Log COG statistics
+    _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing)
 
     return sico_files
 
@@ -68,28 +68,21 @@ def _group_cog_issues(sico_files):
     return cog_conflicts, cog_transferable, cog_missing
 
 
-def _write_cog_statistics(stats_file, cog_conflicts, cog_transferable, cog_missing):
+def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
     """Append COG statistics to stats_file"""
-    with open(stats_file, mode = 'w') as write_handle:
-        if cog_conflicts:
-            msg = 'Multiple COGs found in {0} SICOs'.format(len(cog_conflicts))
-            log.warn(msg)
-            write_handle.write(msg + ':\n')
-            for sico_file in sorted(cog_conflicts.keys()):
-                cogs = cog_conflicts[sico_file]
-                write_handle.write('{0}:\t{1}'.format(os.path.split(sico_file)[1], '\t'.join(cogs) + '\n'))
-        if cog_transferable:
-            msg = 'COGs transfered in {0} SICOs'.format(len(cog_transferable))
-            log.info(msg)
-            write_handle.write('\n' + msg + ':\n')
-            for sico_file in sorted(cog_transferable.keys()):
-                cog = cog_transferable[sico_file]
-                write_handle.write('{0}:\t{1}'.format(os.path.split(sico_file)[1], cog + '\n'))
-        if cog_missing:
-            msg = 'No COGs found in {0} SICOs'.format(len(cog_missing))
-            log.info(msg)
-            write_handle.write('\n' + msg + ':\n')
-            write_handle.write('\n'.join(os.path.split(sico_file)[1] for sico_file in cog_missing) + '\n')
+    if cog_conflicts:
+        log.info('Multiple COGs found in {0} SICOs:'.format(len(cog_conflicts)))
+        for sico_file in sorted(cog_conflicts.keys()):
+            cogs = cog_conflicts[sico_file]
+            log.info('{0}:\t{1}'.format(os.path.split(sico_file)[1], '\t'.join(cogs)))
+    if cog_transferable:
+        log.info('COGs transfered in {0} SICOs:'.format(len(cog_transferable)))
+        for sico_file in sorted(cog_transferable.keys()):
+            cog = cog_transferable[sico_file]
+            log.info('{0}:\t{1}'.format(os.path.split(sico_file)[1], cog))
+    if cog_missing:
+        log.info('No COGs found in {0} SICOs:'.format(len(cog_missing)))
+        log.info('\n'.join(os.path.split(sico_file)[1] for sico_file in cog_missing))
 
 def _align_sicos(run_dir, sico_files):
     """Align all SICO files given as argument in parallel and return the resulting alignment files."""
@@ -123,32 +116,45 @@ def _run_translatorx((run_dir, sico_file), translation_table = '11'):
     assert os.path.isfile(dna_alignment) and 0 < os.path.getsize(dna_alignment), msg
     return dna_alignment
 
-def _trim_alignments(run_dir, dna_alignments, stats_file):
+def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
     """Trim all DNA alignments using _trim_alignment (singular), and calculate some statistics about the trimming."""
     log.info('Trimming {0} DNA alignments from first non-gap codon to last non-gap codon'.format(len(dna_alignments)))
 
     #Create directory here, to prevent race-condition when folder does not exist, but is then created by another process
     trimmed_dir = create_directory('trimmed', inside_dir = run_dir)
 
-    #algn_perct_tpls = [_trim_alignment(trimmed_dir, ali) for ali in dna_alignments]
+    #Use Pool().map again to scale trimming out over multiple cores. This requires tuple'd arguments however
     tuples = [(trimmed_dir, dna_alignment) for dna_alignment in dna_alignments]
-    algn_perct_tpls = Pool().map(_trim_alignment, tuples)
-    algn_perct_tpls = sorted(algn_perct_tpls, key = itemgetter(1))
+    trim_tpls = Pool().map(_trim_alignment, tuples)
 
-    remaining_percts = [tpl[1] for tpl in algn_perct_tpls]
-    with open(stats_file, mode = 'a') as append_handle:
-        append_handle.write('\n{0:6} sequence alignments trimmed\n'.format(len(algn_perct_tpls)))
+    remaining_percts = [tpl[3] for tpl in trim_tpls]
+    trimmed_alignments = [tpl[0] for tpl in trim_tpls if retained_threshold <= tpl[3]]
+
+    with open(stats_file, mode = 'w') as append_handle:
+        msg = '#{0:6} sequence alignments trimmed'.format(len(trim_tpls))
+        log.info(msg)
+        append_handle.write(msg + '\n')
+
         average_retained = sum(remaining_percts) / len(remaining_percts)
-        append_handle.write('{0:6.2%} sequence retained on average\n'.format(average_retained))
-        append_handle.write('10 least percentages retained from sequence alignments:\n')
-        least = '\n'.join('{0}: {1:6.2%}'.format(os.path.split(align)[1], perc) for align, perc in algn_perct_tpls[:10])
-        append_handle.write(least + '\n')
+        msg = '#{0:6.2}% sequence retained on average overall'.format(average_retained)
+        log.info(msg)
+        append_handle.write(msg + '\n')
 
-    trimmed_alignments = [tpl[0] for tpl in algn_perct_tpls]
+        filtered = len(trim_tpls) - len(trimmed_alignments)
+        msg = '#{0:6} orthologs filtered as they retained less than {1:6}%'.format(filtered, retained_threshold)
+        log.info(msg)
+        append_handle.write(msg + '\n')
+
+        append_handle.write('# Trimmed file\tOrginal length\tTrimmed length\tPercentage retained\n')
+        for tpl in sorted(trim_tpls, key = itemgetter(3)):
+            append_handle.write('\t'.join(tpl) + '\n')
+
     return sorted(trimmed_alignments)
 
 def _trim_alignment((trimmed_dir, dna_alignment)):
-    """Trim alignment to retain first & last non-gapped codons across alignment, and everything in between (+gaps!)."""
+    """Trim alignment to retain first & last non-gapped codons across alignment, and everything in between (+gaps!).
+    
+    Return trimmed file, original length, trimmed length and percentage retained as tuple"""
     #Read single alignment from fasta file
     alignment = AlignIO.read(dna_alignment, 'fasta')
     #print '\n'.join([str(seqr.seq) for seqr in alignment])
@@ -191,7 +197,7 @@ def _trim_alignment((trimmed_dir, dna_alignment)):
     assert os.path.isfile(trimmed_file) and os.path.getsize(trimmed_file), \
         'Expected trimmed alignment file to exist with some content now: {0}'.format(trimmed_file)
 
-    return trimmed_file, trimmed_length / alignment_length
+    return trimmed_file, alignment_length, trimmed_length, trimmed_length / alignment_length * 100
 
 def _concatemer_per_genome(run_dir, genome_ids, trimmed_sicos):
     """Create a concatemer DNA file per genome containing all aligned & trimmed SICO genes."""
@@ -240,9 +246,9 @@ Usage: filter_orthologs.py
 --filter-recombination       filter orthologs that show recombination when comparing phylogenetic trees
 --retained-threshold=PERC    filter orthologs that retain less than PERC % of sequence after trimming alignment 
 
---trimmed-zip=FILE         destination file path for archive of aligned & trimmed orthologous genes
+--trimmed-zip=FILE           destination file path for archive of aligned & trimmed orthologous genes
 --concatemer-zip=FILE        destination file path for archive of concatemers per genome
---stats=FILE                 destination file path for ortholog filtering statistics file
+--stats=FILE                 destination file path for ortholog trimming statistics file
 """
     options = ['genomes', 'orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination?', 'retained-threshold', \
                'trimmed-zip', 'concatemer-zip', 'stats']
@@ -263,12 +269,10 @@ Usage: filter_orthologs.py
     temp_dir = create_directory('orthologs', inside_dir = run_dir)
     sico_files = extract_archive_of_files(orthologs_zip, temp_dir)
 
-    stats_file = os.path.join(run_dir, 'filter-stats.txt')
-
     #Filter orthologs with multiple COG annotations among genes if flag was set
     if filter_cogs:
         #Look COG assignment among orthologs; filter those with multiple COGs & carry over COGs to unannotated sequences
-        sico_files = _cog_based_filtering(sico_files, stats_file)
+        sico_files = _cog_based_filtering(sico_files)
 
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
     if filter_recombination:
@@ -278,16 +282,17 @@ Usage: filter_orthologs.py
     #TODO Add option to filter out SICOs when any ortholog has been flagged as 'mobile element', 'phage' or 'IS element'
 
     #Filter orthologs that retain less than PERC % of sequence after trimming alignment
+    trim_stats_file = os.path.join(run_dir, 'trim-stats.txt')
     aligned_files = _align_sicos(run_dir, sico_files)
-    trimmed_files = _trim_alignments(run_dir, aligned_files, stats_file)
+    trimmed_files = _trim_alignments(run_dir, aligned_files, retained_threshold, trim_stats_file)
 
     #Concatenate trimmed_files per genome
     concatemer_files = _concatemer_per_genome(run_dir, genomes, trimmed_files)
 
-    #Create archives of files on command line specified output paths & move stats_file
+    #Create archives of files on command line specified output paths & move trim_stats_file
     create_archive_of_files(target_trimmed, trimmed_files)
     create_archive_of_files(target_concatemer, concatemer_files)
-    shutil.move(stats_file, target_stats_path)
+    shutil.move(trim_stats_file, target_stats_path)
 
     #Remove unused files to free disk space 
     shutil.rmtree(run_dir)
