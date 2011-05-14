@@ -22,3 +22,10 @@
 	TranslatorX
 	PAML
 	DoFE
+	Galaxy
+	
+	#Galaxy plotting requirements
+	sudo apt-get install \
+	   python-gnuplot \
+	   python-rpy;
+	   
