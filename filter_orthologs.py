@@ -82,7 +82,8 @@ def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
             log.info('{0}:\t{1}'.format(os.path.split(sico_file)[1], cog))
     if cog_missing:
         log.info('No COGs found in {0} SICOs:'.format(len(cog_missing)))
-        log.info('\n'.join(os.path.split(sico_file)[1] for sico_file in cog_missing))
+        for sico_file in cog_missing:
+            log.info(os.path.split(sico_file)[1])
 
 def _align_sicos(run_dir, sico_files):
     """Align all SICO files given as argument in parallel and return the resulting alignment files."""
@@ -130,6 +131,7 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
     remaining_percts = [tpl[3] for tpl in trim_tpls]
     trimmed_alignments = [tpl[0] for tpl in trim_tpls if retained_threshold <= tpl[3]]
 
+    #Write trim statistics to file in such a way that they're easily converted to a graph in Galaxy
     with open(stats_file, mode = 'w') as append_handle:
         msg = '{0:6} sequence alignments trimmed'.format(len(trim_tpls))
         log.info(msg)
