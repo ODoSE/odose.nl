@@ -204,46 +204,52 @@ def _trim_alignment((trimmed_dir, dna_alignment)):
 
     return trimmed_file, alignment_length, trimmed_length, trimmed_length / alignment_length * 100
 
-def _concatemer_per_genome(run_dir, genome_ids, trimmed_sicos):
+def _concatemer_per_genome(run_dir, trimmed_sicos):
     """Create a concatemer DNA file per genome containing all aligned & trimmed SICO genes."""
     concatemer_dir = create_directory('concatemers', inside_dir = run_dir)
-    log.info('Creating {0} concatemers from {1} SICOs'.format(len(genome_ids), len(trimmed_sicos)))
+    log.info('Creating concatemers from {0} SICOs'.format(len(trimmed_sicos)))
 
     #Open trimmed concatemer write handles
     concatemer_files = []
     write_handles = {}
-
-    #For each genome, open a file for the trimmed SICO genes concatemer
-    for refseq_id in genome_ids:
-        #Build up output file path
-        concatemer_file = os.path.join(concatemer_dir, refseq_id + '.trim.concat.fna')
-        concatemer_files.append(concatemer_file)
-
-        #Open write handle
-        write_handle = open(concatemer_file, mode = 'w')
-        write_handles[refseq_id] = write_handle
-
-        #Write initial fasta header
-        write_handle.write('> {0}|trimmed concatemer\n'.format(refseq_id))
 
     #Loop over trimmed sico files to append each sequence to the right concatemer
     for trimmed_sico in trimmed_sicos:
         for seqr in SeqIO.parse(trimmed_sico, 'fasta'):
             #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core                
             refseq_id = seqr.id.split('|')[0]
-            write_handles[refseq_id].write('{0}\n'.format(str(seqr.seq)))
+
+            #Try to retrieve write handle from dictionary of cached write handles per genome
+            write_handle = write_handles.get(refseq_id)
+
+            #If not found, create & store write handle on demand
+            if not write_handle:
+                #Build up output file path for trimmed SICO genes concatemer per genome
+                concatemer_file = os.path.join(concatemer_dir, refseq_id + '.trim.concat.fna')
+                concatemer_files.append(concatemer_file)
+
+                #Open write handle
+                write_handle = open(concatemer_file, mode = 'w')
+                write_handles[refseq_id] = write_handle
+
+                #Write initial fasta header
+                write_handle.write('> {0}|trimmed concatemer\n'.format(refseq_id))
+
+            #Write / Append sequence for ortholog to genome concatemer
+            write_handle.write('{0}\n'.format(str(seqr.seq)))
 
     #Close genomes trimmed concatemer write handles 
     for write_handle in write_handles.values():
         write_handle.close()
 
-    return concatemer_files
+    log.info('Created {0} concatemers from {1} SICOs'.format(len(concatemer_files), len(trimmed_sicos)))
+
+    return sorted(concatemer_files)
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: filter_orthologs.py
---genomes=FILE               file with refseq id from complete genomes table on each line 
 --orthologs-zip=FILE         archive of orthologous genes in FASTA format
 
 --filter-multiple-cogs       filter orthologs with multiple COG annotations among genes
@@ -254,17 +260,13 @@ Usage: filter_orthologs.py
 --concatemer-zip=FILE        destination file path for archive of concatemers per genome
 --stats=FILE                 destination file path for ortholog trimming statistics file
 """
-    options = ['genomes', 'orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination?', 'retained-threshold', \
+    options = ['orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination?', 'retained-threshold', \
                'trimmed-zip', 'concatemer-zip', 'stats']
-    genome_ids_file, orthologs_zip, filter_cogs, filter_recombination, retained_threshold, \
+    orthologs_zip, filter_cogs, filter_recombination, retained_threshold, \
     target_trimmed, target_concatemer, target_stats_path = parse_options(usage, options, args)
 
     #Convert retained threshold to integer, so we can fail fast if argument was passed incorrectly
     retained_threshold = int(retained_threshold)
-
-    #Parse file containing RefSeq project IDs to extract RefSeq project IDs
-    with open(genome_ids_file) as read_handle:
-        genomes = [line.strip() for line in read_handle]
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
     run_dir = tempfile.mkdtemp(prefix = 'filter_run_')
@@ -291,7 +293,7 @@ Usage: filter_orthologs.py
     trimmed_files = _trim_alignments(run_dir, aligned_files, retained_threshold, trim_stats_file)
 
     #Concatenate trimmed_files per genome
-    concatemer_files = _concatemer_per_genome(run_dir, genomes, trimmed_files)
+    concatemer_files = _concatemer_per_genome(run_dir, trimmed_files)
 
     #Create archives of files on command line specified output paths & move trim_stats_file
     create_archive_of_files(target_trimmed, trimmed_files)
