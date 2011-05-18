@@ -40,8 +40,7 @@ def translate_genomes(genomes):
     """Download genome files, extract genes and translate those to proteins, returning DNA and protein fasta files."""
     assert len(genomes), 'Some genomes should be selected'
 
-    pool = Pool()
-    futures = [(genome, pool.apply_async(download_genome_files, (genome,))) for genome in genomes]
+    futures = [(genome, Pool().apply_async(download_genome_files, (genome,))) for genome in genomes]
     dna_aa_pairs = [_translate_genome(genome, gbk_ptt_pairs.get()) for genome, gbk_ptt_pairs in futures]
     #Unzip the above produced pairs using some magic, as per: http://docs.python.org/library/functions.html#zip
     dna_files, aa_files = zip(*dna_aa_pairs)

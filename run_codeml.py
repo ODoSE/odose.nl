@@ -4,7 +4,6 @@
 from Bio import SeqIO
 from Bio.Alphabet import generic_dna
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
-from divergence.select_taxa import select_genomes_from_file
 from subprocess import check_call, STDOUT
 import logging as log
 import os.path
@@ -12,14 +11,11 @@ import shutil
 import sys
 import tempfile
 
-def run_codeml(genomes_a, genomes_b, sico_files):
+def run_codeml(codeml_dir, genome_ids_a, genome_ids_b, sico_files):
     """Run codeml for representatives of clades A and B in each of the SICO files, to calculate dN/dS."""
-    #codeml runs inside a temporary folder, to prevent interference with simultaneous runs 
-    codeml_dir = tempfile.mkdtemp(prefix = 'codeml_run_')
-
     #Pick the first genomes as representatives for each clade
-    representative_a = genomes_a[0]['RefSeq project ID']
-    representative_b = genomes_b[0]['RefSeq project ID']
+    representative_a = genome_ids_a[0]
+    representative_b = genome_ids_b[0]
 
     log.info('Running codeml for {0} aligned and trimmed SICOs'.format(len(sico_files)))
     return [_run_codeml(codeml_dir, representative_a, representative_b, sico_file) for sico_file in sico_files]
@@ -143,31 +139,34 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: run_codeml.py 
---genomes-a=FILE    file with RefSeq id from complete genomes table on each line for clade A
---genomes-b=FILE    file with RefSeq id from complete genomes table on each line for clade B
---sico-zip=FILE     archive of aligned & trimmed single copy orthologous (SICO) genes
---codeml-zip=FILE     destination file path for archive of codeml output per SICO gene
+--genomes-a=FILE     file with RefSeq id from complete genomes table on each line for clade A
+--genomes-b=FILE     file with RefSeq id from complete genomes table on each line for clade B
+--sico-zip=FILE      archive of aligned & trimmed single copy orthologous (SICO) genes
+--codeml-zip=FILE    destination file path for archive of codeml output per SICO gene
 """
     options = ['genomes-a', 'genomes-b', 'sico-zip', 'codeml-zip']
     genome_a_ids_file, genome_b_ids_file, sico_zip, codeml_zip = parse_options(usage, options, args)
 
-    #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
-    genomes_a = select_genomes_from_file(genome_a_ids_file)
-    genomes_b = select_genomes_from_file(genome_b_ids_file)
+    #Parse file containing RefSeq project IDs to extract RefSeq project IDs
+    with open(genome_a_ids_file) as read_handle:
+        genome_ids_a = [line.strip() for line in read_handle]
+    with open(genome_b_ids_file) as read_handle:
+        genome_ids_b = [line.strip() for line in read_handle]
+
+    #Create run_dir to hold files relating to this run
+    run_dir = tempfile.mkdtemp(prefix = 'run_codeml_')
 
     #Extract files from zip archive
-    temp_dir = tempfile.mkdtemp()
-    sico_files = extract_archive_of_files(sico_zip, temp_dir)
+    sico_files = extract_archive_of_files(sico_zip, create_directory('sicos', inside_dir = run_dir))
 
     #Actually run codeml
-    codeml_files = run_codeml(genomes_a, genomes_b, sico_files)
+    codeml_files = run_codeml(run_dir, genome_ids_a, genome_ids_b, sico_files)
 
     #Write the produced files to command line argument filenames
     create_archive_of_files(codeml_zip, codeml_files)
 
     #Remove unused files to free disk space 
-    shutil.rmtree(temp_dir)
-    [os.remove(path) for path in codeml_files]
+    shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
     log.info("Produced: \n%s", codeml_zip)
