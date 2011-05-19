@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Module for the select taxa step."""
 
-from divergence import create_directory, HTTP_CACHE
+from divergence import create_directory, HTTP_CACHE, parse_options
 from ftplib import FTP
 from operator import itemgetter
 import logging as log
@@ -205,4 +205,38 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir):
     assert os.path.isfile(out_file) and 0 < os.path.getsize(out_file), 'File should exist and include some content now'
     return out_file
 
+def main(args):
+    """Main function called when run from command line or as part of pipeline."""
+    usage = """
+Usage: select_taxa.py 
+--cladea-genomes    comma-separated list of Clade A selected RefSeq project IDs from complete genomes table
+--cladeb-genomes    comma-separated list of Clade B selected RefSeq project IDs from complete genomes table
+--cladea-file       destination file path for file with Clade A selected RefSeq project IDs each on a new line
+--cladeb-file       destination file path for file with Clade B selected RefSeq project IDs each on a new line
+"""
+    options = ['cladea-genomes', 'cladeb-genomes', 'cladea-file', 'cladeb-file']
+    clade_a_ids, clade_b_ids, clade_a_file, clade_b_file = parse_options(usage, options, args)
 
+    #Split clade_a_ids & clade_b_ids each on comma
+    clade_a_ids = clade_a_ids.split(',')
+    clade_b_ids = clade_b_ids.split(',')
+
+    #Assert each clade contains multiple IDs
+    assert 1 < len(clade_a_ids) <= 15, 'Expected no less than two and no more than 15 selected genomes for Clade A'
+    assert 1 < len(clade_b_ids) <= 15, 'Expected at less than two and no more than 15 selected genomes for Clade B'
+
+    #Write IDs to file
+    with open(clade_a_file, mode = 'w') as write_handle:
+        for refseqid in clade_a_ids:
+            write_handle.write(refseqid + '\n')
+    with open(clade_b_file, mode = 'w') as write_handle:
+        for refseqid in clade_b_ids:
+            write_handle.write(refseqid + '\n')
+
+    #Exit after a comforting log message
+    log.info("Produced: \n%s &\n%s", clade_a_file, clade_b_file)
+    return clade_a_file, clade_b_file
+
+if __name__ == '__main__':
+    import sys
+    main(sys.argv[1:])
