@@ -127,9 +127,10 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
             #Fall back on GenBank translation whenever a transl_except record is found
             protein_seq = gb_feature.qualifiers['translation'][0]
         else:
+            #Log some debug information before reraising error
             log.error(gb_feature)
             log.error('%s: Error in translating %s\n%s', gb_record.id, protein_id, extracted_seq)
-            raise err #Log some debug information before reraising error
+            raise err
 
     #Determine COG by looking it up based on protein identifier
     cog = None

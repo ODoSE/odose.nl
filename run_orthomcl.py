@@ -50,9 +50,8 @@ def run_orthomcl(proteome_files):
     #Trash database now that we're done with it
     delete_database(dbname)
 
-    #MCL related steps: pre-, actual & post-processing, resulting in the groups.txt file
-    mcl_output = _step12_mcl(run_dir, mcl_input)
-    groups = _step13_orthomcl_mcl_to_groups(run_dir, mcl_output)
+    #MCL related steps: run MCL on mcl_input resulting in the groups.txt file
+    groups = _step12_mcl(run_dir, mcl_input)
 
     #Move groups file outside run_dir ahead of removing run_dir
     target_groups = tempfile.mkstemp('.txt', 'groups_')[1]
@@ -381,33 +380,6 @@ def _step12_mcl(run_dir, mcl_input_file):
         log.info('Executing: %s', ' '.join(command))
         check_call(command, stdout = open_file, stderr = STDOUT)
     return mcl_output_file
-
-def _step13_orthomcl_mcl_to_groups(run_dir, mcl_output_file):
-    """mclOutput2groupsFile prefix starting_id_num
-
-    create an orthomcl groups file from an mcl output file. just generate a group ID for each group, and prepend it to that group's line.
-    
-    where:
-     prefix           a prefix to use when generating group ids.  For example OG2_
-     starting_id_num  a number to start the id generating with.  For example 1000
-    
-    std input:  mcl output file (label mode)
-    std output: orthomcl groups file
-    
-    an orthomcl group file has one line per group and looks like this:
-    
-    OG2_1009: osa|ENS1222992 pfa|PF11_0844
-    """
-    #Run orthomclMclToGroups
-    groups = os.path.join(run_dir, 'groups.txt')
-    with open(mcl_output_file) as in_file:
-        with open(groups, mode = 'w') as out_file:
-            command = [ORTHOMCL_MCL_TO_GROUPS, 'group_', '1000']
-            log.info('Executing: %s', ' '.join(command))
-            check_call(command, stdin = in_file, stdout = out_file)
-
-    assert os.path.isfile(groups) and 0 < os.path.getsize(groups), groups + ' should exist and have some content'
-    return groups
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
