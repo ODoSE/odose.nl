@@ -226,6 +226,7 @@ Usage: select_taxa.py
     assert 1 < len(clade_b_ids) <= 15, 'Expected at less than two and no more than 15 selected genomes for Clade B'
 
     #Write IDs to file
+    #TODO Add organism name as second column, to make the RefSeq id files more self explanatory. Update rest to match. 
     with open(clade_a_file, mode = 'w') as write_handle:
         for refseqid in clade_a_ids:
             write_handle.write(refseqid + '\n')
