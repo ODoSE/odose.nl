@@ -139,8 +139,8 @@ def get_complete_genomes(genomes = _parse_genomes_table()):
             for key3 in sorted(dict3.keys()):
                 list4 = dict3[key3]
                 for genome in list4:
-                    name = '{0}\t{1}\t{2}\t{3}'.format(by_kingdom(genome), by_group(genome), by_firstname(genome), \
-                                                  genome['Organism Name'])
+                    name = '{0}\t&gt; {1}<span style="float:right"><i>{2}</i> - <b>{3}</b></span>'.format( \
+                        by_group(genome), by_firstname(genome), genome['Organism Name'], genome['RefSeq project ID'])
                     yield name, genome['RefSeq project ID'], False
 
 def download_genome_files(genome):
