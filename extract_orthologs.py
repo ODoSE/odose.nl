@@ -40,7 +40,7 @@ def _create_ortholog_dictionaries(groups_file):
     with open(groups_file) as read_handle:
         for line in read_handle:
             #Start at 1 to ignore incremental generated group_id
-            remainder = line.split()[1:]
+            remainder = line.split()
             proteins_per_genome = {}
             for ortholog in remainder:
                 refseq_id, protein_id = ortholog.split('|')
