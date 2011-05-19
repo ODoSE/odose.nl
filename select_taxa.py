@@ -139,7 +139,7 @@ def get_complete_genomes(genomes = _parse_genomes_table()):
             for key3 in sorted(dict3.keys()):
                 list4 = dict3[key3]
                 for genome in list4:
-                    name = '{0}\t&gt; {1}<span style="float:right"><i>{2}</i> - <b>{3}</b></span>'.format( \
+                    name = '{0} &gt; {1} &gt; {2} - {3}'.format( \
                         by_group(genome), by_firstname(genome), genome['Organism Name'], genome['RefSeq project ID'])
                     yield name, genome['RefSeq project ID'], False
 
