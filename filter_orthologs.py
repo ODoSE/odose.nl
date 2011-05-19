@@ -206,7 +206,6 @@ def _trim_alignment((trimmed_dir, dna_alignment)):
 
 def _concatemer_per_genome(run_dir, trimmed_sicos):
     """Create a concatemer DNA file per genome containing all aligned & trimmed SICO genes."""
-    #TODO Redirect to single concatemer fasta file instead, and change output format accordingly 
     concatemer_dir = create_directory('concatemers', inside_dir = run_dir)
     log.info('Creating concatemers from {0} SICOs'.format(len(trimmed_sicos)))
 
@@ -247,6 +246,13 @@ def _concatemer_per_genome(run_dir, trimmed_sicos):
 
     return sorted(concatemer_files)
 
+def _create_super_concatemer(concatemer_files, destination_path):
+    """Concatenate individual genome concatemers into a single super-concatemer for easy import into MEGA viewer."""
+    with open(destination_path, mode = 'w') as write_handle:
+        for concatemer in concatemer_files:
+            seqr = SeqIO.read(concatemer, 'fasta')
+            SeqIO.write(seqr, write_handle, 'fasta')
+
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
@@ -259,12 +265,13 @@ Usage: filter_orthologs.py
 
 --trimmed-zip=FILE           destination file path for archive of aligned & trimmed orthologous genes
 --concatemer-zip=FILE        destination file path for archive of concatemers per genome
+--concatemer-file=FILE       destination file path for super-concatemer of all genomes
 --stats=FILE                 destination file path for ortholog trimming statistics file
 """
     options = ['orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination?', 'retained-threshold', \
-               'trimmed-zip', 'concatemer-zip', 'stats']
+               'trimmed-zip', 'concatemer-zip', 'concatemer-file', 'stats']
     orthologs_zip, filter_cogs, filter_recombination, retained_threshold, \
-    target_trimmed, target_concatemer, target_stats_path = parse_options(usage, options, args)
+    target_trimmed, target_concat_zip, target_concat_file, target_stats_path = parse_options(usage, options, args)
 
     #Convert retained threshold to integer, so we can fail fast if argument was passed incorrectly
     retained_threshold = int(retained_threshold)
@@ -296,17 +303,20 @@ Usage: filter_orthologs.py
     #Concatenate trimmed_files per genome
     concatemer_files = _concatemer_per_genome(run_dir, trimmed_files)
 
+    #Create super concatemer
+    _create_super_concatemer(concatemer_files, target_concat_file)
+
     #Create archives of files on command line specified output paths & move trim_stats_file
     create_archive_of_files(target_trimmed, trimmed_files)
-    create_archive_of_files(target_concatemer, concatemer_files)
+    create_archive_of_files(target_concat_zip, concatemer_files)
     shutil.move(trim_stats_file, target_stats_path)
 
     #Remove unused files to free disk space 
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s\n%s\n%s", target_trimmed, target_concatemer, target_stats_path)
-    return target_trimmed, target_concatemer, target_stats_path
+    log.info("Produced: \n%s\n%s\n%s\n%s", target_trimmed, target_concat_zip, target_concat_file, target_stats_path)
+    return target_trimmed, target_concat_zip, target_concat_file, target_stats_path
 
 if __name__ == '__main__':
     main(sys.argv[1:])
