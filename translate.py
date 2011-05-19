@@ -126,10 +126,17 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
         if 'transl_except' in gb_feature.qualifiers:
             #Fall back on GenBank translation whenever a transl_except record is found
             protein_seq = gb_feature.qualifiers['translation'][0]
+        elif ('First codon ' in str(err) and ' is not a start codon' in str(err)) or  \
+             ('Final codon ' in str(err) and ' is not a stop codon' in str(err)):
+            #Occasionally an incomplete amino end coding sequence is found, such as in: YP_004377721.1 
+            log.warning('Incomplete CDS found for %s from %s:%s', protein_id, gb_record.id, extracted_seq)
+            #Fall back on GenBank provided translation
+            protein_seq = gb_feature.qualifiers['translation'][0]
+            log.warning('Reverting to GenBank provided translation:\n%s', protein_seq)
         else:
             #Log some debug information before reraising error
             log.error(gb_feature)
-            log.error('%s: Error in translating %s\n%s', gb_record.id, protein_id, extracted_seq)
+            log.error('Error in translating %s from %s using:\n%s', protein_id, gb_record.id, extracted_seq)
             raise err
 
     #Determine COG by looking it up based on protein identifier

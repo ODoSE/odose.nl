@@ -206,6 +206,7 @@ def _trim_alignment((trimmed_dir, dna_alignment)):
 
 def _concatemer_per_genome(run_dir, trimmed_sicos):
     """Create a concatemer DNA file per genome containing all aligned & trimmed SICO genes."""
+    #TODO Redirect to single concatemer fasta file instead, and change output format accordingly 
     concatemer_dir = create_directory('concatemers', inside_dir = run_dir)
     log.info('Creating concatemers from {0} SICOs'.format(len(trimmed_sicos)))
 

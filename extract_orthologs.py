@@ -176,6 +176,7 @@ def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_co
                      .format(nr_shared_sico, perc(nr_shared_sico)))
         writer.write('{0:8}\t{1:8.2%}\tMultiple-copy orthologs shared across all genomes\n' \
                      .format(nr_shared_muco, perc(nr_shared_muco)))
+        #TODO Split this out into the amount of genomes in which a given ortholog is present
         writer.write('{0:8}\t{1:8.2%}\tVariable-copy orthologs shared across a subset of genomes\n' \
                      .format(nr_part_shared, perc(nr_part_shared)))
         writer.write('{0:8}\t{1:8.2%}\tTotal number of orthologs\n'.format(nr_orthologs, perc(nr_orthologs)))
