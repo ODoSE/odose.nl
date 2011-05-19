@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Module for the select taxa step."""
 
-from divergence import create_directory
+from divergence import create_directory, HTTP_CACHE
 from ftplib import FTP
-import divergence
+from operator import itemgetter
 import logging as log
 import os
 import time
@@ -25,16 +25,6 @@ def select_genomes_from_file(genomes_file):
 
     return genomes
 
-def select_taxa(clade_a_ids, clade_b_ids):
-    """From genomes table return two lists of genomes whose RefSeq project IDs are present clade_a_ids & clade_b_ids."""
-    #Print genomes in tree here, as would be done from any interface
-    genomes_table = _parse_genomes_table()
-
-    #Return genomes whose RefSeq project ID is in clade_x_ids
-    clade_a = [genome for genome in genomes_table if genome['RefSeq project ID'] in clade_a_ids]
-    clade_b = [genome for genome in genomes_table if genome['RefSeq project ID'] in clade_b_ids]
-    return clade_a, clade_b
-
 def _download_genomes_table():
     """Download complete genome table over HTTP with caching, decode as iso-8859-1 and return string."""
     genome_table = os.path.join(create_directory('.'), 'complete-genomes-table.tsv')
@@ -43,7 +33,7 @@ def _download_genomes_table():
     if not os.path.isfile(genome_table) or os.path.getmtime(genome_table) < time.time() - time_between_downloads:
         #Download complete genome table over HTTP with caching and decode as iso-8859-1
         url = 'http://www.ncbi.nlm.nih.gov/genomes/lproks.cgi?dump=selected&view=1&p1=5:0'
-        content = divergence.HTTP_CACHE.request(url)[1].decode('iso-8859-1')
+        content = HTTP_CACHE.request(url)[1].decode('iso-8859-1')
         with open(genome_table, mode = 'w') as write_handle:
             write_handle.write(content.encode('utf-8'))
     else:
@@ -101,7 +91,7 @@ def _parse_genomes_table(complete_genome_table = _download_genomes_table(), requ
             genomes = [genome for genome in genomes if genome['RefSeq project ID']]
 
     #Return the genome dictionaries
-    return genomes
+    return tuple(genomes)
 
 def _bin_using_keyfunctions(genomes, keyfunctions):
     """Bin genomes recursively according to keyfunctions, returning nested dictionaries mapping keys to collections."""
@@ -134,26 +124,24 @@ def _bin_using_keyfunctions(genomes, keyfunctions):
     #Return dictionary of keys in genomes mapped to lists of genomes for that key, or further nested dictionaries
     return bins
 
-def _print_genomes_tree(genomes):
-    """Print genomes in tree based on iterative grouping and sorting on selected_columns values."""
-
+def get_complete_genomes(genomes = _parse_genomes_table()):
+    """Get tuples of Organism Name, RefSeq project ID & False, for input into Galaxy clade selection."""
     #Bin genomes using the following key functions iteratively
-    by_kingdom = lambda x:x['Super Kingdom']
-    by_group = lambda x:x['Group']
+    by_kingdom = itemgetter('Super Kingdom')
+    by_group = itemgetter('Group')
     by_firstname = lambda x:x['Organism Name'].split()[0]
     first_bin = _bin_using_keyfunctions(genomes, [by_kingdom, by_group, by_firstname])
 
     for key1 in sorted(first_bin.keys()):
-        print('{0}'.format(key1))
         dict2 = first_bin[key1]
         for key2 in sorted(dict2.keys()):
             dict3 = dict2[key2]
-            print('\t{0}'.format(key2))
             for key3 in sorted(dict3.keys()):
                 list4 = dict3[key3]
-                print('\t\t{0}'.format(key3))
                 for genome in list4:
-                    print('\t\t\t\t{0}\t{1}\t{2}'.format(genome['RefSeq project ID'], genome['Organism Name'], genome))
+                    name = '{0}\t{1}\t{2}\t{3}'.format(by_kingdom(genome), by_group(genome), by_firstname(genome), \
+                                                  genome['Organism Name'])
+                    yield name, genome['RefSeq project ID'], False
 
 def download_genome_files(genome):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples."""
