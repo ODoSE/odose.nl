@@ -53,7 +53,7 @@ def _download_genomes_table():
     return content
 
 def _parse_genomes_table(complete_genome_table = _download_genomes_table(), require_refseq = True):
-    """Parse table of genomes and return list of column headers and list of dictionaries with values per genome."""
+    """Parse table of genomes and return list of dictionaries with values per genome."""
     #Empty lists to hold column names and genome dictionaries
     columns = []
     genomes = []
