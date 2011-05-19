@@ -103,43 +103,57 @@ def _parse_genomes_table(complete_genome_table = _download_genomes_table(), requ
     #Return the genome dictionaries
     return genomes
 
-def _bin_into_subgroups(columns, genomes):
-    """Recursively divide genomes into subsets based on unique values for each of the columns and return dictionary 
-    mapping unique values to either a further dictionary or a list of genomes."""
-    column = columns[0]
+def _bin_using_keyfunctions(genomes, keyfunctions):
+    """Bin genomes recursively according to keyfunctions, returning nested dictionaries mapping keys to collections."""
 
-    #Create dictionary mapping unique values of genome[column] to matching genomes
-    bins = {}
-    for genome in genomes:
-        group_value = genome[column]
-        bins[group_value] = bins.get(group_value, [])
-        bins[group_value].append(genome)
+    def _bin_according_to_keyfunction(genomes, keyfunction = lambda x: x):
+        """Group genomes into lists by unique values for keyfunction. Return dictionary mapping keys to lists."""
+        bins = {}
+        #Loop over genomes to map each to the right group
+        for genome in genomes:
+            #Determine key from keyfunction
+            key = keyfunction(genome)
+            #Retrieve either previous collection for key, or empty list, and assign back to bins[key]
+            bins[key] = bins.get(key, [])
+            #Add this genome to this colllection
+            bins[key].append(genome)
 
-    #Loop over created dictionary for additional processing steps
-    for key, subgenomes in bins.iteritems():
-        if 2 < len(columns):
-            #Call bin_values recursively to create further subsets of genomes
-            bins[key] = _bin_into_subgroups(columns[1:], subgenomes)
-        else:
-            #Sort list of genomes by final column
-            final_column = columns[-1]
-            bins[key] = sorted(subgenomes, key = lambda gen: gen[final_column])
+        #Sort resulting lists by keyfunction as well, so we get a nice ordering of results in the end
+        bins = dict((key, sorted(col, key = keyfunction)) for key, col in bins.iteritems())
+        return bins
 
+    #Get first keyfunction, and bin genomes by that keyfunction
+    bins = _bin_according_to_keyfunction(genomes, keyfunctions[0])
+
+    #If there are further keyfunctions available, recursively bin groups identified by current bin function
+    furtherfunctions = keyfunctions[1:]
+    if furtherfunctions:
+        for key, subset in bins.iteritems():
+            bins[key] = _bin_using_keyfunctions(subset, furtherfunctions)
+
+    #Return dictionary of keys in genomes mapped to lists of genomes for that key, or further nested dictionaries
     return bins
 
-def _print_genomes_tree(genomes, selected_columns = ('Super Kingdom', 'Group', 'Organism Name')):
+def _print_genomes_tree(genomes):
     """Print genomes in tree based on iterative grouping and sorting on selected_columns values."""
-    first_bin = _bin_into_subgroups(selected_columns, genomes)
+
+    #Bin genomes using the following key functions iteratively
+    by_kingdom = lambda x:x['Super Kingdom']
+    by_group = lambda x:x['Group']
+    by_firstname = lambda x:x['Organism Name'].split()[0]
+    first_bin = _bin_using_keyfunctions(genomes, [by_kingdom, by_group, by_firstname])
 
     for key1 in sorted(first_bin.keys()):
         print('{0}'.format(key1))
         dict2 = first_bin[key1]
         for key2 in sorted(dict2.keys()):
-            list3 = dict2[key2]
+            dict3 = dict2[key2]
             print('\t{0}'.format(key2))
-            for genome in list3:
-                print('\t\t{0}'.format(genome[selected_columns[-1]]))
-                print('\t\t\t{0}'.format(genome))
+            for key3 in sorted(dict3.keys()):
+                list4 = dict3[key3]
+                print('\t\t{0}'.format(key3))
+                for genome in list4:
+                    print('\t\t\t\t{0}\t{1}\t{2}'.format(genome['RefSeq project ID'], genome['Organism Name'], genome))
 
 def download_genome_files(genome):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples."""
