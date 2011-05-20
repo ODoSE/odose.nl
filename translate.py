@@ -118,6 +118,9 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
     #Translation table is a property of the genbank feature
     transl_table = gb_feature.qualifiers['transl_table'][0]
 
+    #We'll start out expecting a complete Coding Sequence
+    cds_has_stopcodon = True
+
     #Translate entire sequence as coding sequence using above translation table
     #Additional CodonTables are optionally available from Bio.Data.CodonTable
     try:
@@ -126,13 +129,18 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
         if 'transl_except' in gb_feature.qualifiers:
             #Fall back on GenBank translation whenever a transl_except record is found
             protein_seq = gb_feature.qualifiers['translation'][0]
-        elif ('First codon ' in str(err) and ' is not a start codon' in str(err)) or  \
-             ('Final codon ' in str(err) and ' is not a stop codon' in str(err)):
+        elif 'First codon ' in str(err) and ' is not a start codon' in str(err):
             #Occasionally an incomplete amino end coding sequence is found, such as in: YP_004377721.1 
             log.warning('Incomplete CDS found for %s from %s:%s', protein_id, gb_record.id, extracted_seq)
-            #Fall back on GenBank provided translation
-            protein_seq = gb_feature.qualifiers['translation'][0]
             log.warning('Reverting to GenBank provided translation:\n%s', protein_seq)
+            protein_seq = gb_feature.qualifiers['translation'][0]
+        elif 'Final codon ' in str(err) and ' is not a stop codon' in str(err):
+            #Occasionally an incomplete amino end coding sequence is found, such as in: YP_004377721.1 
+            log.warning('Incomplete CDS found for %s from %s:%s', protein_id, gb_record.id, extracted_seq)
+            log.warning('Reverting to GenBank provided translation:\n%s', protein_seq)
+            protein_seq = gb_feature.qualifiers['translation'][0]
+            #Set flag that this CDS does not have a stop codon, so it's not accidentally stripped off later
+            cds_has_stopcodon = False
         else:
             #Log some debug information before reraising error
             log.error(gb_feature)
@@ -147,10 +155,11 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
             break
 
     #Strip stopcodon from DNA sequence here, so it's removed by the time we align & trim the sequences
-    last_codon = str(extracted_seq[-3:])
-    codon_table = CodonTable.unambiguous_dna_by_id.get(int(transl_table))
-    assert last_codon in codon_table.stop_codons, 'Expected stopcodon after using cds=True, but was ' + last_codon
-    extracted_seq = extracted_seq[:-3]
+    if cds_has_stopcodon:
+        last_codon = str(extracted_seq[-3:])
+        codon_table = CodonTable.unambiguous_dna_by_id.get(int(transl_table))
+        assert last_codon in codon_table.stop_codons, 'Expected stopcodon after using cds=True, but was ' + last_codon
+        extracted_seq = extracted_seq[:-3]
 
     #Write out fasta. Header format as requested: >refseq_id|genbank_ac|protein_id|cog|source (either core or plasmid)
     source = 'plasmid' if plasmid else 'core'
