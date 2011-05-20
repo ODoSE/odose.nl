@@ -12,7 +12,7 @@ def select_genomes_from_file(genomes_file):
     """Select genomes from complete genomes table if their RefSeq ID is in genome_file and return them as list."""
     #Read genomes ids from genomes_file, each on their own line
     with open(genomes_file, mode = 'r') as read_handle:
-        genome_ids = [line.strip() for line in read_handle if line is not '']
+        genome_ids = [line.split()[0] for line in read_handle if line is not '']
 
     #Loop over genomes and return any genomes whose RefSeq project ID is in genome_ids
     genomes = [genome for genome in _parse_genomes_table() if genome['RefSeq project ID'] in genome_ids]
@@ -139,7 +139,7 @@ def get_complete_genomes(genomes = _parse_genomes_table()):
             for key3 in sorted(dict3.keys()):
                 list4 = dict3[key3]
                 for genome in list4:
-                    name = '<b>{3}</b> - {0} &gt; {1} &gt; <i>{2}</i>'.format( \
+                    name = '<b>{3}</b> - {0} &gt; {1} &gt; <i>{2}</i>'.format(\
                         by_group(genome), by_firstname(genome), genome['Organism Name'], genome['RefSeq project ID'])
                     yield name, genome['RefSeq project ID'], False
 
@@ -225,14 +225,18 @@ Usage: select_taxa.py
     assert 1 < len(clade_a_ids) <= 15, 'Expected no less than two and no more than 15 selected genomes for Clade A'
     assert 1 < len(clade_b_ids) <= 15, 'Expected at less than two and no more than 15 selected genomes for Clade B'
 
-    #Write IDs to file
-    #TODO Add organism name as second column, to make the RefSeq id files more self explanatory. Update rest to match. 
+    #Retrieve genome dictionaries to get to Organism Name
+    all_genomes = _parse_genomes_table()
+    clade_a_genomes = [genome for genome in all_genomes if genome['RefSeq project ID'] in clade_a_ids]
+    clade_b_genomes = [genome for genome in all_genomes if genome['RefSeq project ID'] in clade_b_ids]
+
+    #Write IDs to file, with organism name as second column, to make the RefSeq id files more self explanatory. 
     with open(clade_a_file, mode = 'w') as write_handle:
-        for refseqid in clade_a_ids:
-            write_handle.write(refseqid + '\n')
+        for genome in clade_a_genomes:
+            write_handle.write('{0}\t{1}\n'.format(genome['RefSeq project ID'], genome['Organism Name']))
     with open(clade_b_file, mode = 'w') as write_handle:
-        for refseqid in clade_b_ids:
-            write_handle.write(refseqid + '\n')
+        for genome in clade_b_genomes:
+            write_handle.write('{0}\t{1}\n'.format(genome['RefSeq project ID'], genome['Organism Name']))
 
     #Exit after a comforting log message
     log.info("Produced: \n%s &\n%s", clade_a_file, clade_b_file)

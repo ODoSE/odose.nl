@@ -149,9 +149,9 @@ Usage: run_codeml.py
 
     #Parse file containing RefSeq project IDs to extract RefSeq project IDs
     with open(genome_a_ids_file) as read_handle:
-        genome_ids_a = [line.strip() for line in read_handle]
+        genome_ids_a = [line.split()[0] for line in read_handle]
     with open(genome_b_ids_file) as read_handle:
-        genome_ids_b = [line.strip() for line in read_handle]
+        genome_ids_b = [line.split()[0] for line in read_handle]
 
     #Create run_dir to hold files relating to this run
     run_dir = tempfile.mkdtemp(prefix = 'run_codeml_')

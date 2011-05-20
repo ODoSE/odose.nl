@@ -211,7 +211,7 @@ Usage: extract_orthologs.py
 
     #Parse file containing RefSeq project IDs to extract RefSeq project IDs
     with open(genome_ids_file) as read_handle:
-        genomes = [line.strip() for line in read_handle]
+        genomes = [line.split()[0] for line in read_handle]
 
     #Create temporary directory within which to extract orthologs
     run_dir = tempfile.mkdtemp(prefix = 'extract_orthologs_run_')
