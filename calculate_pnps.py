@@ -19,6 +19,7 @@ def calculate_pnps(genomes_a, genomes_b, sico_files):
         _do_stuff(alignment_a)
         _do_stuff(alignment_b)
 
+#Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
 
 def _do_stuff(alignment):
