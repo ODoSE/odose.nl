@@ -3,6 +3,7 @@
 
 from Bio import SeqIO
 from Bio.Alphabet import generic_dna
+from collections import deque
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
 from subprocess import check_call, STDOUT
 import logging as log
@@ -14,11 +15,13 @@ import tempfile
 def run_codeml(codeml_dir, genome_ids_a, genome_ids_b, sico_files):
     """Run codeml for representatives of clades A and B in each of the SICO files, to calculate dN/dS."""
     #Pick the first genomes as representatives for each clade
-    representative_a = genome_ids_a[0]
-    representative_b = genome_ids_b[0]
+    repr_a = genome_ids_a[0]
+    repr_b = genome_ids_b[0]
 
+    #Run codeml for every SICO file
     log.info('Running codeml for {0} aligned and trimmed SICOs'.format(len(sico_files)))
-    return [_run_codeml(codeml_dir, representative_a, representative_b, sico_file) for sico_file in sico_files]
+    codeml_files = [_run_codeml(codeml_dir, repr_a, repr_b, sico_file) for sico_file in sico_files]
+    return codeml_files
 
 CODEML = '/projects/divergence/software/paml44/bin/codeml'
 
@@ -45,7 +48,7 @@ def _run_codeml(codeml_dir, repr_id_a, repr_id_b, sico_file):
     _write_nexus_file(seqr_a, seqr_b, nexus_file)
 
     #Generate codeml configuration file
-    output_file = os.path.join(codeml_dir, 'codeml_' + sico)
+    output_file = os.path.join(codeml_dir, sico + '.codeml')
     config_file = os.path.join(codeml_dir, 'codeml.ctl')
     _write_config_file(nexus_file, output_file, config_file)
 
@@ -58,7 +61,7 @@ def _run_codeml(codeml_dir, repr_id_a, repr_id_b, sico_file):
 
 def _write_nexus_file(seqr_a, seqr_b, nexus_file):
     """Write representative sequences out to a file in the codeml compatible nexus format."""
-    nexus_contents = """
+    nexus_contents = '''
 #NEXUS
 begin data; 
    dimensions ntax={ntax} nchar={nchar}; 
@@ -68,14 +71,14 @@ clade_a  {seqa}
 clade_b  {seqb}
 ;
 end;
-""".format(ntax = 2, nchar = len(seqr_a), seqa = str(seqr_a.seq), seqb = str(seqr_b.seq))
+'''.format(ntax = 2, nchar = len(seqr_a), seqa = str(seqr_a.seq), seqb = str(seqr_b.seq))
     with open(nexus_file, mode = 'w') as write_handle:
         #SeqIO.write([seqr_a, seqr_b], write_handle, 'nexus')
         write_handle.write(nexus_contents)
 
 def _write_config_file(nexus_file, output_file, config_file):
     """Write a codeml configuration file using relative paths to the nexus file and output file."""
-    config_contents = """
+    config_contents = '''
       seqfile = {0} * sequence data filename
       outfile = {1}           * main result file name
      treefile = test.tree      * tree structure file name
@@ -131,9 +134,33 @@ def _write_config_file(nexus_file, output_file, config_file):
 *   cleandata = 0  * remove sites with ambiguity data (1:yes, 0:no)?
 * fix_blength = 0
        method = 0   * 0: simultaneous; 1: one branch at a time
-""".format(os.path.split(nexus_file)[1], os.path.split(output_file)[1])
+'''.format(os.path.split(nexus_file)[1], os.path.split(output_file)[1])
     with open(config_file, mode = 'w') as write_handle:
         write_handle.write(config_contents)
+
+def _write_dnds_per_sico(dnds_file, codeml_files):
+    """For each codeml output file write dN, dS & dN/dS to single tab separated file, each on a new line."""
+    #Open file to write dN dS values to
+    with open(dnds_file, mode = 'w') as write_handle:
+        write_handle.write('#Ortholog\tdN\tdS\tdN/dS\n')
+
+        #Write on each line: SICO file, dN, dS & dN/dS
+        for codeml_file in codeml_files:
+            with open(codeml_file) as read_handle:
+                #Extract & parse last line
+                last_line = deque(read_handle).pop()
+                log.debug(last_line.strip())
+
+                #Example lines:
+                #t=50.0000  S=    97.9  N=   328.1  dN/dS= 0.0113  dN= 0.7872  dS=69.8724
+                #t= 1.0569  S=   387.3  N=   950.7  dN/dS= 0.0236  dN= 0.0272  dS= 1.1503
+                iterator = iter(item.strip() for item in last_line.replace('=', ' ').split())
+                #Use the same above iterator twice in zip to create tuples of 2 items each
+                value_dict = dict(zip(iterator, iterator))
+
+                sico = os.path.split(codeml_file)[1].split('.')[0]
+                write_handle.write('{0}\t{1[dN]}\t{1[dS]}\t{1[dN/dS]}\n'.format(sico, value_dict))
+    return dnds_file
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
@@ -143,9 +170,10 @@ Usage: run_codeml.py
 --genomes-b=FILE     file with RefSeq id from complete genomes table on each line for clade B
 --sico-zip=FILE      archive of aligned & trimmed single copy orthologous (SICO) genes
 --codeml-zip=FILE    destination file path for archive of codeml output per SICO gene
+--dnds-stats=FILE    destination file path for file with dN, dS & dN/dS values per SICO gene
 """
-    options = ['genomes-a', 'genomes-b', 'sico-zip', 'codeml-zip']
-    genome_a_ids_file, genome_b_ids_file, sico_zip, codeml_zip = parse_options(usage, options, args)
+    options = ['genomes-a', 'genomes-b', 'sico-zip', 'codeml-zip', 'dnds-stats']
+    genome_a_ids_file, genome_b_ids_file, sico_zip, codeml_zip, dnds_file = parse_options(usage, options, args)
 
     #Parse file containing RefSeq project IDs to extract RefSeq project IDs
     with open(genome_a_ids_file) as read_handle:
@@ -161,6 +189,9 @@ Usage: run_codeml.py
 
     #Actually run codeml
     codeml_files = run_codeml(run_dir, genome_ids_a, genome_ids_b, sico_files)
+
+    #Write dnds values to single output file
+    _write_dnds_per_sico(dnds_file, codeml_files)
 
     #Write the produced files to command line argument filenames
     create_archive_of_files(codeml_zip, codeml_files)

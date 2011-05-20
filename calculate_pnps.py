@@ -4,16 +4,13 @@ from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 
-def calculate_pnps(genomes_a, genomes_b, sico_files):
+def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     """"""
-    refseq_ids_a = [genome['RefSeq project ID'] for genome in genomes_a]
-    refseq_ids_b = [genome['RefSeq project ID'] for genome in genomes_b]
-
     #For each alignment create separate alignments for clade A & clade B genomes 
     alignments = (AlignIO.read(sico_file, 'fasta') for sico_file in sico_files)
     for ali in alignments:
-        alignment_a = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in refseq_ids_a)
-        alignment_b = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in refseq_ids_b)
+        alignment_a = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_a)
+        alignment_b = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_b)
 
         #Calculate pn ps for the subaligments of each clade
         _do_stuff(alignment_a)
@@ -23,6 +20,7 @@ def calculate_pnps(genomes_a, genomes_b, sico_files):
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
 
 def _do_stuff(alignment):
+    """"""
     for seqr in alignment:
         seq = str(seqr.seq)
         print '\t'.join(seq[idx:idx + 3] for idx in range(0, len(seq), 3))
