@@ -130,15 +130,15 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
             #Fall back on GenBank translation whenever a transl_except record is found
             protein_seq = gb_feature.qualifiers['translation'][0]
         elif 'First codon ' in str(err) and ' is not a start codon' in str(err):
+            protein_seq = gb_feature.qualifiers['translation'][0]
             #Occasionally an incomplete amino end coding sequence is found, such as in: YP_004377721.1 
             log.warning('Incomplete CDS found for %s from %s:%s', protein_id, gb_record.id, extracted_seq)
             log.warning('Reverting to GenBank provided translation:\n%s', protein_seq)
-            protein_seq = gb_feature.qualifiers['translation'][0]
         elif 'Final codon ' in str(err) and ' is not a stop codon' in str(err):
+            protein_seq = gb_feature.qualifiers['translation'][0]
             #Occasionally an incomplete amino end coding sequence is found, such as in: YP_004377721.1 
             log.warning('Incomplete CDS found for %s from %s:%s', protein_id, gb_record.id, extracted_seq)
             log.warning('Reverting to GenBank provided translation:\n%s', protein_seq)
-            protein_seq = gb_feature.qualifiers['translation'][0]
             #Set flag that this CDS does not have a stop codon, so it's not accidentally stripped off later
             cds_has_stopcodon = False
         else:
