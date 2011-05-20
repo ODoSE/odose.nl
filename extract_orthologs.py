@@ -155,6 +155,12 @@ def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_co
     nr_part_shared = len(partially_shared)
     nr_orthologs = nr_shared_sico + nr_shared_muco + nr_part_shared
 
+    #Count the number of partially shared orthologs per number of genomes shared among
+    nr_of_orthologs_per_nr_of_genomes = {}
+    for ortholog in partially_shared:
+        nr_of_genomes = len(ortholog)
+        nr_of_orthologs_per_nr_of_genomes[nr_of_genomes] = nr_of_orthologs_per_nr_of_genomes.get(nr_of_genomes, 0) + 1
+
     #Determine number of ORFans by deducting unique proteins identified as orthologs from total number of genes
     proteins = set(chain.from_iterable(prot for per_genome in shared_single_copy for prot in per_genome.values()))
     proteins.update(chain.from_iterable(prot for per_genome in shared_multi_copy for prot in per_genome.values()))
@@ -172,13 +178,15 @@ def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_co
         def perc(number):
             """Calculate a number as percentage of the number of the number of orthologs"""
             return number / nr_orthologs
+        writer.write('# Distribution of orthologs over identified groups:\n')
         writer.write('{0:8}\t{1:8.2%}\tSingle-copy orthologs shared across all genomes\n' \
                      .format(nr_shared_sico, perc(nr_shared_sico)))
         writer.write('{0:8}\t{1:8.2%}\tMultiple-copy orthologs shared across all genomes\n' \
                      .format(nr_shared_muco, perc(nr_shared_muco)))
-        #TODO Split this out into the amount of genomes in which a given ortholog is present
-        writer.write('{0:8}\t{1:8.2%}\tVariable-copy orthologs shared across a subset of genomes\n' \
-                     .format(nr_part_shared, perc(nr_part_shared)))
+        #Print the number of orthologs found per nr of genomes
+        for nr_of_genomes, nr_of_orthologs in nr_of_orthologs_per_nr_of_genomes.iteritems():
+            writer.write('{0:8}\t{1:8.2%}\t{2}-genome orthologs with single or multiple copies.\n' \
+                     .format(nr_of_orthologs, perc(nr_of_orthologs), nr_of_genomes))
         writer.write('{0:8}\t{1:8.2%}\tTotal number of orthologs\n'.format(nr_orthologs, perc(nr_orthologs)))
 
     assert os.path.isfile(stats_file) and 0 < os.path.getsize(stats_file), stats_file + ' should exist with content.'
