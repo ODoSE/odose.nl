@@ -48,8 +48,8 @@ def translate_genomes(genomes):
     dna_aa_pairs = [_translate_genome(genome, gbk_ptt_pairs.get()) for genome, gbk_ptt_pairs in futures]
 
     #Extract DNA & Protein files separately from dna_aa_pairs
-    dna_files = [tuple[0] for tuple in dna_aa_pairs]
-    aa_files = [tuple[1] for tuple in dna_aa_pairs]
+    dna_files = [pair[0] for pair in dna_aa_pairs]
+    aa_files = [pair[1] for pair in dna_aa_pairs]
 
     return dna_files, aa_files
 
@@ -129,38 +129,60 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
     #Original sequence retrieved through BioPython 1.53+'s internal method
     extracted_seq = gb_feature.extract(gb_record.seq) #Bio.Seq.Seq
 
+    if len(extracted_seq) % 3:
+        #Skip CDS feature if length of extracted_seq is not a multiple of three
+        log.error('Length of extracted coding sequence not a multiple of 3: %i\n%s', len(extracted_seq), extracted_seq)
+        return
+
     #Translation table is a property of the genbank feature
     transl_table = gb_feature.qualifiers['transl_table'][0]
     codon_table = CodonTable.unambiguous_dna_by_id.get(int(transl_table))
 
-    #We'll start out expecting a complete Coding Sequence
-    cds_has_stopcodon = True
+    #Set flag only when this CDS ends in a stop codon, so we can strip it off later, but do not strip non-stop-codons 
+    cds_has_stopcodon = str(extracted_seq[-3:]) in codon_table.stop_codons
 
     #Translate entire sequence as coding sequence using above translation table
     #Additional CodonTables are optionally available from Bio.Data.CodonTable
     try:
-        protein_seq = extracted_seq.translate(table = transl_table, cds = True)
-    except TranslationError as err:
+        #If transl_except is present, an alternative translation is offered in the GenBank record
         if 'transl_except' in gb_feature.qualifiers:
             #Fall back on GenBank translation whenever a transl_except record is found
             protein_seq = gb_feature.qualifiers['translation'][0]
-        elif 'First codon ' in str(err) and ' is not a start codon' in str(err):
-            protein_seq = gb_feature.qualifiers['translation'][0]
+        else:
+            protein_seq = extracted_seq.translate(table = transl_table, cds = True)
+    except TranslationError as err:
+        #Try to recover from the following errors
+        if ('First codon ' in str(err) and ' is not a start codon' in str(err)) or \
+           ('Final codon ' in str(err) and ' is not a stop codon' in str(err)):
+            #Retrieve GenBank provided reference translation
+            provided_seq = gb_feature.qualifiers['translation'][0]
+            #Calculate lengths for DNA & protein sequences
+            dna_length = len(extracted_seq)
+            aa_length = len(provided_seq)
+
             #Occasionally an incomplete amino end coding sequence is found, such as in: YP_004377721.1 
-            log.warning('Incomplete CDS found for %s from %s:%s', protein_id, gb_record.id, extracted_seq)
-            log.warning('Reverting to GenBank provided translation:\n%s', protein_seq)
-        elif 'Final codon ' in str(err) and ' is not a stop codon' in str(err):
-            protein_seq = gb_feature.qualifiers['translation'][0]
-            #Occasionally an incomplete amino end coding sequence is found, such as in: YP_004377721.1 
-            log.warning('Incomplete CDS found for %s from %s:%s', protein_id, gb_record.id, extracted_seq)
-            log.warning('Reverting to GenBank provided translation:\n%s', protein_seq)
-            #Set flag that this CDS does not have a stop codon, so it's not accidentally stripped off later
-            cds_has_stopcodon = False
+            log.warning('Incomplete CDS found for %s from %s:\n%s', protein_id, gb_record.id, extracted_seq)
+
+            #Calculate lengths for DNA & protein sequences
+            if cds_has_stopcodon:
+                #Correct check for the presence of a final stop codon
+                dna_length -= 3
+
+            #Assert lengths match, when stopcodon length is deducted
+            if dna_length != 3 * aa_length:
+                log.error('Triple protein length %i did not match DNA length %i', 3 * aa_length, dna_length)
+                #Skip this CDS feature
+                return
+
+            protein_seq = provided_seq
+            log.warning('Reverted to GenBank provided translation:\n%s', protein_seq)
         else:
             #Log some debug information before reraising error
-            log.error(gb_feature)
             log.error('Error in translating %s from %s using:\n%s', protein_id, gb_record.id, extracted_seq)
-            raise err
+            log.error(gb_feature)
+            log.error(err)
+            #Skip this CDS feature, but do continue translating future CDS within the same GenBank record 
+            return
 
     #Determine COG by looking it up based on protein identifier
     cog = None
@@ -171,8 +193,6 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
 
     #Strip stopcodon from DNA sequence here, so it's removed by the time we align & trim the sequences
     if cds_has_stopcodon:
-        last_codon = str(extracted_seq[-3:])
-        assert last_codon in codon_table.stop_codons, 'Expected stopcodon after using cds=True, but was ' + last_codon
         extracted_seq = extracted_seq[:-3]
 
     #Write out fasta. Header format as requested: >refseq_id|genbank_ac|protein_id|cog|source (either core or plasmid)
