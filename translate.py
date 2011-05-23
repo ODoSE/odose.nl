@@ -9,7 +9,9 @@ from divergence.select_taxa import download_genome_files, select_genomes_from_fi
 from multiprocessing import Pool
 import logging as log
 import os
+import shutil
 import sys
+import tempfile
 
 def _build_protein_to_cog_mapping(ptt_file):
     """Build a dictionary mapping PID to COG based on protein table file."""
@@ -40,11 +42,15 @@ def translate_genomes(genomes):
     """Download genome files, extract genes and translate those to proteins, returning DNA and protein fasta files."""
     assert len(genomes), 'Some genomes should be selected'
 
+    #Use a pool to download files in the background while translating
     pool = Pool()
     futures = [(genome, pool.apply_async(download_genome_files, (genome,))) for genome in genomes]
     dna_aa_pairs = [_translate_genome(genome, gbk_ptt_pairs.get()) for genome, gbk_ptt_pairs in futures]
-    #Unzip the above produced pairs using some magic, as per: http://docs.python.org/library/functions.html#zip
-    dna_files, aa_files = zip(*dna_aa_pairs)
+
+    #Extract DNA & Protein files separately from dna_aa_pairs
+    dna_files = [tuple[0] for tuple in dna_aa_pairs]
+    aa_files = [tuple[1] for tuple in dna_aa_pairs]
+
     return dna_files, aa_files
 
 def _translate_genome(genome, tuples_of_gbk_and_ptt_files):
@@ -69,15 +75,19 @@ def _translate_genome(genome, tuples_of_gbk_and_ptt_files):
 
 def _extract_gene_and_protein(out_dir, refseq_id, genbank_file, ptt_file = None):
     """Translate genbank DNA to protein and return resulting fasta files."""
-    #Determine filename for output file
+    #Determine filenames for temporary and cache destination output files
     file_root = os.path.splitext(genbank_file)[0]
-    aa_file = os.path.join(out_dir, os.path.split(file_root)[1] + '.faa')
-    dna_file = os.path.join(out_dir, os.path.split(file_root)[1] + '.ffn')
+    dna_file_dest = os.path.join(out_dir, os.path.split(file_root)[1] + '.ffn')
+    aa_file_dest = os.path.join(out_dir, os.path.split(file_root)[1] + '.faa')
 
-    #Check if file already exists and has content, and if so return it
-    if os.path.isfile(aa_file) and 0 < os.path.getsize(aa_file) and \
-        os.path.isfile(dna_file) and 0 < os.path.getsize(dna_file):
-        return dna_file, aa_file
+    #Check if destination output files already exist and have content, and if so return them
+    if os.path.isfile(aa_file_dest) and 0 < os.path.getsize(aa_file_dest) and \
+        os.path.isfile(dna_file_dest) and 0 < os.path.getsize(dna_file_dest):
+        return dna_file_dest, aa_file_dest
+
+    #Use temporary files as write handles when translating, so we can not pollute cache with incomplete files
+    dna_tmp = tempfile.mkstemp(suffix = '.ffn', prefix = 'translate_')[1]
+    aa_tmp = tempfile.mkstemp(suffix = '.faa', prefix = 'translate_')[1]
 
     #Determine if we'll add COG annotation from the ptt file
     if ptt_file is None:
@@ -90,21 +100,25 @@ def _extract_gene_and_protein(out_dir, refseq_id, genbank_file, ptt_file = None)
 
     #Open genbank_file & convert it using BioPython
     log.info('Translating %s', genbank_file)
-    with open(genbank_file) as file_handle:
-        with open(aa_file, mode = 'w') as aa_writer:
-            with open(dna_file, mode = 'w') as dna_writer:
-                for gb_record in SeqIO.parse(file_handle, 'genbank'):#Bio.GenBank.Record
-                    plasmid = False
-                    for gb_feature in gb_record.features:#Bio.SeqFeature
-                        if gb_feature.type == 'source' and 'plasmid' in gb_feature.qualifiers:
-                            plasmid = True
-                        #Skip any non coding sequence features or pseudo (non-functional version) CDS
-                        if gb_feature.type == 'CDS' and not 'pseudo' in gb_feature.qualifiers:
-                            _extract_and_translate_cds(cog_dict, aa_writer, dna_writer, refseq_id, gb_record, gb_feature, plasmid)
+    with open(aa_tmp, mode = 'w') as aa_wrtr:
+        with open(dna_tmp, mode = 'w') as dna_wrtr:
+            for gb_recrd in SeqIO.parse(genbank_file, 'genbank'):#Bio.GenBank.Record
+                plasmid = False
+                for gb_featr in gb_recrd.features:#Bio.SeqFeature
+                    if gb_featr.type == 'source' and 'plasmid' in gb_featr.qualifiers:
+                        plasmid = True
+                    #Skip any non coding sequence features or pseudo (non-functional version) CDS
+                    if gb_featr.type == 'CDS' and not 'pseudo' in gb_featr.qualifiers:
+                        _extract_and_translate_cds(cog_dict, aa_wrtr, dna_wrtr, refseq_id, gb_recrd, gb_featr, plasmid)
 
-    assert os.path.isfile(aa_file) and 0 < os.path.getsize(aa_file), 'File should exist and have some content now'
-    assert os.path.isfile(dna_file) and 0 < os.path.getsize(dna_file), 'File should exist and have some content now'
-    return dna_file, aa_file
+    assert os.path.isfile(dna_tmp) and 0 < os.path.getsize(dna_tmp), dna_tmp + ' should exist and have some content'
+    assert os.path.isfile(aa_tmp) and 0 < os.path.getsize(aa_tmp), aa_tmp + ' should exist and have some content'
+
+    #Move completed files to cache location only just now, so incomplete files do not pollute cache when raising errors
+    shutil.move(dna_tmp, dna_file_dest)
+    shutil.move(aa_tmp, aa_file_dest)
+
+    return dna_file_dest, aa_file_dest
 
 def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb_record, gb_feature, plasmid):
     """Extract DNA for Coding sequences, translate using GBK translation table and return dna & protein fasta files."""
@@ -117,6 +131,7 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
 
     #Translation table is a property of the genbank feature
     transl_table = gb_feature.qualifiers['transl_table'][0]
+    codon_table = CodonTable.unambiguous_dna_by_id.get(int(transl_table))
 
     #We'll start out expecting a complete Coding Sequence
     cds_has_stopcodon = True
@@ -157,7 +172,6 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
     #Strip stopcodon from DNA sequence here, so it's removed by the time we align & trim the sequences
     if cds_has_stopcodon:
         last_codon = str(extracted_seq[-3:])
-        codon_table = CodonTable.unambiguous_dna_by_id.get(int(transl_table))
         assert last_codon in codon_table.stop_codons, 'Expected stopcodon after using cds=True, but was ' + last_codon
         extracted_seq = extracted_seq[:-3]
 
