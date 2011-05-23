@@ -48,7 +48,7 @@ def _perform_calculations(alignment):
         #Count unique translations across strains
         translation_usage = dict((aa, translations.count(aa)) for aa in set(translations))
 
-        #Mutations are synonymous when coded all codons encode the same AA 
+        #Mutations are synonymous when all codons encode the same AA, and there are no gaps 
         synonymous = len(translation_usage) == 1 and len(translations) == len(codon_alignment)
 
         #Retrieve nucleotides per site within the codon 
@@ -56,12 +56,12 @@ def _perform_calculations(alignment):
         site2 = [nucl for nucl in codon_alignment[:, 1]]
         site3 = [nucl for nucl in codon_alignment[:, 2]]
 
-        #Count usages of distinct nucleotides across strains
+        #Count occurrences of distinct nucleotides across strains
         site1_usage = dict((nucl, site1.count(nucl)) for nucl in set(site1))
         site2_usage = dict((nucl, site2.count(nucl)) for nucl in set(site2))
         site3_usage = dict((nucl, site3.count(nucl)) for nucl in set(site3))
 
-        #Sites are polymorphic if at least one site contains more than one nucleotide
+        #Sites are polymorphic if they contain more than one nucleotide
         site1_polymorphic = 1 < len(site1_usage)
         site2_polymorphic = 1 < len(site2_usage)
         site3_polymorphic = 1 < len(site3_usage)
@@ -71,7 +71,7 @@ def _perform_calculations(alignment):
         if not any(polymorphisms):
             continue
 
-        #Determine if only one site is polymorphic by using boolean xor and all
+        #Determine if only one site is polymorphic by using boolean xor and not all
         single_site_polymorphism = site1_polymorphic ^ site2_polymorphic ^ site3_polymorphic and not all(polymorphisms)
 
         #Debug print statement        
@@ -87,7 +87,18 @@ def _perform_calculations(alignment):
         polymorphism_usage = site1_usage if site1_polymorphic else site2_usage if site2_polymorphic else site3_usage
 
         #Determine in how many strains the minor allele occurs
+        #Find the lowest number of times a nucleotide is used across strains 
         minor_allele_count = min(polymorphism_usage.values())
+
+        #Find out how many nucleotides occur exactly this few times if there's a tie among multiple nucleotides,
+        #so we can add this amount to the minor_allele_occupations for minor_allele_count
+        nucl_with_minor_allele_count = sum(1 for val in polymorphism_usage.values() if val == minor_allele_count)
+        #Deduct one from nucl_with_minor_allele_count if it matches the total number of different nucleotides
+        if nucl_with_minor_allele_count == len(polymorphism_usage):
+            nucl_with_minor_allele_count -= 1
+
+        #Debug log statement
+        log.info('count: {0}, number of nucl with count: {1}'.format(minor_allele_count, nucl_with_minor_allele_count))
 
         if synonymous:
             #If all polymorphisms encode for the same AA, we have multiple synonymous polymorphisms, where:
@@ -96,7 +107,7 @@ def _perform_calculations(alignment):
 
             #Increment count of minor allele occupations in dictionary that tracks this per alignment
             prev_occupations = minor_allele_occupations.get(minor_allele_count, 0)
-            minor_allele_occupations[minor_allele_count] = prev_occupations + 1
+            minor_allele_occupations[minor_allele_count] = prev_occupations + nucl_with_minor_allele_count
             continue
 
         if not synonymous:
@@ -107,15 +118,12 @@ def _perform_calculations(alignment):
 
                 #Increment count of minor allele occupations in dictionary that tracks this per alignment
                 prev_occupations = minor_allele_occupations.get(minor_allele_count, 0)
-                minor_allele_occupations[minor_allele_count] = prev_occupations + 1
+                minor_allele_occupations[minor_allele_count] = prev_occupations + nucl_with_minor_allele_count
                 continue
             else:
                 #Some, but not all polymorphisms encode for different AA, making it unclear how this should be scored
                 mixed_synonymous_polymorphisms += 1
                 continue
-
-    #TODO Multiple polymorphisms at a single site add +2 or +3 to polymorphism counts, \ 
-    #but minor_allele_count is only incremented once per site   
 
     log.info('synonymous_polymorphisms %i', synonymous_polymorphisms)
     log.info('non_synonymous_polymorphisms %i', non_synonymous_polymorphisms)
