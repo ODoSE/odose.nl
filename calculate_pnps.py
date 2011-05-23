@@ -3,9 +3,11 @@
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
+from divergence import parse_options
+import sys
 
 def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
-    """"""
+    """Calculate pN, pS, pN/pS & SFS values for all sico_files per clade, and write out statistics per SICO."""
     #For each alignment create separate alignments for clade A & clade B genomes 
     alignments = (AlignIO.read(sico_file, 'fasta') for sico_file in sico_files)
     for ali in alignments:
@@ -13,17 +15,18 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
         alignment_b = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_b)
 
         #Calculate pn ps for the subaligments of each clade
-        _do_stuff(alignment_a)
-        _do_stuff(alignment_b)
+        _perform_calculations(alignment_a)
+        _perform_calculations(alignment_b)
 
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
 
-def _do_stuff(alignment):
-    """"""
+def _perform_calculations(alignment):
+    """Perform actual calculations on the alignment to determine pN, pS, SFS & the number of ignored cases per SICO."""
+    #Print codons for easy debugging
     for seqr in alignment:
         seq = str(seqr.seq)
-        print '\t'.join(seq[idx:idx + 3] for idx in range(0, len(seq), 3))
+        print '  '.join(seq[idx:idx + 3] for idx in range(0, len(seq), 3))
 
     synonymous_polymorphisms = 0
     non_synonymous_polymorphisms = 0
@@ -109,7 +112,8 @@ def _do_stuff(alignment):
                 mixed_synonymous_polymorphisms += 1
                 continue
 
-    #TODO Multiple polymorphisms at a single site add +2 or +3 to polymorphism counts, but minor_allele_count is only incremented once per site   
+    #TODO Multiple polymorphisms at a single site add +2 or +3 to polymorphism counts, \ 
+    #but minor_allele_count is only incremented once per site   
 
     print 'synonymous_polymorphisms', synonymous_polymorphisms
     print 'non_synonymous_polymorphisms', non_synonymous_polymorphisms
@@ -117,5 +121,17 @@ def _do_stuff(alignment):
     print 'mixed_synonymous_polymorphisms', mixed_synonymous_polymorphisms
     print 'multiple_site_polymorphisms', multiple_site_polymorphisms
 
+def main(args):
+    """Main function called when run from command line or as part of pipeline."""
+    usage = """
+Usage: calculate_pnps.py 
+--alignment=FILE    alignment file in FASTA format
+"""
+    options = ['alignment']
+    alignment_file = parse_options(usage, options, args)
+
+    alignment = AlignIO.read(alignment_file, 'fasta')
+    _perform_calculations(alignment)
+
 if __name__ == '__main__':
-    pass
+    main(sys.argv[1:])
