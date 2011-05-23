@@ -6,6 +6,7 @@ from ftplib import FTP
 from operator import itemgetter
 import logging as log
 import os
+import sys
 import time
 
 def select_genomes_from_file(genomes_file):
@@ -218,12 +219,22 @@ Usage: select_taxa.py
     clade_a_ids, clade_b_ids, clade_a_file, clade_b_file = parse_options(usage, options, args)
 
     #Split clade_a_ids & clade_b_ids each on comma
-    clade_a_ids = clade_a_ids.split(',')
-    clade_b_ids = clade_b_ids.split(',')
+    clade_a_ids = [val for val in clade_a_ids.split(',') if val]
+    clade_b_ids = [val for val in clade_b_ids.split(',') if val]
 
-    #Assert each clade contains multiple IDs
-    assert 1 < len(clade_a_ids) <= 15, 'Expected no less than two and no more than 15 selected genomes for Clade A'
-    assert 1 < len(clade_b_ids) <= 15, 'Expected at less than two and no more than 15 selected genomes for Clade B'
+    #Assert each clade contains enough IDs
+    minimum = 1
+    maximum = 40
+    if not minimum <= len(clade_a_ids) <= maximum:
+        log.error('Expected no less than {0} and no more than {1} genomes for Clade A'.format(minimum, maximum))
+        sys.exit(1)
+    if not minimum <= len(clade_b_ids) <= maximum:
+        log.error('Expected no less than {0} and no more than {1} genomes for Clade B'.format(minimum, maximum))
+        sys.exit(1)
+    #Clades A and B can't both contain the minimum number of clades 
+    if len(clade_a_ids) == minimum and len(clade_b_ids) == minimum:
+        log.error('Either Clade A or Clade B should contain more than {0} genomes.'.format(minimum))
+        sys.exit(1)
 
     #Retrieve genome dictionaries to get to Organism Name
     all_genomes = _parse_genomes_table()
@@ -243,5 +254,4 @@ Usage: select_taxa.py
     return clade_a_file, clade_b_file
 
 if __name__ == '__main__':
-    import sys
     main(sys.argv[1:])
