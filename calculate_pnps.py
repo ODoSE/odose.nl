@@ -4,6 +4,7 @@ from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 from divergence import parse_options
+import logging as log
 import sys
 
 def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
@@ -26,7 +27,7 @@ def _perform_calculations(alignment):
     #Print codons for easy debugging
     for seqr in alignment:
         seq = str(seqr.seq)
-        print '  '.join(seq[idx:idx + 3] for idx in range(0, len(seq), 3))
+        log.info('  '.join(seq[idx:idx + 3] for idx in range(0, len(seq), 3)))
 
     synonymous_polymorphisms = 0
     non_synonymous_polymorphisms = 0
@@ -74,7 +75,8 @@ def _perform_calculations(alignment):
         single_site_polymorphism = site1_polymorphic ^ site2_polymorphic ^ site3_polymorphic and not all(polymorphisms)
 
         #Debug print statement        
-        print site1_usage, site2_usage, site3_usage, translation_usage, synonymous, single_site_polymorphism
+        log.info('1:{0}  2:{1}  3:{2}  Translations:{3}\tSynonymous:{4}\tSingle-site:{5}' \
+        .format(site1_usage, site2_usage, site3_usage, translation_usage, synonymous, single_site_polymorphism))
 
         #Skip multiple site polymorphisms, but do keep a count of how many we encounter
         if not single_site_polymorphism:
@@ -115,11 +117,11 @@ def _perform_calculations(alignment):
     #TODO Multiple polymorphisms at a single site add +2 or +3 to polymorphism counts, \ 
     #but minor_allele_count is only incremented once per site   
 
-    print 'synonymous_polymorphisms', synonymous_polymorphisms
-    print 'non_synonymous_polymorphisms', non_synonymous_polymorphisms
-    print 'minor_allele_occupations', minor_allele_occupations
-    print 'mixed_synonymous_polymorphisms', mixed_synonymous_polymorphisms
-    print 'multiple_site_polymorphisms', multiple_site_polymorphisms
+    log.info('synonymous_polymorphisms %i', synonymous_polymorphisms)
+    log.info('non_synonymous_polymorphisms %i', non_synonymous_polymorphisms)
+    log.info('minor_allele_occupations %s', str(minor_allele_occupations))
+    log.info('mixed_synonymous_polymorphisms %i', mixed_synonymous_polymorphisms)
+    log.info('multiple_site_polymorphisms %i', multiple_site_polymorphisms)
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
@@ -128,7 +130,7 @@ Usage: calculate_pnps.py
 --alignment=FILE    alignment file in FASTA format
 """
     options = ['alignment']
-    alignment_file = parse_options(usage, options, args)
+    (alignment_file,) = parse_options(usage, options, args)
 
     alignment = AlignIO.read(alignment_file, 'fasta')
     _perform_calculations(alignment)
