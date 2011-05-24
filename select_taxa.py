@@ -2,7 +2,7 @@
 """Module for the select taxa step."""
 
 from divergence import create_directory, HTTP_CACHE, parse_options
-from ftplib import FTP
+from ftplib import FTP, error_perm
 from operator import itemgetter
 import logging as log
 import os
@@ -148,37 +148,46 @@ def download_genome_files(genome):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples."""
     #ftp://ftp.ncbi.nih.gov/genbank/genomes/Bacteria/Sulfolobus_islandicus_M_14_25_uid18871/CP001400.ffn
     host = 'ftp.ncbi.nih.gov'
-    #Maybe later: prefix genbank here for anything missing a refseq ID but with a genbank ID 
-    base_dir = '/genomes/Bacteria'
 
     #Download using FTP
     ftp = FTP(host)
     ftp.login()
 
-    #Retrieve listing of directories under base_dir
-    ftp_file_list = ftp.nlst(base_dir)
-
-    #Projectid & refseq accessioncodes to use
+    #Try to find project directory in RefSeq curated listing
     projectid = genome['RefSeq project ID']
-    refseqacs = genome['List of RefSeq accessions']
+    base_dir = '/genomes/Bacteria'
+    project_dir = _find_project_dir(ftp, base_dir, projectid)
+    if project_dir:
+        accessioncodes = genome['List of RefSeq accessions']
+        target_dir = create_directory('refseq/' + projectid)
+    else:
+        log.warn('Genome directory not found under %s%s for %s', host, base_dir, projectid)
 
-    #Find project dir based on directory suffix
-    dir_suffix = '_uid{0}'.format(projectid)
-    project_dir = None
-    for ftp_file in ftp_file_list:
-        if ftp_file.endswith(dir_suffix):
-            project_dir = ftp_file
-            break
-    assert project_dir is not None, 'Genome directory not found under {0}{1} for {2}'.format(host, base_dir, projectid)
+        #Try instead to find project directory in GenBank originals listing
+        projectid = genome['Project ID']
+        base_dir = '/genbank/genomes/Bacteria'
+        project_dir = _find_project_dir(ftp, base_dir, projectid)
+        if project_dir:
+            accessioncodes = genome['List of GenBank accessions']
+            target_dir = create_directory('genbank/' + projectid)
+        else:
+            log.error('Genome directory not found under %s%s for %s', host, base_dir, projectid)
 
-    #Define output folder to download files to
-    target_dir = create_directory('refseq/' + projectid)
+    assert project_dir, 'Failed to find folder for genome {0}: {1}'\
+        .format(genome['RefSeq project ID'], genome['Organism Name'])
 
     #Download .gbk & .ptt files for all genome refseq accessioncodes and append them to this list as tuples of gbk + ptt
     genome_files = []
-    for refseqac in refseqacs:
-        gbk_file = _download_genome_file(ftp, project_dir, refseqac + '.gbk', target_dir)
-        ptt_file = _download_genome_file(ftp, project_dir, refseqac + '.ptt', target_dir)
+    for acc in accessioncodes:
+        gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir)
+        try:
+            ptt_file = _download_genome_file(ftp, project_dir, acc + '.ptt', target_dir)
+        except error_perm as err:
+            if 'No such file or directory' in str(err):
+                log.warn(err)
+                ptt_file = None
+            else:
+                raise err
         genome_files.append((gbk_file, ptt_file))
 
     #Be nice and close the connection
@@ -186,6 +195,18 @@ def download_genome_files(genome):
 
     #Return genome files
     return genome_files
+
+def _find_project_dir(ftp, base_dir, projectid):
+    """Find a genome project directory in a ftp directry based upon directory name postfix. Return None if not found."""
+    #Retrieve listing of directories under refseq_dir
+    directory_listing = ftp.nlst(base_dir)
+
+    #Find refseq dir based on directory suffix
+    dir_suffix = '_uid{0}'.format(projectid)
+    for ftp_file in directory_listing:
+        if ftp_file.endswith(dir_suffix):
+            return ftp_file
+    return None
 
 def _download_genome_file(ftp, remote_dir, filename, target_dir):
     """Download a single file from remote folder to target folder, only if it does not already exist."""
