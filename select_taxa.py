@@ -6,7 +6,9 @@ from ftplib import FTP, error_perm
 from operator import itemgetter
 import logging as log
 import os
+import shutil
 import sys
+import tempfile
 import time
 
 def select_genomes_from_file(genomes_file):
@@ -197,7 +199,7 @@ def download_genome_files(genome):
     return genome_files
 
 def _find_project_dir(ftp, base_dir, projectid):
-    """Find a genome project directory in a ftp directry based upon directory name postfix. Return None if not found."""
+    """Find a genome project directory in ftp directory based upon directory name postfix. Return None if not found."""
     #Retrieve listing of directories under refseq_dir
     directory_listing = ftp.nlst(base_dir)
 
@@ -210,21 +212,26 @@ def _find_project_dir(ftp, base_dir, projectid):
 
 def _download_genome_file(ftp, remote_dir, filename, target_dir):
     """Download a single file from remote folder to target folder, only if it does not already exist."""
-    out_file = os.path.join(target_dir, filename)
+    #Use a temporary file as write handle here, so we can not pollute cache when download is interrupted
+    tmp_file = tempfile.mkstemp(prefix = filename)[1]
 
     #Do not retrieve existing files
-    if not os.path.exists(out_file) or 0 == os.path.getsize(out_file):
+    if not os.path.exists(tmp_file) or 0 == os.path.getsize(tmp_file):
         #Retrieve genbank & protein table files from FTP
         log.info('Retrieving genome file %s from %s%s to %s', filename, ftp.host, remote_dir, target_dir)
 
         #Write retrieved contents to file
-        with open(out_file, mode = 'wb') as write_file:
+        with open(tmp_file, mode = 'wb') as write_file:
             #Write contents of file to shared experiment sra_lite
             def download_callback(block):
                 """ftp.retrbinary requires a callback method"""
                 write_file.write(block)
             ftp.retrbinary('RETR {0}/{1}'.format(remote_dir, filename), download_callback)
-    assert os.path.isfile(out_file) and 0 < os.path.getsize(out_file), 'File should exist and include some content now'
+    assert os.path.isfile(tmp_file) and 0 < os.path.getsize(tmp_file), 'File should exist and include some content now'
+
+    #Move completed tmp_file to actual output path
+    out_file = os.path.join(target_dir, filename)
+    shutil.move(tmp_file, out_file)
     return out_file
 
 def main(args):
