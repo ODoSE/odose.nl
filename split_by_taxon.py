@@ -11,7 +11,7 @@ import sys
 import tempfile
 
 def split_alignment_by_taxon(run_dir, genome_ids_a, genome_ids_b, sico_files):
-    """Separate mixed multiple sequence alignments with sequences from two taxa out into separate files per taxon."""
+    """Separate multiple sequence alignments with sequences from two taxa out into separate files per taxon."""
     #Collections to hold split files
     taxon_a_files = []
     taxon_b_files = []
@@ -55,7 +55,7 @@ Usage: split_by_taxon.py
 --taxon-a-zip=FILE    destination file path for archive of SICO genes belonging to taxon A
 --taxon-b-zip=FILE    destination file path for archive of SICO genes belonging to taxon B
 """
-    options = ['genomes-a', 'genomes-b', 'sico-zip', 'codeml-zip', 'dnds-stats']
+    options = ['genomes-a', 'genomes-b', 'sico-zip', 'taxon-a-zip', 'taxon-b-zip']
     genome_a_ids_file, genome_b_ids_file, sico_zip, taxon_a_zip, taxon_b_zip = parse_options(usage, options, args)
 
     #Parse file containing RefSeq project IDs to extract RefSeq project IDs
