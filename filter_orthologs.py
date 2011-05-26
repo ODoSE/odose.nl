@@ -270,7 +270,7 @@ Usage: filter_orthologs.py
 """
     options = ['orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination?', 'retained-threshold', \
                'trimmed-zip', 'concatemer-zip', 'concatemer-file', 'stats']
-    orthologs_zip, filter_cogs, filter_recombination, retained_threshold, \
+    orthologs_zip, filter_cogs_enabled, filter_recombination_enabled, retained_threshold, \
     target_trimmed, target_concat_zip, target_concat_file, target_stats_path = parse_options(usage, options, args)
 
     #Convert retained threshold to integer, so we can fail fast if argument was passed incorrectly
@@ -284,20 +284,22 @@ Usage: filter_orthologs.py
     sico_files = extract_archive_of_files(orthologs_zip, temp_dir)
 
     #Filter orthologs with multiple COG annotations among genes if flag was set
-    if filter_cogs:
+    if filter_cogs_enabled:
         #Look COG assignment among orthologs; filter those with multiple COGs & carry over COGs to unannotated sequences
         sico_files = _cog_based_filtering(sico_files)
 
+    #TODO Add option to filter out SICOs when any ortholog has been flagged as 'mobile element', 'phage' or 'IS element'
+
+    #Align SICOs so all sequences become equal length sequences
+    trim_stats_file = os.path.join(run_dir, 'trim-stats.txt')
+    aligned_files = _align_sicos(run_dir, sico_files)
+
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
-    if filter_recombination:
+    if filter_recombination_enabled:
         #TODO Implement filtering out orthologs with evidence of recombination through comparing phylogenetic trees
         pass
 
-    #TODO Add option to filter out SICOs when any ortholog has been flagged as 'mobile element', 'phage' or 'IS element'
-
-    #Filter orthologs that retain less than PERC % of sequence after trimming alignment
-    trim_stats_file = os.path.join(run_dir, 'trim-stats.txt')
-    aligned_files = _align_sicos(run_dir, sico_files)
+    #Filter orthologs that retain less than PERC % of sequence after trimming alignment    
     trimmed_files = _trim_alignments(run_dir, aligned_files, retained_threshold, trim_stats_file)
 
     #Concatenate trimmed_files per genome
