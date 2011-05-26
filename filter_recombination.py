@@ -8,8 +8,9 @@ from subprocess import Popen, PIPE, STDOUT
 import os.path
 import shutil
 import tempfile
+import logging as log
 
-def filter_recombination_orthologs(gids_a, gids_b, aligned_files):
+def filter_recombined_orthologs(gids_a, gids_b, aligned_files):
     """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees."""
     run_dir = tempfile.mkdtemp(prefix = 'filter_recombination_')
 
@@ -37,6 +38,8 @@ def _recombined_sico(run_dir, genome_ids_a, genome_ids_b, aligned_file):
 
     return recombination_found
 
+DNADIST = '/projects/divergence/software/phylip-3.69/exe/dnadist'
+
 def _run_dna_dist(run_dir, alignment):
     """Run dnadist to calculate distances between individual strains in a distance matrix, as input for neighbor."""
     #Run calculations inside a directory
@@ -47,14 +50,15 @@ def _run_dna_dist(run_dir, alignment):
     nr_of_sites = len(alignment[0])
     infile = os.path.join(dnadist_dir, 'infile')
     with open(infile, mode = 'w') as write_handle:
-        write_handle.write('   {0}   {2}'.format(nr_of_species, nr_of_sites))
+        write_handle.write('   {0}   {1}\n'.format(nr_of_species, nr_of_sites))
 
         for seq_record in alignment:
             name = seq_record.id.split('|')[0]
-            write_handle.write('{0:10}{1}'.format(name, seq_record.seq))
+            write_handle.write('{0:10}{1}\n'.format(name, seq_record.seq))
 
     #Actually run the dnadist program in the correct directory, and send input to it for the first prompt
-    process = Popen('/path/to/dnadist', cwd = dnadist_dir, stdout = PIPE, stderr = STDOUT)
+    log.info('Executing: %s in %s', DNADIST, dnadist_dir)
+    process = Popen(DNADIST, cwd = dnadist_dir, stderr = STDOUT, stdin = PIPE)
     process.communicate(input = 'Y\n')
 
     #Retrieve outputfile
@@ -62,20 +66,29 @@ def _run_dna_dist(run_dir, alignment):
     assert os.path.exists(outfile) and 0 < os.path.getsize(outfile), outfile + ' should exist with some content now'
     return outfile
 
+NEIGHBOR = '/projects/divergence/software/phylip-3.69/exe/neighbor'
+
 def _run_neighbor(run_dir, distance_file):
     """Run neighbor to generate a tree of the distances in the distance file, and return the generated tree file."""
     neighbor_dir = create_directory('neighbor', inside_dir = run_dir)
 
     shutil.move(distance_file, os.path.join(neighbor_dir, 'infile'))
 
-    #TODO Run neighbor
+    #Acutally run neighbor
+    log.info('Executing: %s in %s', NEIGHBOR, neighbor_dir)
+    process = Popen(NEIGHBOR, cwd = neighbor_dir, stderr = STDOUT, stdin = PIPE)
+    process.communicate(input = 'Y\n')
 
-    tree_file = os.path.join(neighbor_dir, 'outtree')
-    return tree_file
+    treefile = os.path.join(neighbor_dir, 'outtree')
+    assert os.path.exists(treefile) and 0 < os.path.getsize(treefile), treefile + ' should exist with some content now'
+    return treefile
 
 
 def _find_recombination(genome_ids_a, genome_ids_b, tree_file):
     """Look for evidence of recombination by seeing if all genomes of the separate taxa group together in the tree."""
+
+    with open(tree_file) as read_handle:
+        print read_handle.readlines()
 
     return False
 
