@@ -299,10 +299,10 @@ Usage: filter_orthologs.py
 
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
     if filter_recombination_enabled:
-        filter_recombined_orthologs(genome_ids_a, genome_ids_b, aligned_files)
+        non_recombined_files = filter_recombined_orthologs(genome_ids_a, genome_ids_b, aligned_files)[0]
 
     #Filter orthologs that retain less than PERC % of sequence after trimming alignment    
-    trimmed_files = _trim_alignments(run_dir, aligned_files, retained_threshold, trim_stats_file)
+    trimmed_files = _trim_alignments(run_dir, non_recombined_files, retained_threshold, trim_stats_file)
 
     #Concatenate trimmed_files per genome
     concatemer_files = _concatemer_per_genome(run_dir, trimmed_files)
