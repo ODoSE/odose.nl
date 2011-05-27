@@ -98,7 +98,7 @@ def _perform_calculations(alignment):
             nucl_with_minor_allele_count -= 1
 
         #Debug log statement
-        log.info('count: {0}, number of nucl with count: {1}'.format(minor_allele_count, nucl_with_minor_allele_count))
+        log.info('minor allele count: {0}, number of nucl with count: {1}'.format(minor_allele_count, nucl_with_minor_allele_count))
 
         if synonymous:
             #If all polymorphisms encode for the same AA, we have multiple synonymous polymorphisms, where:
