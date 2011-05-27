@@ -14,24 +14,28 @@ def filter_recombined_orthologs(gids_a, gids_b, aligned_files):
     """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees."""
     run_dir = tempfile.mkdtemp(prefix = 'filter_recombination_')
 
-    non_rec = [sico_file for sico_file in aligned_files if not _recombined_sico(run_dir, gids_a, gids_b, sico_file)]
+    non_rec = [sico_file for sico_file in aligned_files if not _is_recombined(run_dir, gids_a, gids_b, sico_file)]
 
     shutil.rmtree(run_dir)
 
     return non_rec
 
 
-def _recombined_sico(run_dir, genome_ids_a, genome_ids_b, aligned_file):
+def _is_recombined(run_dir, genome_ids_a, genome_ids_b, aligned_file):
     """Look for evidence of recombination between two taxa and return True if it is found, False if it is not found."""
+
+    #Determine input file base name to create a run specific directory
+    base_name = os.path.split(os.path.splitext(aligned_file)[0])[1]
+    ortholog_dir = create_directory(base_name, inside_dir = run_dir)
 
     #Read alignment file
     alignment = AlignIO.read(aligned_file, 'fasta')
 
     #Create distance file
-    distance_file = _run_dna_dist(run_dir, alignment)
+    distance_file = _run_dna_dist(ortholog_dir, alignment)
 
     #Create tree file
-    tree_file = _run_neighbor(run_dir, distance_file)
+    tree_file = _run_neighbor(ortholog_dir, distance_file)
 
     #Parse tree file to ensure all genome_ids_a & genome_ids_b group together in the tree
     recombination_found = _find_recombination(genome_ids_a, genome_ids_b, tree_file)
@@ -58,7 +62,7 @@ def _run_dna_dist(run_dir, alignment):
 
     #Actually run the dnadist program in the correct directory, and send input to it for the first prompt
     log.info('Executing: %s in %s', DNADIST, dnadist_dir)
-    process = Popen(DNADIST, cwd = dnadist_dir, stderr = STDOUT, stdin = PIPE)
+    process = Popen(DNADIST, cwd = dnadist_dir, stdin = PIPE, stdout = PIPE, stderr = STDOUT)
     process.communicate(input = 'Y\n')
 
     #Retrieve outputfile
@@ -74,11 +78,12 @@ def _run_neighbor(run_dir, distance_file):
 
     shutil.move(distance_file, os.path.join(neighbor_dir, 'infile'))
 
-    #Acutally run neighbor
+    #Actually run neighbor
     log.info('Executing: %s in %s', NEIGHBOR, neighbor_dir)
-    process = Popen(NEIGHBOR, cwd = neighbor_dir, stderr = STDOUT, stdin = PIPE)
+    process = Popen(NEIGHBOR, cwd = neighbor_dir, stdin = PIPE, stdout = PIPE, stderr = STDOUT)
     process.communicate(input = 'Y\n')
 
+    #Retrieve newick tree file
     treefile = os.path.join(neighbor_dir, 'outtree')
     assert os.path.exists(treefile) and 0 < os.path.getsize(treefile), treefile + ' should exist with some content now'
     return treefile
@@ -88,7 +93,9 @@ def _find_recombination(genome_ids_a, genome_ids_b, tree_file):
     """Look for evidence of recombination by seeing if all genomes of the separate taxa group together in the tree."""
 
     with open(tree_file) as read_handle:
-        print read_handle.readlines()
+        tree = ''.join(line.strip() for line in read_handle)
+        print tree
+
 
     return False
 
