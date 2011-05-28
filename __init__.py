@@ -104,12 +104,18 @@ def parse_options(usage, options, args):
         print >> sys.stderr, usage
         sys.exit(1)
 
-    #Remove postfix '?' from options for flags
-    options = [opt[:-1] if opt[-1] == '?' else opt for opt in options]
+    #Remove postfixes '=?' and '?' from options, and '=' postfix from flags
+    options = [opt[:-2] if opt[-2:] == '=?' else opt[:-1] if opt[-1] == '?' else opt for opt in options]
+    flags = [flag[:-1] if flag[-1] == '=' else flag for flag in flags]
 
     #Correctly set True/False values for flags, regardless of whether flag was already passed as argument or not
     for flag in flags:
-        arguments[flag] = flag in arguments
+        if flag in arguments:
+            #Only overwrite with True if value is empty, as optional arguments (flags) can have values as well
+            if not arguments[flag]:
+                arguments[flag] = True
+        else:
+            arguments[flag] = False
 
     #Ensure all arguments were provided
     for opt in options:
@@ -118,6 +124,6 @@ def parse_options(usage, options, args):
             print >> sys.stderr, usage
             sys.exit(1)
 
-    #Retrieve & return file paths from dictionary
+    #Retrieve & return file paths from dictionary in order of options
     return [arguments[option] for option in options]
 

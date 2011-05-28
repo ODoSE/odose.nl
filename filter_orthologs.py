@@ -258,23 +258,30 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: filter_orthologs.py
---genomes-a=FILE     file with RefSeq id from complete genomes table on each line for taxon A
---genomes-b=FILE     file with RefSeq id from complete genomes table on each line for taxon B
---orthologs-zip=FILE         archive of orthologous genes in FASTA format
+--genomes-a=FILE               file with RefSeq id from complete genomes table on each line for taxon A
+--genomes-b=FILE               file with RefSeq id from complete genomes table on each line for taxon B
+--orthologs-zip=FILE           archive of orthologous genes in FASTA format
 
---filter-multiple-cogs       filter orthologs with multiple COG annotations among genes
---filter-recombination       filter orthologs that show recombination when comparing phylogenetic trees
---retained-threshold=PERC    filter orthologs that retain less than PERC % of sequence after trimming alignment 
+--filter-multiple-cogs         filter orthologs with multiple COG annotations among genes [OPTIONAL]
+--filter-recombination=FILE    filter orthologs that show recombination when comparing phylogenetic trees [OPTIONAL]
+                               destination file path for archive of recombination orthologs 
+--retained-threshold=PERC      filter orthologs that retain less than PERC % of sequence after trimming alignment 
 
---trimmed-zip=FILE           destination file path for archive of aligned & trimmed orthologous genes
---concatemer-zip=FILE        destination file path for archive of concatemers per genome
---concatemer-file=FILE       destination file path for super-concatemer of all genomes
---stats=FILE                 destination file path for ortholog trimming statistics file
+--trimmed-zip=FILE             destination file path for archive of aligned & trimmed orthologous genes
+--concatemer-zip=FILE          destination file path for archive of concatemers per genome
+--concatemer-file=FILE         destination file path for super-concatemer of all genomes
+--stats=FILE                   destination file path for ortholog trimming statistics file
 """
-    options = ['genomes-a', 'genomes-b', 'orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination?', \
+    options = ['genomes-a', 'genomes-b', 'orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination=?', \
                'retained-threshold', 'trimmed-zip', 'concatemer-zip', 'concatemer-file', 'stats']
-    genome_ids_a, genome_ids_b, orthologs_zip, filter_cogs_enabled, filter_recombination_enabled, retained_threshold, \
+    ids_file_a, ids_file_b, orthologs_zip, filter_cogs_enabled, filter_recombination, retained_threshold, \
     target_trimmed, target_concat_zip, target_concat_file, target_stats_path = parse_options(usage, options, args)
+
+    #Parse file containing RefSeq project IDs to extract RefSeq project IDs
+    with open(ids_file_a) as read_handle:
+        genome_ids_a = [line.split()[0] for line in read_handle]
+    with open(ids_file_b) as read_handle:
+        genome_ids_b = [line.split()[0] for line in read_handle]
 
     #Convert retained threshold to integer, so we can fail fast if argument was passed incorrectly
     retained_threshold = int(retained_threshold)
@@ -298,8 +305,8 @@ Usage: filter_orthologs.py
     aligned_files = _align_sicos(run_dir, sico_files)
 
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
-    if filter_recombination_enabled:
-        aligned_files = filter_recombined_orthologs(genome_ids_a, genome_ids_b, aligned_files)[0]
+    if filter_recombination:
+        aligned_files, recombined_files = filter_recombined_orthologs(genome_ids_a, genome_ids_b, aligned_files)
 
     #Filter orthologs that retain less than PERC % of sequence after trimming alignment    
     trimmed_files = _trim_alignments(run_dir, aligned_files, retained_threshold, trim_stats_file)
@@ -313,13 +320,25 @@ Usage: filter_orthologs.py
     #Create archives of files on command line specified output paths & move trim_stats_file
     create_archive_of_files(target_trimmed, trimmed_files)
     create_archive_of_files(target_concat_zip, concatemer_files)
+    if filter_recombination:
+        create_archive_of_files(filter_recombination, recombined_files)
     shutil.move(trim_stats_file, target_stats_path)
 
     #Remove unused files to free disk space 
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s\n%s\n%s\n%s", target_trimmed, target_concat_zip, target_concat_file, target_stats_path)
+    log.info('Produced: ')
+    if filter_recombination:
+        log.info(filter_recombination)
+    log.info(target_trimmed)
+    log.info(target_concat_zip)
+    log.info(target_concat_zip)
+    log.info(target_concat_file)
+    log.info(target_stats_path)
+
+    if filter_recombination:
+        return filter_recombination, target_trimmed, target_concat_zip, target_concat_file, target_stats_path
     return target_trimmed, target_concat_zip, target_concat_file, target_stats_path
 
 if __name__ == '__main__':

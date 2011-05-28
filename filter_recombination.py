@@ -121,7 +121,7 @@ def _find_recombination(genome_ids_a, genome_ids_b, tree_file):
         #We'll declare to have found recombination when the taxa identified through the tree do not match the user taxa.
         recombination_found = set(genome_ids_a) != clade_one or set(genome_ids_b) != clade_two
     else:
-        assert genome_ids_a[0] in clade_two
+        assert genome_ids_a[0] in clade_two, '{0}\n{1}\n{2}\n{3}'.format(tree_file, clade_one, clade_two, genome_ids_a[0])
         recombination_found = set(genome_ids_a) != clade_one or set(genome_ids_b) != clade_two
 
     return recombination_found
