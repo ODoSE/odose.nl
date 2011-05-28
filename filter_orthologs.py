@@ -295,6 +295,7 @@ Usage: filter_orthologs.py
 
     #Filter orthologs with multiple COG annotations among genes if flag was set
     if filter_cogs_enabled:
+        log.info('Filtering orthologs with multiple COG annotations')
         #Look COG assignment among orthologs; filter those with multiple COGs & carry over COGs to unannotated sequences
         sico_files = _cog_based_filtering(sico_files)
 
@@ -306,6 +307,7 @@ Usage: filter_orthologs.py
 
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
     if filter_recombination:
+        log.info('Filtering orthologs where phylogenetic trees show evidence of recombination')
         aligned_files, recombined_files = filter_recombined_orthologs(genome_ids_a, genome_ids_b, aligned_files)
 
     #Filter orthologs that retain less than PERC % of sequence after trimming alignment    

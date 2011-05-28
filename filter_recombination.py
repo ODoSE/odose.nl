@@ -20,7 +20,8 @@ def filter_recombined_orthologs(genome_ids_a, genome_ids_b, aligned_files):
     non_recomb = []
     recombined = []
 
-    #Assign ortholog files to the correct collection based on wether they show recombination 
+    #Assign ortholog files to the correct collection based on whether they show recombination
+    log.info('Recombination found in the following orthologs:')
     for ortholog_file in aligned_files:
         #Determine input file base name to create an ortholog run specific directory
         base_name = os.path.split(os.path.splitext(ortholog_file)[0])[1]
@@ -35,7 +36,7 @@ def filter_recombined_orthologs(genome_ids_a, genome_ids_b, aligned_files):
         #Parse tree file to ensure all genome_ids_a & genome_ids_b group together in the tree
         if _find_recombination(genome_ids_a, genome_ids_b, tree_file):
             recombined.append(ortholog_file)
-            log.info('%s showed evidence of recombination', base_name)
+            log.info(base_name)
         else:
             non_recomb.append(ortholog_file)
 
@@ -117,11 +118,12 @@ def _find_recombination(genome_ids_a, genome_ids_b, tree_file):
     clade_two = set(str(int(leaf.confidence)) for leaf in clades[1].get_terminals())
 
     #Use first genome of clade A to determine which collections should match with one another
-    if genome_ids_a[0] in clade_one:
-        #We'll declare to have found recombination when the taxa identified through the tree do not match the user taxa.
+    first_a_id = genome_ids_a[0]
+    if first_a_id in clade_one:
+        #We'll declare to have found recombination when the taxa identified through the tree do not match the user taxa
         recombination_found = set(genome_ids_a) != clade_one or set(genome_ids_b) != clade_two
     else:
-        assert genome_ids_a[0] in clade_two, '{0}\n{1}\n{2}\n{3}'.format(tree_file, clade_one, clade_two, genome_ids_a[0])
+        assert first_a_id in clade_two, '{0}\n{1}\n{2}\n{3}'.format(tree_file, clade_one, clade_two, first_a_id)
         recombination_found = set(genome_ids_a) != clade_one or set(genome_ids_b) != clade_two
 
     return recombination_found
