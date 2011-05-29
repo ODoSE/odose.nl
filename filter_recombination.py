@@ -4,21 +4,26 @@ phylogenetic trees."""
 
 from Bio import AlignIO, Phylo
 from divergence import create_directory
+from divergence.filter_orthologs import _concatemer_per_genome, _create_super_concatemer
 from subprocess import Popen, PIPE, STDOUT
 import logging as log
 import os.path
 import shutil
-import tempfile
 
-def filter_recombined_orthologs(genome_ids_a, genome_ids_b, aligned_files):
+def filter_recombined_orthologs(run_dir, aligned_files):
     """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees. 
     Return two collections of aligned files, the first without recombination, the second with recombination."""
-    #Create temporary directory for run files
-    run_dir = tempfile.mkdtemp(prefix = 'filter_recombination_')
-
     #Collections to hold both non recombination files & files showing recombination 
     non_recomb = []
     recombined = []
+
+    #Determine the taxa present in the super concatemer tree
+    concatemer_files = _concatemer_per_genome(run_dir, aligned_files)
+    super_concatemer = os.path.join(run_dir, 'super_concatemer.fna')
+    _create_super_concatemer(concatemer_files, super_concatemer)
+    super_distance_file = _run_dna_dist(run_dir, super_concatemer)
+    super_tree_file = _run_neighbor(run_dir, super_distance_file)
+    genome_ids_a, genome_ids_b = _read_taxa_from_tree(super_tree_file)
 
     #Assign ortholog files to the correct collection based on whether they show recombination
     log.info('Recombination found in the following orthologs:')
@@ -41,9 +46,6 @@ def filter_recombined_orthologs(genome_ids_a, genome_ids_b, aligned_files):
             non_recomb.append(ortholog_file)
 
     log.info('Recombination found in %i out of %i orthologs', len(recombined), len(aligned_files))
-
-    #Remove temporary directory to clean up disk space
-    shutil.rmtree(run_dir)
 
     return non_recomb, recombined
 
@@ -97,6 +99,21 @@ def _run_neighbor(run_dir, distance_file):
     assert os.path.exists(treefile) and 0 < os.path.getsize(treefile), treefile + ' should exist with some content now'
     return treefile
 
+
+def _read_taxa_from_tree(tree_file):
+    """Read tree_file in Newick format to identify the first two clades that split up this tree and their leafs."""
+    #Parse tree using BioPython, which wrongly interprets the RefSeq IDs as confidence scores, but that'll do for now.
+    phylo_tree = Phylo.read(tree_file, 'newick')
+
+    #Of the full tree retrieve the clades from the root clade, expecting exactly two distinct clades after UPGMA
+    clades = phylo_tree.clade.clades
+    assert len(clades) == 2, 'Expected two clades as child of tree\'s first clade, but was {0}'.format(len(clades))
+
+    #Get all the leafs for the above two clades in a similar format to the genome_ids
+    clade_one = sorted(str(int(leaf.confidence)) for leaf in clades[0].get_terminals())
+    clade_two = sorted(str(int(leaf.confidence)) for leaf in clades[1].get_terminals())
+    return clade_one, clade_two
+
 def _find_recombination(genome_ids_a, genome_ids_b, tree_file):
     """Look for evidence of recombination by seeing if all genomes of the separate taxa group together in the tree."""
 
@@ -106,25 +123,16 @@ def _find_recombination(genome_ids_a, genome_ids_b, tree_file):
     #(58973:0.00000,58831:0.00000):0.00367):0.00117,(((58917:0.00000,59247:0.00000):0.00000,59249:0.00000):0.00367,
     #(59269:0.00000,58201:0.00000):0.00367):0.00117):0.00172,58017:0.00655):0.02311):0.05199)
 
-    #Parse tree using BioPython, which wrongly interprets the RefSeq IDs as confidence scores, but that'll do for now.
-    phylo_tree = Phylo.read(tree_file, 'newick')
-
-    #Of the full tree retrieve the clades from the root clade, expecting exactly two distinct clades after UPGMA
-    clades = phylo_tree.clade.clades
-    assert len(clades) == 2
-
-    #Get all the leafs for the above two clades in a similar format to the genome_ids
-    clade_one = set(str(int(leaf.confidence)) for leaf in clades[0].get_terminals())
-    clade_two = set(str(int(leaf.confidence)) for leaf in clades[1].get_terminals())
+    clade_one, clade_two = _read_taxa_from_tree(tree_file)
 
     #Use first genome of clade A to determine which collections should match with one another
     first_a_id = genome_ids_a[0]
     if first_a_id in clade_one:
         #We'll declare to have found recombination when the taxa identified through the tree do not match the user taxa
-        recombination_found = set(genome_ids_a) != clade_one or set(genome_ids_b) != clade_two
+        recombination_found = set(genome_ids_a) != set(clade_one) or set(genome_ids_b) != set(clade_two)
     else:
         assert first_a_id in clade_two, '{0}\n{1}\n{2}\n{3}'.format(tree_file, clade_one, clade_two, first_a_id)
-        recombination_found = set(genome_ids_a) != clade_one or set(genome_ids_b) != clade_two
+        recombination_found = set(genome_ids_a) != set(clade_two) or set(genome_ids_b) != set(clade_one)
 
     return recombination_found
 

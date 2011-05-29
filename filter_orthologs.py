@@ -5,7 +5,6 @@ from __future__ import division
 from Bio import AlignIO, SeqIO
 from Bio.SeqRecord import SeqRecord
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
-from filter_recombination import filter_recombined_orthologs
 from multiprocessing import Pool
 from operator import itemgetter
 from subprocess import check_call, STDOUT
@@ -258,8 +257,6 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: filter_orthologs.py
---genomes-a=FILE               file with RefSeq id from complete genomes table on each line for taxon A
---genomes-b=FILE               file with RefSeq id from complete genomes table on each line for taxon B
 --orthologs-zip=FILE           archive of orthologous genes in FASTA format
 
 --filter-multiple-cogs         filter orthologs with multiple COG annotations among genes [OPTIONAL]
@@ -272,16 +269,10 @@ Usage: filter_orthologs.py
 --concatemer-file=FILE         destination file path for super-concatemer of all genomes
 --stats=FILE                   destination file path for ortholog trimming statistics file
 """
-    options = ['genomes-a', 'genomes-b', 'orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination=?', \
-               'retained-threshold', 'trimmed-zip', 'concatemer-zip', 'concatemer-file', 'stats']
-    ids_file_a, ids_file_b, orthologs_zip, filter_cogs_enabled, filter_recombination, retained_threshold, \
+    options = ['orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination=?', 'retained-threshold', \
+               'trimmed-zip', 'concatemer-zip', 'concatemer-file', 'stats']
+    orthologs_zip, filter_cogs_enabled, filter_recombination, retained_threshold, \
     target_trimmed, target_concat_zip, target_concat_file, target_stats_path = parse_options(usage, options, args)
-
-    #Parse file containing RefSeq project IDs to extract RefSeq project IDs
-    with open(ids_file_a) as read_handle:
-        genome_ids_a = [line.split()[0] for line in read_handle]
-    with open(ids_file_b) as read_handle:
-        genome_ids_b = [line.split()[0] for line in read_handle]
 
     #Convert retained threshold to integer, so we can fail fast if argument was passed incorrectly
     retained_threshold = int(retained_threshold)
@@ -308,7 +299,8 @@ Usage: filter_orthologs.py
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
     if filter_recombination:
         log.info('Filtering orthologs where phylogenetic trees show evidence of recombination')
-        aligned_files, recombined_files = filter_recombined_orthologs(genome_ids_a, genome_ids_b, aligned_files)
+        from divergence.filter_recombination import filter_recombined_orthologs
+        aligned_files, recombined_files = filter_recombined_orthologs(run_dir, aligned_files)
 
     #Filter orthologs that retain less than PERC % of sequence after trimming alignment    
     trimmed_files = _trim_alignments(run_dir, aligned_files, retained_threshold, trim_stats_file)
