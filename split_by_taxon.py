@@ -71,11 +71,11 @@ Usage: split_by_taxon.py
     sico_files = extract_archive_of_files(sico_zip, create_directory('alignments', inside_dir = run_dir))
 
     #Actually split alignments per taxon
-    taxon_a_files, taxon_b_files = split_alignment_by_taxon(run_dir, genome_ids_a, genome_ids_b, sico_files)
+    taxon_files_pair = split_alignment_by_taxon(run_dir, genome_ids_a, genome_ids_b, sico_files)
 
     #Write the produced files to command line argument filenames
-    create_archive_of_files(taxon_a_zip, taxon_a_files)
-    create_archive_of_files(taxon_b_zip, taxon_b_files)
+    create_archive_of_files(taxon_a_zip, taxon_files_pair[0])
+    create_archive_of_files(taxon_b_zip, taxon_files_pair[1])
 
     #Remove unused files to free disk space 
     shutil.rmtree(run_dir)
