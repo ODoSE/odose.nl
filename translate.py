@@ -5,7 +5,7 @@ from Bio import SeqIO
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import TranslationError
 from divergence import create_directory, concatenate, create_archive_of_files, parse_options
-from divergence.select_taxa import download_genome_files, select_genomes_from_file
+from divergence.select_taxa import download_genome_files, select_genomes_by_ids
 from multiprocessing import Pool
 import logging as log
 import os
@@ -224,8 +224,12 @@ Usage: translate.py
     options = ['genomes', 'dna-zip', 'protein-zip']
     genome_ids_file, dna_zipfile, protein_zipfile = parse_options(usage, options, args)
 
+    #Read genomes ids from genomes_file, each on their own line
+    with open(genome_ids_file) as read_handle:
+        genome_ids = [line.split()[0] for line in read_handle]
+
     #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
-    genomes = select_genomes_from_file(genome_ids_file)
+    genomes = select_genomes_by_ids(genome_ids)
 
     #Actually translate the genomes to produced a set of files for both  dna files & protein files
     dna_files, protein_files = translate_genomes(genomes)

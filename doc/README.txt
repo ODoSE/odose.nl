@@ -22,6 +22,7 @@
 	TranslatorX
 	PAML
 	DoFE
+	PHYLIP
 	Galaxy
 	
 	#Galaxy plotting requirements

@@ -11,12 +11,8 @@ import sys
 import tempfile
 import time
 
-def select_genomes_from_file(genomes_file):
+def select_genomes_by_ids(genome_ids):
     """Select genomes from complete genomes table if their RefSeq ID is in genome_file and return them as list."""
-    #Read genomes ids from genomes_file, each on their own line
-    with open(genomes_file, mode = 'r') as read_handle:
-        genome_ids = [line.split()[0] for line in read_handle if line is not '']
-
     #Loop over genomes and return any genomes whose RefSeq project ID is in genome_ids
     genomes = [genome for genome in _parse_genomes_table() if genome['RefSeq project ID'] in genome_ids]
 

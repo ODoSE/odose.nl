@@ -1,20 +1,20 @@
 #!/usr/bin/env python
-"""Module to clean up orthologs after OrthoMCL step."""
+"""Module to filter orthologs either with multiple COG annotations or when recombination is found."""
 
 from __future__ import division
-from Bio import AlignIO, SeqIO
+from Bio import AlignIO, Phylo, SeqIO
 from Bio.SeqRecord import SeqRecord
-from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
-from multiprocessing import Pool
-from operator import itemgetter
-from subprocess import check_call, STDOUT
+from divergence import create_directory, extract_archive_of_files, create_archive_of_files, \
+    parse_options
+from divergence.orthologs_to_concatemers import concatemer_per_genome, create_super_concatemer
+from subprocess import Popen, PIPE, STDOUT
 import logging as log
-import os
+import os.path
 import shutil
 import sys
 import tempfile
 
-def _cog_based_filtering(sico_files):
+def cog_based_filtering(sico_files):
     """Inspect COGs for sequences marked as orthologs by OrthoMCL, and append some details about this to stats_file."""
     #Retrieve SICO to cog dictionaries of cog conflicts & transferable cog annotations, and list of SICOs missing cog
     cog_conflicts, cog_transferable, cog_missing = _group_cog_issues(sico_files)
@@ -85,255 +85,181 @@ def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
         for sico_file in cog_missing:
             log.info(os.path.split(sico_file)[1])
 
-def _align_sicos(run_dir, sico_files):
-    """Align all SICO files given as argument in parallel and return the resulting alignment files."""
-    log.info('Aligning {0} SICO genes using TranslatorX & muscle.'.format(len(sico_files)))
-    #We'll multiplex this embarrassingly parallel task using a pool of workers
-    tuples = [(run_dir, sico_file) for sico_file in sico_files]
-    return Pool().map(_run_translatorx, tuples)
+def filter_recombined_orthologs(run_dir, aligned_files):
+    """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees. 
+    Return two collections of aligned files, the first without recombination, the second with recombination."""
+    #Collections to hold both non recombination files & files showing recombination 
+    non_recomb = []
+    recombined = []
 
-TRANSLATORX = '/projects/divergence/software/translatorx/translatorx_v1.1.pl'
+    #Determine the taxa present in the super concatemer tree
+    concatemer_files = concatemer_per_genome(run_dir, aligned_files)
+    super_concatemer = os.path.join(run_dir, 'super_concatemer.fna')
+    create_super_concatemer(concatemer_files, super_concatemer)
+    super_distance_file = _run_dna_dist(run_dir, super_concatemer)
+    super_tree_file = _run_neighbor(run_dir, super_distance_file)
+    genome_ids_a, genome_ids_b = _read_taxa_from_tree(super_tree_file)
 
-def _run_translatorx((run_dir, sico_file), translation_table = '11'):
-    """Run TranslatorX to create DNA level alignment file of protein level aligned DNA sequences within sico_file."""
-    assert os.path.exists(TRANSLATORX) and os.access(TRANSLATORX, os.X_OK), 'Could not find or run ' + TRANSLATORX
+    #Assign ortholog files to the correct collection based on whether they show recombination
+    log.info('Recombination found in the following orthologs:')
+    for ortholog_file in aligned_files:
+        #Determine input file base name to create an ortholog run specific directory
+        base_name = os.path.split(os.path.splitext(ortholog_file)[0])[1]
+        ortholog_dir = create_directory(base_name, inside_dir = run_dir)
 
-    #Determine output file name
-    sico_base = os.path.splitext(os.path.split(sico_file)[1])[0]
-    alignment_dir = create_directory('alignments/' + sico_base, inside_dir = run_dir)
+        #Create distance file
+        distance_file = _run_dna_dist(ortholog_dir, ortholog_file)
 
-    #Created output file
-    file_base = os.path.join(alignment_dir, sico_base)
-    dna_alignment = file_base + '.nt_ali.fasta'
+        #Create tree file
+        tree_file = _run_neighbor(ortholog_dir, distance_file)
 
-    #Actually run the TranslatorX program
-    command = [TRANSLATORX,
-               '-i', sico_file,
-               '-c', translation_table,
-               '-o', file_base]
-    check_call(command, stdout = open('/dev/null', 'w'), stderr = STDOUT)
-
-    msg = 'Alignment file should exist and have some content now: {0}'.format(dna_alignment)
-    assert os.path.isfile(dna_alignment) and 0 < os.path.getsize(dna_alignment), msg
-    return dna_alignment
-
-def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
-    """Trim all DNA alignments using _trim_alignment (singular), and calculate some statistics about the trimming."""
-    log.info('Trimming {0} DNA alignments from first non-gap codon to last non-gap codon'.format(len(dna_alignments)))
-
-    #Create directory here, to prevent race-condition when folder does not exist, but is then created by another process
-    trimmed_dir = create_directory('trimmed', inside_dir = run_dir)
-
-    #Use Pool().map again to scale trimming out over multiple cores. This requires tuple'd arguments however
-    tuples = [(trimmed_dir, dna_alignment) for dna_alignment in dna_alignments]
-    trim_tpls = Pool().map(_trim_alignment, tuples)
-
-    remaining_percts = [tpl[3] for tpl in trim_tpls]
-    trimmed_alignments = [tpl[0] for tpl in trim_tpls if retained_threshold <= tpl[3]]
-
-    #Write trim statistics to file in such a way that they're easily converted to a graph in Galaxy
-    with open(stats_file, mode = 'w') as append_handle:
-        msg = '{0:6} sequence alignments trimmed'.format(len(trim_tpls))
-        log.info(msg)
-        append_handle.write('#' + msg + '\n')
-
-        average_retained = sum(remaining_percts) / len(remaining_percts)
-        msg = '{0:5.2}% sequence retained on average overall'.format(average_retained)
-        log.info(msg)
-        append_handle.write('#' + msg + '\n')
-
-        filtered = len(trim_tpls) - len(trimmed_alignments)
-        msg = '{0:6} orthologs filtered as they retained less than {1}%'.format(filtered, str(retained_threshold))
-        log.info(msg)
-        append_handle.write('#' + msg + '\n')
-
-        append_handle.write('# Trimmed file\tOriginal length\tTrimmed length\tPercentage retained\n')
-        for tpl in sorted(trim_tpls, key = itemgetter(3)):
-            append_handle.write(os.path.split(tpl[0])[1] + '\t')
-            append_handle.write(str(tpl[1]) + '\t')
-            append_handle.write(str(tpl[2]) + '\t')
-            append_handle.write('{0:.2f}\n'.format(tpl[3]))
-
-    return sorted(trimmed_alignments)
-
-def _trim_alignment((trimmed_dir, dna_alignment)):
-    """Trim alignment to retain first & last non-gapped codons across alignment, and everything in between (+gaps!).
-    
-    Return trimmed file, original length, trimmed length and percentage retained as tuple"""
-    #Read single alignment from fasta file
-    alignment = AlignIO.read(dna_alignment, 'fasta')
-    #print '\n'.join([str(seqr.seq) for seqr in alignment])
-
-    #Total alignment should be just as long as first sequence of alignment
-    alignment_length = len (alignment[0])
-
-    #After using protein alignment only for CDS, all alignment lengths should be multiples of three 
-    assert alignment_length % 3 == 0, 'Length not a multiple of three: {} \n{2}'.format(alignment_length, alignment)
-
-    #Assert all codons are either full length codons or gaps, but not a mix of gaps and letters such as AA- or A--
-    for index in range(0, alignment_length, 3):
-        for ali in alignment:
-            codon = ali.seq[index:index + 3]
-            assert not ('-' in codon and str(codon) != '---'), '{0} at {1} in \n{2}'.format(codon, index, alignment)
-
-    #Loop over alignment, taking 3 DNA characters each time, representing a single codon
-    first_full_codon_start = None
-    last_full_codon_end = None
-    for index in range(0, alignment_length, 3):
-        codon_concatemer = ''.join([str(seqr.seq) for seqr in alignment[:, index:index + 3]])
-        if '-' in codon_concatemer:
-            continue
-        if first_full_codon_start is None:
-            first_full_codon_start = index
+        #Parse tree file to ensure all genome_ids_a & genome_ids_b group together in the tree
+        if _find_recombination(genome_ids_a, genome_ids_b, tree_file):
+            recombined.append(ortholog_file)
+            log.info(base_name)
         else:
-            last_full_codon_end = index + 3
+            non_recomb.append(ortholog_file)
 
-    #Create sub alignment consisting of all trimmed sequences from full alignment
-    trimmed = alignment[:, first_full_codon_start:last_full_codon_end]
-    trimmed_length = len(trimmed[0])
-    assert trimmed_length % 3 == 0, 'Length not a multiple of three: {} \n{2}'.format(trimmed_length, trimmed)
+    log.info('Recombination found in %i out of %i orthologs', len(recombined), len(aligned_files))
 
-    #Write out trimmed alignment file
-    trimmed_file = os.path.join(trimmed_dir, os.path.split(dna_alignment)[1])
-    with open(trimmed_file, mode = 'w') as write_handle:
-        AlignIO.write(trimmed, write_handle, 'fasta')
+    return non_recomb, recombined
 
-    #Assert file now exists with content
-    assert os.path.isfile(trimmed_file) and os.path.getsize(trimmed_file), \
-        'Expected trimmed alignment file to exist with some content now: {0}'.format(trimmed_file)
+DNADIST = '/projects/divergence/software/phylip-3.69/exe/dnadist'
 
-    return trimmed_file, alignment_length, trimmed_length, trimmed_length / alignment_length * 100
+def _run_dna_dist(run_dir, aligned_file):
+    """Run dnadist to calculate distances between individual strains in a distance matrix, as input for neighbor."""
+    #Run calculations inside a directory
+    dnadist_dir = create_directory('dnadist/', inside_dir = run_dir)
 
-def _concatemer_per_genome(run_dir, trimmed_sicos):
-    """Create a concatemer DNA file per genome containing all aligned & trimmed SICO genes."""
-    concatemer_dir = create_directory('concatemers', inside_dir = run_dir)
-    log.info('Creating concatemers from {0} SICOs'.format(len(trimmed_sicos)))
+    #Read alignment file
+    alignment = AlignIO.read(aligned_file, 'fasta')
 
-    #Open trimmed concatemer write handles
-    concatemer_files = []
-    write_handles = {}
+    #Convert alignment in to proper input file for dnadist according to specification
+    nr_of_species = len(alignment)
+    nr_of_sites = len(alignment[0])
+    infile = os.path.join(dnadist_dir, 'infile')
+    with open(infile, mode = 'w') as write_handle:
+        write_handle.write('   {0}   {1}\n'.format(nr_of_species, nr_of_sites))
 
-    #Loop over trimmed sico files to append each sequence to the right concatemer
-    for trimmed_sico in trimmed_sicos:
-        for seqr in SeqIO.parse(trimmed_sico, 'fasta'):
-            #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core                
-            refseq_id = seqr.id.split('|')[0]
+        for seq_record in alignment:
+            name = seq_record.id.split('|')[0]
+            write_handle.write('{0:10}{1}\n'.format(name, seq_record.seq))
 
-            #Try to retrieve write handle from dictionary of cached write handles per genome
-            write_handle = write_handles.get(refseq_id)
+    #Actually run the dnadist program in the correct directory, and send input to it for the first prompt
+    log.debug('Executing: %s in %s', DNADIST, dnadist_dir)
+    process = Popen(DNADIST, cwd = dnadist_dir, stdin = PIPE, stdout = PIPE, stderr = STDOUT)
+    process.communicate(input = 'Y\n')
 
-            #If not found, create & store write handle on demand
-            if not write_handle:
-                #Build up output file path for trimmed SICO genes concatemer per genome
-                concatemer_file = os.path.join(concatemer_dir, refseq_id + '.trim.concat.fna')
-                concatemer_files.append(concatemer_file)
+    #Retrieve outputfile
+    outfile = os.path.join(dnadist_dir, 'outfile')
+    assert os.path.exists(outfile) and 0 < os.path.getsize(outfile), outfile + ' should exist with some content now'
+    return outfile
 
-                #Open write handle
-                write_handle = open(concatemer_file, mode = 'w')
-                write_handles[refseq_id] = write_handle
+NEIGHBOR = '/projects/divergence/software/phylip-3.69/exe/neighbor'
 
-                #Write initial fasta header
-                write_handle.write('> {0}|trimmed concatemer\n'.format(refseq_id))
+def _run_neighbor(run_dir, distance_file):
+    """Run neighbor to generate a tree of the distances in the distance file, and return the generated tree file."""
+    neighbor_dir = create_directory('neighbor', inside_dir = run_dir)
 
-            #Write / Append sequence for ortholog to genome concatemer
-            write_handle.write('{0}\n'.format(str(seqr.seq)))
+    #Copy outfile from dnadist to infile inside neighbor_dir
+    shutil.copy(distance_file, os.path.join(neighbor_dir, 'infile'))
 
-    #Close genomes trimmed concatemer write handles 
-    for write_handle in write_handles.values():
-        write_handle.close()
+    #Actually run neighbor
+    log.debug('Executing: %s in %s', NEIGHBOR, neighbor_dir)
+    process = Popen(NEIGHBOR, cwd = neighbor_dir, stdin = PIPE, stdout = PIPE, stderr = STDOUT)
+    process.communicate(input = 'N\nY\n')
 
-    log.info('Created {0} concatemers from {1} SICOs'.format(len(concatemer_files), len(trimmed_sicos)))
+    #Retrieve newick tree file
+    treefile = os.path.join(neighbor_dir, 'outtree')
+    assert os.path.exists(treefile) and 0 < os.path.getsize(treefile), treefile + ' should exist with some content now'
+    return treefile
 
-    return sorted(concatemer_files)
+def _read_taxa_from_tree(tree_file):
+    """Read tree_file in Newick format to identify the first two clades that split up this tree and their leafs."""
+    #Parse tree using BioPython, which wrongly interprets the RefSeq IDs as confidence scores, but that'll do for now.
+    phylo_tree = Phylo.read(tree_file, 'newick')
 
-def _create_super_concatemer(concatemer_files, destination_path):
-    """Concatenate individual genome concatemers into a single super-concatemer for easy import into MEGA viewer."""
-    with open(destination_path, mode = 'w') as write_handle:
-        for concatemer in concatemer_files:
-            seqr = SeqIO.read(concatemer, 'fasta')
-            SeqIO.write(seqr, write_handle, 'fasta')
+    #Of the full tree retrieve the clades from the root clade, expecting exactly two distinct clades after UPGMA
+    clades = phylo_tree.clade.clades
+    assert len(clades) == 2, 'Expected two clades as child of tree\'s first clade, but was {0}'.format(len(clades))
+
+    #Get all the leafs for the above two clades in a similar format to the genome_ids
+    clade_one = sorted(str(int(leaf.confidence)) for leaf in clades[0].get_terminals())
+    clade_two = sorted(str(int(leaf.confidence)) for leaf in clades[1].get_terminals())
+    return clade_one, clade_two
+
+def _find_recombination(genome_ids_a, genome_ids_b, tree_file):
+    """Look for evidence of recombination by seeing if all genomes of the separate taxa group together in the tree."""
+
+    #Sample tree: (((((59245:0.00000,58803:0.00000):0.00000,59391:0.00000):0.01222,
+    #((58531:0.00000,57915:0.00000):0.00182,(58623:0.00091,59379:0.00091):0.00091):0.01040):0.00229,
+    #((59383:0.00457,58395:0.00457):0.00601,58783:0.01059):0.00393):0.06715,(58191:0.02967,(((59431:0.00367,
+    #(58973:0.00000,58831:0.00000):0.00367):0.00117,(((58917:0.00000,59247:0.00000):0.00000,59249:0.00000):0.00367,
+    #(59269:0.00000,58201:0.00000):0.00367):0.00117):0.00172,58017:0.00655):0.02311):0.05199)
+
+    clade_one, clade_two = _read_taxa_from_tree(tree_file)
+
+    #Use first genome of clade A to determine which collections should match with one another
+    first_a_id = genome_ids_a[0]
+    if first_a_id in clade_one:
+        #We'll declare to have found recombination when the taxa identified through the tree do not match the user taxa
+        recombination_found = set(genome_ids_a) != set(clade_one) or set(genome_ids_b) != set(clade_two)
+    else:
+        assert first_a_id in clade_two, '{0}\n{1}\n{2}\n{3}'.format(tree_file, clade_one, clade_two, first_a_id)
+        recombination_found = set(genome_ids_a) != set(clade_two) or set(genome_ids_b) != set(clade_one)
+
+    return recombination_found
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: filter_orthologs.py
 --orthologs-zip=FILE           archive of orthologous genes in FASTA format
-
 --filter-multiple-cogs         filter orthologs with multiple COG annotations among genes [OPTIONAL]
 --filter-recombination=FILE    filter orthologs that show recombination when comparing phylogenetic trees [OPTIONAL]
-                               destination file path for archive of recombination orthologs 
---retained-threshold=PERC      filter orthologs that retain less than PERC % of sequence after trimming alignment 
-
---trimmed-zip=FILE             destination file path for archive of aligned & trimmed orthologous genes
---concatemer-zip=FILE          destination file path for archive of concatemers per genome
---concatemer-file=FILE         destination file path for super-concatemer of all genomes
---stats=FILE                   destination file path for ortholog trimming statistics file
+                               destination file path for archive of recombination orthologs
+--retained-zip=FILE            destination file path for archive of retained orthologs after filtering
 """
-    options = ['orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination=?', 'retained-threshold', \
-               'trimmed-zip', 'concatemer-zip', 'concatemer-file', 'stats']
-    orthologs_zip, filter_cogs_enabled, filter_recombination, retained_threshold, \
-    target_trimmed, target_concat_zip, target_concat_file, target_stats_path = parse_options(usage, options, args)
-
-    #Convert retained threshold to integer, so we can fail fast if argument was passed incorrectly
-    retained_threshold = int(retained_threshold)
+    options = ['orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination=?', 'retained-zip']
+    orthologs_zip, filter_cogs_enabled, filter_recombination, retained_zip = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
-    run_dir = tempfile.mkdtemp(prefix = 'filter_run_')
+    run_dir = tempfile.mkdtemp(prefix = 'filter_orthologs_')
 
     #Extract files from zip archive
     temp_dir = create_directory('orthologs', inside_dir = run_dir)
-    sico_files = extract_archive_of_files(orthologs_zip, temp_dir)
+    ortholog_files = extract_archive_of_files(orthologs_zip, temp_dir)
 
     #Filter orthologs with multiple COG annotations among genes if flag was set
     if filter_cogs_enabled:
         log.info('Filtering orthologs with multiple COG annotations')
         #Look COG assignment among orthologs; filter those with multiple COGs & carry over COGs to unannotated sequences
-        sico_files = _cog_based_filtering(sico_files)
+        ortholog_files = cog_based_filtering(ortholog_files)
 
     #TODO Add option to filter out SICOs when any ortholog has been flagged as 'mobile element', 'phage' or 'IS element'
-
-    #Align SICOs so all sequences become equal length sequences
-    trim_stats_file = os.path.join(run_dir, 'trim-stats.txt')
-    aligned_files = _align_sicos(run_dir, sico_files)
 
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
     if filter_recombination:
         log.info('Filtering orthologs where phylogenetic trees show evidence of recombination')
-        from divergence.filter_recombination import filter_recombined_orthologs
-        aligned_files, recombined_files = filter_recombined_orthologs(run_dir, aligned_files)
-
-    #Filter orthologs that retain less than PERC % of sequence after trimming alignment    
-    trimmed_files = _trim_alignments(run_dir, aligned_files, retained_threshold, trim_stats_file)
-
-    #Concatenate trimmed_files per genome
-    concatemer_files = _concatemer_per_genome(run_dir, trimmed_files)
-
-    #Create super concatemer
-    _create_super_concatemer(concatemer_files, target_concat_file)
+        ortholog_files, recombined_files = filter_recombined_orthologs(run_dir, ortholog_files)
 
     #Create archives of files on command line specified output paths & move trim_stats_file
-    create_archive_of_files(target_trimmed, trimmed_files)
-    create_archive_of_files(target_concat_zip, concatemer_files)
+    create_archive_of_files(retained_zip, ortholog_files)
     if filter_recombination:
         create_archive_of_files(filter_recombination, recombined_files)
-    shutil.move(trim_stats_file, target_stats_path)
 
     #Remove unused files to free disk space 
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
     log.info('Produced: ')
+    log.info(retained_zip)
     if filter_recombination:
         log.info(filter_recombination)
-    log.info(target_trimmed)
-    log.info(target_concat_zip)
-    log.info(target_concat_zip)
-    log.info(target_concat_file)
-    log.info(target_stats_path)
 
     if filter_recombination:
-        return filter_recombination, target_trimmed, target_concat_zip, target_concat_file, target_stats_path
-    return target_trimmed, target_concat_zip, target_concat_file, target_stats_path
+        return retained_zip, filter_recombination
+    return retained_zip
 
 if __name__ == '__main__':
     main(sys.argv[1:])
