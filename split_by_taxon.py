@@ -31,8 +31,8 @@ def split_alignment_by_taxon(run_dir, genome_ids_a, genome_ids_b, sico_files):
         alignment_b = MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_b)
 
         #Build up target output files
-        taxon_a_file = os.path.join(taxon_a_dir, base_name + '_taxon_A.fasta')
-        taxon_b_file = os.path.join(taxon_b_dir, base_name + '_taxon_B.fasta')
+        taxon_a_file = os.path.join(taxon_a_dir, base_name + '.taxon_a.fasta')
+        taxon_b_file = os.path.join(taxon_b_dir, base_name + '.taxon_b.fasta')
 
         #Actually write out sub alignments
         AlignIO.write(alignment_a, taxon_a_file, 'fasta')

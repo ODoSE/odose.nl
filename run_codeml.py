@@ -2,7 +2,6 @@
 """Module to run Phylogenetic Analysis by Maximum Likelihood (codeml)."""
 
 from Bio import SeqIO
-from Bio.Alphabet import generic_dna
 from collections import deque
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
 from subprocess import check_call, STDOUT
@@ -12,43 +11,36 @@ import shutil
 import sys
 import tempfile
 
-def run_codeml(codeml_dir, genome_ids_a, genome_ids_b, sico_files):
+def run_codeml(codeml_dir, ortholog_files_a, ortholog_files_b):
     """Run codeml for representatives of clades A and B in each of the SICO files, to calculate dN/dS."""
-    #Pick the first genomes as representatives for each clade
-    repr_a = genome_ids_a[0]
-    repr_b = genome_ids_b[0]
+    #Zip ortholog files A & B to create pairs again
+    ortholog_pairs = zip(sorted(ortholog_files_a), sorted(ortholog_files_b))
 
     #Run codeml for every SICO file
-    log.info('Running codeml for {0} aligned and trimmed SICOs'.format(len(sico_files)))
-    codeml_files = [_run_codeml(codeml_dir, repr_a, repr_b, sico_file) for sico_file in sico_files]
+    log.info('Running codeml for {0} aligned and trimmed SICOs'.format(len(ortholog_pairs)))
+    codeml_files = [_run_codeml(codeml_dir, ortholog_a, ortholog_b) for ortholog_a, ortholog_b in ortholog_pairs]
     return codeml_files
 
 CODEML = '/projects/divergence/software/paml44/bin/codeml'
 
-def _run_codeml(codeml_dir, repr_id_a, repr_id_b, sico_file):
+def _run_codeml(codeml_dir, ortholog_file_a, ortholog_file_b):
     """Run codeml from PAML for selected sequence records from sico_file, returning main nexus output file."""
     #Find sequences from above chosen clade representatives in each SICO file
-    seqr_a = None
-    seqr_b = None
-    for seqrecord in SeqIO.parse(sico_file, 'fasta', alphabet = generic_dna):
-        refseq_id = seqrecord.id.split('|')[0]
-        if refseq_id == repr_id_a:
-            seqr_a = seqrecord
-        elif refseq_id == repr_id_b:
-            seqr_b = seqrecord
-        if seqr_a and seqr_b:
-            break
-    else:
-        assert False, '{0}: Both seqr_a & seqr_b should have been set\n{1}\n{2}'.format(sico_file, seqr_a, seqr_b)
+    seqr_a = SeqIO.parse(ortholog_file_a, 'fasta').next()
+    seqr_b = SeqIO.parse(ortholog_file_b, 'fasta').next()
+    assert len(seqr_a) == len(seqr_b), \
+        'Sequence lengths do not match. Incorrect file pair maybe? \n{0}\n{1}'.format(ortholog_file_a, ortholog_file_b)
 
     #Write the representative sequence records out to file in codeml compatible format
-    sico = os.path.splitext(os.path.split(sico_file)[1])[0]
-    codeml_dir = create_directory(sico, inside_dir = codeml_dir)
-    nexus_file = os.path.join(codeml_dir, sico + '.nexus')
+    filename = os.path.split(ortholog_file_a)[1]
+    #Split off everything starting from the first dot
+    base_name = filename[:filename.find('.')]
+    codeml_dir = create_directory(base_name, inside_dir = codeml_dir)
+    nexus_file = os.path.join(codeml_dir, base_name + '.nexus')
     _write_nexus_file(seqr_a, seqr_b, nexus_file)
 
     #Generate codeml configuration file
-    output_file = os.path.join(codeml_dir, sico + '.codeml')
+    output_file = os.path.join(codeml_dir, base_name + '.codeml')
     config_file = os.path.join(codeml_dir, 'codeml.ctl')
     _write_config_file(nexus_file, output_file, config_file)
 
@@ -138,7 +130,7 @@ def _write_config_file(nexus_file, output_file, config_file):
     with open(config_file, mode = 'w') as write_handle:
         write_handle.write(config_contents)
 
-def _write_dnds_per_sico(dnds_file, codeml_files):
+def _write_dnds_per_ortholog(dnds_file, codeml_files):
     """For each codeml output file write dN, dS & dN/dS to single tab separated file, each on a new line."""
     #Open file to write dN dS values to
     with open(dnds_file, mode = 'w') as write_handle:
@@ -166,32 +158,26 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: run_codeml.py 
---genomes-a=FILE     file with RefSeq id from complete genomes table on each line for clade A
---genomes-b=FILE     file with RefSeq id from complete genomes table on each line for clade B
---sico-zip=FILE      archive of aligned & trimmed single copy orthologous (SICO) genes
---codeml-zip=FILE    destination file path for archive of codeml output per SICO gene
---dnds-stats=FILE    destination file path for file with dN, dS & dN/dS values per SICO gene
+--taxon-a-zip=FILE    archive of aligned & trimmed orthologs for taxon A
+--taxon-b-zip=FILE    archive of aligned & trimmed orthologs for taxon B
+--codeml-zip=FILE     destination file path for archive of codeml output per SICO gene
+--dnds-stats=FILE     destination file path for file with dN, dS & dN/dS values per SICO gene
 """
-    options = ['genomes-a', 'genomes-b', 'sico-zip', 'codeml-zip', 'dnds-stats']
-    genome_a_ids_file, genome_b_ids_file, sico_zip, codeml_zip, dnds_file = parse_options(usage, options, args)
-
-    #Parse file containing RefSeq project IDs to extract RefSeq project IDs
-    with open(genome_a_ids_file) as read_handle:
-        genome_ids_a = [line.split()[0] for line in read_handle]
-    with open(genome_b_ids_file) as read_handle:
-        genome_ids_b = [line.split()[0] for line in read_handle]
+    options = ['taxon-a-zip', 'taxon-b-zip', 'codeml-zip', 'dnds-stats']
+    taxon_a_zip, taxon_b_zip, codeml_zip, dnds_file = parse_options(usage, options, args)
 
     #Create run_dir to hold files relating to this run
     run_dir = tempfile.mkdtemp(prefix = 'run_codeml_')
 
     #Extract files from zip archive
-    sico_files = extract_archive_of_files(sico_zip, create_directory('sicos', inside_dir = run_dir))
+    taxon_a_files = extract_archive_of_files(taxon_a_zip, create_directory('taxon_a_orthologs', inside_dir = run_dir))
+    taxon_b_files = extract_archive_of_files(taxon_b_zip, create_directory('taxon_b_orthologs', inside_dir = run_dir))
 
     #Actually run codeml
-    codeml_files = run_codeml(run_dir, genome_ids_a, genome_ids_b, sico_files)
+    codeml_files = run_codeml(run_dir, taxon_a_files, taxon_b_files)
 
     #Write dnds values to single output file
-    _write_dnds_per_sico(dnds_file, codeml_files)
+    _write_dnds_per_ortholog(dnds_file, codeml_files)
 
     #Write the produced files to command line argument filenames
     create_archive_of_files(codeml_zip, codeml_files)
@@ -200,7 +186,7 @@ Usage: run_codeml.py
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s", codeml_zip)
+    log.info("Produced: \n%s\n%s", codeml_zip, dnds_file)
     return codeml_zip
 
 if __name__ == '__main__':
