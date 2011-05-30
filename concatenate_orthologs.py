@@ -61,16 +61,16 @@ def create_super_concatemer(concatemer_files, destination_path):
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
-Usage: orthologs_to_concatemers.py
---orthologs-zip=FILE           archive of orthologous genes in FASTA format
---concatemer-zip=FILE          destination file path for archive of concatemers per genome
---concatemer-file=FILE         destination file path for super-concatemer of all genomes
+Usage: concatenate_orthologs.py
+--orthologs-zip=FILE      archive of orthologous genes in FASTA format
+--concatemer-zip=FILE     destination file path for archive of concatemers per genome
+--concatemer-file=FILE    destination file path for super-concatemer of all genomes
 """
     options = ['orthologs-zip', 'concatemer-zip', 'concatemer-file']
     orthologs_zip, target_concat_zip, target_concat_file = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
-    run_dir = tempfile.mkdtemp(prefix = 'orthologs_to_concatemers_')
+    run_dir = tempfile.mkdtemp(prefix = 'concatenate_orthologs_')
 
     #Extract files from zip archive
     temp_dir = create_directory('orthologs', inside_dir = run_dir)

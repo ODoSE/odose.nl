@@ -6,7 +6,7 @@ from Bio import AlignIO, Phylo, SeqIO
 from Bio.SeqRecord import SeqRecord
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, \
     parse_options
-from divergence.orthologs_to_concatemers import concatemer_per_genome, create_super_concatemer
+from divergence.concatenate_orthologs import concatemer_per_genome, create_super_concatemer
 from subprocess import Popen, PIPE, STDOUT
 import logging as log
 import os.path
