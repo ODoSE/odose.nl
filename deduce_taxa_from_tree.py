@@ -8,6 +8,7 @@ from divergence.select_taxa import select_genomes_by_ids
 import logging as log
 import sys
 import tempfile
+import shutil
 
 def visualize_tree(super_tree_file, ascii_tree):
     """Visualize the phylogenetic tree encoded in the Newick format super_tree_file, and write graphic to ascii_tree."""
@@ -34,6 +35,7 @@ Usage: deduce_taxa_from_tree.py
     options = ['concatemer', 'taxon-a', 'taxon-b', 'tree']
     concatemer, target_taxon_a, target_taxon_b, target_tree = parse_options(usage, options, args)
 
+    #Director to contain run specific files
     run_dir = tempfile.mkdtemp(prefix = 'deduce_taxa_')
 
     #Determine the taxa present in the super concatemer tree by building a phylogenetic tree from genome concatemer and
@@ -52,6 +54,9 @@ Usage: deduce_taxa_from_tree.py
 
     #Visualize tree
     visualize_tree(super_tree_file, target_tree)
+
+    #Clean up
+    shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
     log.info('Produced: \n%s\n%s\n%s', target_taxon_a, target_taxon_b, target_tree)
