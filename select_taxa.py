@@ -234,48 +234,33 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: select_taxa.py 
---cladea-genomes    comma-separated list of Clade A selected RefSeq project IDs from complete genomes table
---cladeb-genomes    comma-separated list of Clade B selected RefSeq project IDs from complete genomes table
---cladea-file       destination file path for file with Clade A selected RefSeq project IDs each on a new line
---cladeb-file       destination file path for file with Clade B selected RefSeq project IDs each on a new line
+--genomes         comma-separated list of selected RefSeq project IDs from complete genomes table
+--genomes-file    destination path for file with selected RefSeq project IDs followed by Organism Name on each line
 """
-    options = ['cladea-genomes', 'cladeb-genomes', 'cladea-file', 'cladeb-file']
-    clade_a_ids, clade_b_ids, clade_a_file, clade_b_file = parse_options(usage, options, args)
+    options = ['genomes', 'genomes-file']
+    genomes_line, genomes_file = parse_options(usage, options, args)
 
     #Split clade_a_ids & clade_b_ids each on comma
-    clade_a_ids = [val for val in clade_a_ids.split(',') if val]
-    clade_b_ids = [val for val in clade_b_ids.split(',') if val]
+    genome_ids = [val for val in genomes_line.split(',') if val]
 
     #Assert each clade contains enough IDs
-    minimum = 1
+    minimum = 2
     maximum = 40
-    if not minimum <= len(clade_a_ids) <= maximum:
-        log.error('Expected no less than {0} and no more than {1} genomes for Clade A'.format(minimum, maximum))
-        sys.exit(1)
-    if not minimum <= len(clade_b_ids) <= maximum:
-        log.error('Expected no less than {0} and no more than {1} genomes for Clade B'.format(minimum, maximum))
-        sys.exit(1)
-    #Clades A and B can't both contain the minimum number of clades 
-    if len(clade_a_ids) == minimum and len(clade_b_ids) == minimum:
-        log.error('Either Clade A or Clade B should contain more than {0} genomes.'.format(minimum))
+    if not minimum <= len(genome_ids) <= maximum:
+        log.error('Expected no less than {0} and no more than {1} selected genomes'.format(minimum, maximum))
         sys.exit(1)
 
     #Retrieve genome dictionaries to get to Organism Name
-    all_genomes = _parse_genomes_table()
-    clade_a_genomes = [genome for genome in all_genomes if genome['RefSeq project ID'] in clade_a_ids]
-    clade_b_genomes = [genome for genome in all_genomes if genome['RefSeq project ID'] in clade_b_ids]
+    genomes = select_genomes_by_ids(genome_ids)
 
     #Write IDs to file, with organism name as second column, to make the RefSeq id files more self explanatory. 
-    with open(clade_a_file, mode = 'w') as write_handle:
-        for genome in clade_a_genomes:
-            write_handle.write('{0}\t{1}\n'.format(genome['RefSeq project ID'], genome['Organism Name']))
-    with open(clade_b_file, mode = 'w') as write_handle:
-        for genome in clade_b_genomes:
+    with open(genomes_file, mode = 'w') as write_handle:
+        for genome in genomes:
             write_handle.write('{0}\t{1}\n'.format(genome['RefSeq project ID'], genome['Organism Name']))
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s &\n%s", clade_a_file, clade_b_file)
-    return clade_a_file, clade_b_file
+    log.info("Produced: \n%s", genomes_file)
+    return genomes_file
 
 if __name__ == '__main__':
     main(sys.argv[1:])
