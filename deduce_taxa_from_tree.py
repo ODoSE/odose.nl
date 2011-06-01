@@ -10,14 +10,15 @@ import sys
 import tempfile
 import shutil
 
-def visualize_tree(super_tree_file, ascii_tree):
+def visualize_tree(super_tree_file, id_to_name_map, ascii_tree):
     """Visualize the phylogenetic tree encoded in the Newick format super_tree_file, and write graphic to ascii_tree."""
     #Draw phylogenetic tree
     tree = Phylo.read(super_tree_file, 'newick')
 
-    #Correctly set leaf names
-    for clade in tree.get_terminals():
-        clade.name = str(int(clade.confidence))
+    #BioPython misinterprets numerical leaf names as confidence scores: Fix this here
+    for leaf in tree.get_terminals():
+        refseq_id = str(int(leaf.confidence))
+        leaf.name = '{0}\t{1}'.format(refseq_id, id_to_name_map[refseq_id])
 
     #Print ascii tree, as we can't get visualization to work properly using draw_graphviz
     with open(ascii_tree, mode = 'w') as write_handle:
@@ -44,16 +45,20 @@ Usage: deduce_taxa_from_tree.py
     super_tree_file = _run_neighbor(run_dir, super_distance_file)
     genome_ids_a, genome_ids_b = _read_taxa_from_tree(super_tree_file)
 
+    #Map RefSeq project IDs to Organism names
+    id_to_name_map = dict((genome['RefSeq project ID'], genome['Organism Name']) for genome in \
+                          select_genomes_by_ids(genome_ids_a + genome_ids_b))
+
     #Write RefSeq project ID and Organism Name to files
     with open(target_taxon_a, mode = 'w') as write_handle:
-        for genome in select_genomes_by_ids(genome_ids_a):
-            write_handle.write('{0}\t{name}\n'.format(genome['RefSeq project ID'], name = genome['Organism Name']))
+        for genome_id in genome_ids_a:
+            write_handle.write('{id}\t{name}\n'.format(id = genome_id, name = id_to_name_map[genome_id]))
     with open(target_taxon_b, mode = 'w') as write_handle:
-        for genome in select_genomes_by_ids(genome_ids_b):
-            write_handle.write('{0}\t{name}\n'.format(genome['RefSeq project ID'], name = genome['Organism Name']))
+        for genome_id in genome_ids_b:
+            write_handle.write('{id}\t{name}\n'.format(id = genome_id, name = id_to_name_map[genome_id]))
 
     #Visualize tree
-    visualize_tree(super_tree_file, target_tree)
+    visualize_tree(super_tree_file, id_to_name_map, target_tree)
 
     #Clean up
     shutil.rmtree(run_dir)
