@@ -71,19 +71,14 @@ def _group_cog_issues(sico_files):
 def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
     """Append COG statistics to stats_file"""
     if cog_conflicts:
-        log.info('Multiple COGs found in {0} SICOs:'.format(len(cog_conflicts)))
+        log.info('{0}\tOrthologs contained multiple COGs and were therefore removed:'.format(len(cog_conflicts)))
         for sico_file in sorted(cog_conflicts.keys()):
             cogs = cog_conflicts[sico_file]
             log.info('{0}:\t{1}'.format(os.path.split(sico_file)[1], '\t'.join(cogs)))
     if cog_transferable:
-        log.info('COGs transfered in {0} SICOs:'.format(len(cog_transferable)))
-        for sico_file in sorted(cog_transferable.keys()):
-            cog = cog_transferable[sico_file]
-            log.info('{0}:\t{1}'.format(os.path.split(sico_file)[1], cog))
+        log.info('{0}\tCOGs transfered within orthologs to unannotated sequences'.format(len(cog_transferable)))
     if cog_missing:
-        log.info('No COGs found in {0} SICOs:'.format(len(cog_missing)))
-        for sico_file in cog_missing:
-            log.info(os.path.split(sico_file)[1])
+        log.info('{0}\tOrthologs did not contain any COG annotations'.format(len(cog_missing)))
 
 def filter_recombined_orthologs(run_dir, aligned_files):
     """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees. 
@@ -120,7 +115,7 @@ def filter_recombined_orthologs(run_dir, aligned_files):
         else:
             non_recomb.append(ortholog_file)
 
-    log.info('Recombination found in %i out of %i orthologs', len(recombined), len(aligned_files))
+    log.info('%i\tOrthologs out of %i were filtered out due to recombination', len(recombined), len(aligned_files))
 
     return non_recomb, recombined
 
