@@ -30,19 +30,28 @@ def _perform_calculations(alignment):
         log.info('  '.join(seq[idx:idx + 3] for idx in range(0, len(seq), 3)))
 
     synonymous_polymorphisms = 0
+    synonymous_sfs = {}
     non_synonymous_polymorphisms = 0
-    minor_allele_occupations = {}
+    non_synonymous_sfs = {}
     mixed_synonymous_polymorphisms = 0
     multiple_site_polymorphisms = 0
 
+    #Calculate range_end here so we can handle alignments that are not multiples of three
+    range_end = len(alignment[0]) - len(alignment[0]) % 3
     #Split into codon_alignments
-    codon_alignments = [alignment[:, index:index + 3] for index in range(0, len(alignment[0]), 3)]
+    codon_alignments = [alignment[:, index:index + 3] for index in range(0, range_end, 3)]
     for codon_alignment in codon_alignments:
-        #Retrieve translations of codon, eliminating gap- & stopcodons
-        codons = (str(seqr.seq) for seqr in codon_alignment)
-        codons_nongap = (codon for codon in codons if '-' not in codon)
+        #Get string representations of codons for simplicity 
+        codons = [str(seqr.seq) for seqr in codon_alignment]
+
+        #As per AEW: ignore codons with gaps, and codons with unresolved bases: Basically anything but ACGT
+        if 0 < len(''.join(codons).translate(None, 'ACGTactg')):
+            continue
+
         #Stop codons should have already been removed, but lets be sure anyway
-        codons_nonstop = (codon for codon in codons_nongap if codon not in BACTERIAL_CODON_TABLE.stop_codons)
+        codons_nonstop = [codon for codon in codons if codon not in BACTERIAL_CODON_TABLE.stop_codons]
+
+        #Retrieve translations of codons now that inconclusive & stop-codons have been removed
         translations = [BACTERIAL_CODON_TABLE.forward_table.get(codon) for codon in codons_nonstop]
 
         #Count unique translations across strains
@@ -84,41 +93,46 @@ def _perform_calculations(alignment):
             continue
 
         #Determine which site_usage is the single site polymorphism
-        polymorphism_usage = site1_usage if site1_polymorphic else site2_usage if site2_polymorphic else site3_usage
+        polymorph_site_usage = site1_usage if site1_polymorphic else site2_usage if site2_polymorphic else site3_usage
 
-        #Determine in how many strains the minor allele occurs
-        #Find the lowest number of times a nucleotide is used across strains 
-        minor_allele_count = min(polymorphism_usage.values())
+        #Find the 'reference' nucleotide as (one of) the most occurring occupations in this site, so we can -1 later
+        psu_values = polymorph_site_usage.values()
+        reference_allele_count = max(psu_values)
 
-        #Find out how many nucleotides occur exactly this few times if there's a tie among multiple nucleotides,
-        #so we can add this amount to the minor_allele_occupations for minor_allele_count
-        nucl_with_minor_allele_count = sum(1 for val in polymorphism_usage.values() if val == minor_allele_count)
-        #Deduct one from nucl_with_minor_allele_count if it matches the total number of different nucleotides
-        if nucl_with_minor_allele_count == len(polymorphism_usage):
-            nucl_with_minor_allele_count -= 1
-
-        #Debug log statement
-        log.info('minor allele count: {0}, number of nucl with count: {1}'.format(minor_allele_count, nucl_with_minor_allele_count))
+        #Calculate the local site frequency spectrum, to be added to the gene-wide SFS later
+        lsfs = dict((ntimes, psu_values.count(ntimes)) for ntimes in set(psu_values))
+        #Deduct one for the reference_allele_count, which should not count towards the SFS
+        lsfs[reference_allele_count] = lsfs[reference_allele_count] - 1
+        if lsfs[reference_allele_count] == 0:
+            del lsfs[reference_allele_count]
 
         if synonymous:
             #If all polymorphisms encode for the same AA, we have multiple synonymous polymorphisms, where:
             #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
-            synonymous_polymorphisms += len(polymorphism_usage) - 1
+            synonymous_polymorphisms += sum(lsfs.values())
+
+            #Debug log statement
+            log.info('local SFS {0}'.format(lsfs))
 
             #Increment count of minor allele occupations in dictionary that tracks this per alignment
-            prev_occupations = minor_allele_occupations.get(minor_allele_count, 0)
-            minor_allele_occupations[minor_allele_count] = prev_occupations + nucl_with_minor_allele_count
+            for maf, count in lsfs.iteritems():
+                prev_occupations = synonymous_sfs.get(maf, 0)
+                synonymous_sfs[maf] = prev_occupations + count
             continue
 
         if not synonymous:
-            if len(polymorphism_usage) == len(translation_usage):
+            if len(polymorph_site_usage) == len(translation_usage):
                 #If all polymorphisms encode for different AA, we have multiple non-synonymous polymorphisms, where:
                 #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
-                non_synonymous_polymorphisms += len(polymorphism_usage) - 1
+                non_synonymous_polymorphisms += sum(lsfs.values())
+
+                #Debug log statement
+                log.info('local SFS {0}'.format(lsfs))
 
                 #Increment count of minor allele occupations in dictionary that tracks this per alignment
-                prev_occupations = minor_allele_occupations.get(minor_allele_count, 0)
-                minor_allele_occupations[minor_allele_count] = prev_occupations + nucl_with_minor_allele_count
+                for maf, count in lsfs.iteritems():
+                    prev_occupations = non_synonymous_sfs.get(maf, 0)
+                    non_synonymous_sfs[maf] = prev_occupations + count
                 continue
             else:
                 #Some, but not all polymorphisms encode for different AA, making it unclear how this should be scored
@@ -126,8 +140,9 @@ def _perform_calculations(alignment):
                 continue
 
     log.info('synonymous_polymorphisms %i', synonymous_polymorphisms)
+    log.info('synonymous_sfs %s', str(synonymous_sfs))
     log.info('non_synonymous_polymorphisms %i', non_synonymous_polymorphisms)
-    log.info('minor_allele_occupations %s', str(minor_allele_occupations))
+    log.info('non_synonymous_sfs %s', str(non_synonymous_sfs))
     log.info('mixed_synonymous_polymorphisms %i', mixed_synonymous_polymorphisms)
     log.info('multiple_site_polymorphisms %i', multiple_site_polymorphisms)
 
