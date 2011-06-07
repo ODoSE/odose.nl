@@ -109,7 +109,6 @@ def _perform_calculations(alignment):
         if synonymous:
             #If all polymorphisms encode for the same AA, we have multiple synonymous polymorphisms, where:
             #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
-            synonymous_polymorphisms += sum(lsfs.values())
 
             #Debug log statement
             log.info('local SFS {0}'.format(lsfs))
@@ -124,7 +123,6 @@ def _perform_calculations(alignment):
             if len(polymorph_site_usage) == len(translation_usage):
                 #If all polymorphisms encode for different AA, we have multiple non-synonymous polymorphisms, where:
                 #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
-                non_synonymous_polymorphisms += sum(lsfs.values())
 
                 #Debug log statement
                 log.info('local SFS {0}'.format(lsfs))
@@ -139,12 +137,74 @@ def _perform_calculations(alignment):
                 mixed_synonymous_polymorphisms += 1
                 continue
 
+    #Use Site Frequency Spectrum to calculate the number of synonymous and non synonymous polymorphisms
+    #Note: this requires a complete SFS across synonymous & non_synonymous polymorphisms, be careful when updating code
+    synonymous_polymorphisms = sum(synonymous_sfs.values())
+    non_synonymous_polymorphisms = sum(non_synonymous_sfs.values())
+
     log.info('synonymous_polymorphisms %i', synonymous_polymorphisms)
     log.info('synonymous_sfs %s', str(synonymous_sfs))
     log.info('non_synonymous_polymorphisms %i', non_synonymous_polymorphisms)
     log.info('non_synonymous_sfs %s', str(non_synonymous_sfs))
     log.info('mixed_synonymous_polymorphisms %i', mixed_synonymous_polymorphisms)
     log.info('multiple_site_polymorphisms %i', multiple_site_polymorphisms)
+
+    #1. gene name
+    gene_name = 'xyz'
+
+    #2. number of strains (this will typically be the same for all genes)
+    number_of_strains = len(alignment)
+
+    #3. number of non-synonymous sites (see below for calculation) = LnP
+    #TODOnumber_of_non_syn_sites = ?
+
+    #4. SFS for non-synonymous polymorphsims
+    non_synonymous_sfs
+
+    #5. The sum of SFS for non-synonymous polymorphisms = Pn
+    pn = sum(non_synonymous_sfs.values())
+
+    #6. number of synonymous sites (see below for calculation) = LsP
+    #TODO number_of_non_syn_sites = ?
+
+    #7. SFS for synonymous prolymorphisms
+    synonymous_sfs
+
+    #8. The sum of the SFS for synonymous polymorphisms = Ps
+    ps = sum(synonymous_sfs.values())
+
+    #9. number of 4-fold synonymous sites = L4
+
+
+    #10. SFS for 4-fold synonymous polymorphisms
+
+
+    #11. Sum of the SFS for 4-folds = P4
+
+
+    #12. number of non-synonymous sites for divergence from PAML (this might be different to 3, because this will come from two randomly chosen sequences) = LnD
+
+
+    #13. number of non-synonymous substitutions from PAML = Dn
+
+
+    #14. number of synonymous sites from PAML = LsD
+
+
+    #15. number of synonymous substitutions from PAML = Ds
+
+
+    #16. Direction of selection = Dn/(Dn+Ds) - Pn/(Pn+Ps)
+
+
+    #I would calculate LnP and LsP as follows:
+    #
+    #LnP = L * LnD/(LnD+LsD)
+    #LsP = L * LsD/(LnD+LsD)
+    #
+    #where L is the length of the sequence from which the polymorphism data is taken (i.e. 3* no of codons used)
+    #
+    #Finally, we might a line which gives the sum for columns 3 to 15 plus the mean of column 16
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
