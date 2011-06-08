@@ -4,7 +4,9 @@ from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 from divergence import parse_options
+from itertools import product
 import logging as log
+import re
 import sys
 
 def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
@@ -22,6 +24,29 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
 
+def _four_fold_degenerate_patterns():
+    """Find patterns of 4-fold degenerate codons, wherein all third site substitutions code for the same amino acid."""
+    letters = BACTERIAL_CODON_TABLE.nucleotide_alphabet.letters
+    #Any combination of letters of length two
+    for site12 in [''.join(prod) for prod in product(letters, repeat = 2)]:
+        #4-fold when the length of the unique encoded amino acids for all possible third site nucleotides is exactly 1 
+        if 1 == len(set([BACTERIAL_CODON_TABLE.forward_table.get(site12 + site3) for site3 in letters])):
+            #Add regular expression pattern to the set of patterns
+            yield '{0}[{1}]'.format(site12, letters)
+
+FOUR_FOLD_DEGENERATE_PATTERNS = set(_four_fold_degenerate_patterns())
+
+def _sfs2str(sfs):
+    """Convert Site Frequency Spectrum to human readable textual representation."""
+    single = double = triple = ''
+    if 1 in sfs:
+        single = '{0} singleton'.format(sfs[1]) + ('s' if 1 < sfs[1] else '')
+    if 2 in sfs:
+        double = '{0} doubleton'.format(sfs[2]) + ('s' if 1 < sfs[2] else '')
+    if 3 in sfs:
+        triple = '{0} tripleton'.format(sfs[3]) + ('s' if 1 < sfs[3] else '')
+    return ', '.join(val for val in [single, double, triple] if val)
+
 def _perform_calculations(alignment):
     """Perform actual calculations on the alignment to determine pN, pS, SFS & the number of ignored cases per SICO."""
     #Print codons for easy debugging
@@ -29,9 +54,8 @@ def _perform_calculations(alignment):
         seq = str(seqr.seq)
         log.info('  '.join(seq[idx:idx + 3] for idx in range(0, len(seq), 3)))
 
-    synonymous_polymorphisms = 0
     synonymous_sfs = {}
-    non_synonymous_polymorphisms = 0
+    four_fold_syn_sfs = {}
     non_synonymous_sfs = {}
     mixed_synonymous_polymorphisms = 0
     multiple_site_polymorphisms = 0
@@ -100,23 +124,33 @@ def _perform_calculations(alignment):
         reference_allele_count = max(psu_values)
 
         #Calculate the local site frequency spectrum, to be added to the gene-wide SFS later
-        lsfs = dict((ntimes, psu_values.count(ntimes)) for ntimes in set(psu_values))
+        local_sfs = dict((ntimes, psu_values.count(ntimes)) for ntimes in set(psu_values))
         #Deduct one for the reference_allele_count, which should not count towards the SFS
-        lsfs[reference_allele_count] = lsfs[reference_allele_count] - 1
-        if lsfs[reference_allele_count] == 0:
-            del lsfs[reference_allele_count]
+        local_sfs[reference_allele_count] = local_sfs[reference_allele_count] - 1
+        if local_sfs[reference_allele_count] == 0:
+            del local_sfs[reference_allele_count]
 
         if synonymous:
             #If all polymorphisms encode for the same AA, we have multiple synonymous polymorphisms, where:
             #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
 
             #Debug log statement
-            log.info('local SFS {0}'.format(lsfs))
+            log.info('local SFS: {0}'.format(_sfs2str(local_sfs)))
 
-            #Increment count of minor allele occupations in dictionary that tracks this per alignment
-            for maf, count in lsfs.iteritems():
+            #Update synonymous SFS by adding values from local SFS
+            for maf, count in local_sfs.iteritems():
                 prev_occupations = synonymous_sfs.get(maf, 0)
                 synonymous_sfs[maf] = prev_occupations + count
+
+            #Codon is four fold degenerate if it matches any pattern in FOUR_FOLD_DEGENERATE_PATTERNS
+            if site3_polymorphic:
+                codon = site1[0] + site2[0] + site3[0]
+                for pattern in FOUR_FOLD_DEGENERATE_PATTERNS:
+                    if re.match(pattern, codon):
+                        #Update four fold degenerate SFS by adding values from local SFS
+                        for maf, count in local_sfs.iteritems():
+                            prev_occupations = four_fold_syn_sfs.get(maf, 0)
+                            four_fold_syn_sfs[maf] = prev_occupations + count
             continue
 
         if not synonymous:
@@ -125,10 +159,10 @@ def _perform_calculations(alignment):
                 #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
 
                 #Debug log statement
-                log.info('local SFS {0}'.format(lsfs))
+                log.info('local SFS: {0}'.format(_sfs2str(local_sfs)))
 
-                #Increment count of minor allele occupations in dictionary that tracks this per alignment
-                for maf, count in lsfs.iteritems():
+                #Update non synonymous SFS by adding values from local SFS
+                for maf, count in local_sfs.iteritems():
                     prev_occupations = non_synonymous_sfs.get(maf, 0)
                     non_synonymous_sfs[maf] = prev_occupations + count
                 continue
@@ -140,12 +174,20 @@ def _perform_calculations(alignment):
     #Use Site Frequency Spectrum to calculate the number of synonymous and non synonymous polymorphisms
     #Note: this requires a complete SFS across synonymous & non_synonymous polymorphisms, be careful when updating code
     synonymous_polymorphisms = sum(synonymous_sfs.values())
+    four_fold_syn_polymorphisms = sum(four_fold_syn_sfs.values())
     non_synonymous_polymorphisms = sum(non_synonymous_sfs.values())
 
+    log.info('\n')
+
     log.info('synonymous_polymorphisms %i', synonymous_polymorphisms)
-    log.info('synonymous_sfs %s', str(synonymous_sfs))
+    log.info('synonymous_sfs:\t%s\n', _sfs2str(synonymous_sfs))
+
+    log.info('four fold synonymous_polymorphisms %i', four_fold_syn_polymorphisms)
+    log.info('four fold synonymous_sfs:\t%s\n', _sfs2str(four_fold_syn_sfs))
+
     log.info('non_synonymous_polymorphisms %i', non_synonymous_polymorphisms)
-    log.info('non_synonymous_sfs %s', str(non_synonymous_sfs))
+    log.info('non_synonymous_sfs:\t%s\n', _sfs2str(non_synonymous_sfs))
+
     log.info('mixed_synonymous_polymorphisms %i', mixed_synonymous_polymorphisms)
     log.info('multiple_site_polymorphisms %i', multiple_site_polymorphisms)
 
