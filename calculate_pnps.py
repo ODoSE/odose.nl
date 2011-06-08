@@ -38,14 +38,13 @@ FOUR_FOLD_DEGENERATE_PATTERNS = set(_four_fold_degenerate_patterns())
 
 def _sfs2str(sfs):
     """Convert Site Frequency Spectrum to human readable textual representation."""
-    single = double = triple = ''
-    if 1 in sfs:
-        single = '{0} singleton'.format(sfs[1]) + ('s' if 1 < sfs[1] else '')
-    if 2 in sfs:
-        double = '{0} doubleton'.format(sfs[2]) + ('s' if 1 < sfs[2] else '')
-    if 3 in sfs:
-        triple = '{0} tripleton'.format(sfs[3]) + ('s' if 1 < sfs[3] else '')
-    return ', '.join(val for val in [single, double, triple] if val)
+    def _generator(sfs):
+        """Return successive values for - and names of multipleton(s)."""
+        multiple_names = {1:'singleton', 2:'doubleton', 3:'tripleton', 4:'quadrupleton', 5:'quintupleton'}
+        for xton in sorted(sfs.keys()):
+            name = multiple_names.get(xton, '"{0}"-ton'.format(xton))
+            yield '{0} {1}'.format(sfs[xton], name) + ('s' if 1 < sfs[1] else '')
+    return ', '.join(_generator(sfs))
 
 def _perform_calculations(alignment):
     """Perform actual calculations on the alignment to determine pN, pS, SFS & the number of ignored cases per SICO."""
@@ -135,7 +134,7 @@ def _perform_calculations(alignment):
             #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
 
             #Debug log statement
-            log.info('local SFS: {0}'.format(_sfs2str(local_sfs)))
+            log.info('local SFS: {0}'.format(local_sfs))
 
             #Update synonymous SFS by adding values from local SFS
             for maf, count in local_sfs.iteritems():
@@ -159,7 +158,7 @@ def _perform_calculations(alignment):
                 #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
 
                 #Debug log statement
-                log.info('local SFS: {0}'.format(_sfs2str(local_sfs)))
+                log.info('local SFS: {0}'.format(local_sfs))
 
                 #Update non synonymous SFS by adding values from local SFS
                 for maf, count in local_sfs.iteritems():
