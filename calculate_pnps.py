@@ -214,7 +214,7 @@ def _perform_calculations(alignment):
     #8. The sum of the SFS for synonymous polymorphisms = Ps
     ps = sum(synonymous_sfs.values())
 
-    #9. number of 4-fold synonymous sites = L4
+    #9. number of 4-fold synonymous sites = L4  (all degenerate sites, _including_ those that are not polymorphic)
 
 
     #10. SFS for 4-fold synonymous polymorphisms

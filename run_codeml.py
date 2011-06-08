@@ -134,7 +134,9 @@ def _write_dnds_per_ortholog(dnds_file, codeml_files):
     """For each codeml output file write dN, dS & dN/dS to single tab separated file, each on a new line."""
     #Open file to write dN dS values to
     with open(dnds_file, mode = 'w') as write_handle:
-        write_handle.write('#Ortholog\tdN\tdS\tdN/dS\n')
+        write_handle.write('#Ortholog\tN\tdN\tDn\tS\tdS\tDs\tdN/dS\n')
+        #small d and p stand for numbers per site - dN or dn is the number of non-synonymous substitutions per site
+        #and Dn is the total number of non-synonymous substitutions
 
         #Write on each line: SICO file, dN, dS & dN/dS
         for codeml_file in codeml_files:
@@ -151,7 +153,10 @@ def _write_dnds_per_ortholog(dnds_file, codeml_files):
                 value_dict = dict(zip(iterator, iterator))
 
                 sico = os.path.split(codeml_file)[1].split('.')[0]
-                write_handle.write('{0}\t{1[dN]}\t{1[dS]}\t{1[dN/dS]}\n'.format(sico, value_dict))
+                dnn = float(value_dict['dN']) * float(value_dict['N'])
+                dss = float(value_dict['dS']) * float(value_dict['S'])
+                write_handle.write('{0}\t{1[N]}\t{1[dN]}\t{Dn}\t{1[S]}\t{1[dS]}\t{Ds}\t{1[dN/dS]}\n' \
+                                   .format(sico, value_dict, Dn = dnn, Ds = dss))
     return dnds_file
 
 def main(args):
