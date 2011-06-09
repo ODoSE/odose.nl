@@ -10,6 +10,8 @@ import shutil
 import sys
 import tempfile
 
+#TODO Remove module & XML file
+
 def split_alignment_by_taxon(run_dir, genome_ids_a, genome_ids_b, sico_files):
     """Separate multiple sequence alignments with sequences from two taxa out into separate files per taxon."""
     #Collections to hold split files
