@@ -179,13 +179,13 @@ def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_co
             """Calculate a number as percentage of the number of the number of orthologs"""
             return number / nr_orthologs
         writer.write('# Distribution of orthologs over identified groups:\n')
-        writer.write('{0:8}\t{1:8.2%}\tSingle-copy orthologs shared across all genomes\n' \
+        writer.write('{0:8}\t{1:8.2%}\tSingle-copy orthologs shared across all genomes\n'
                      .format(nr_shared_sico, perc(nr_shared_sico)))
-        writer.write('{0:8}\t{1:8.2%}\tMultiple-copy orthologs shared across all genomes\n' \
+        writer.write('{0:8}\t{1:8.2%}\tMultiple-copy orthologs shared across all genomes\n'
                      .format(nr_shared_muco, perc(nr_shared_muco)))
         #Print the number of orthologs found per nr of genomes
         for nr_of_genomes, nr_of_orthologs in orthologs_per_nr_of_genomes.iteritems():
-            writer.write('{0:8}\t{1:8.2%}\t{2}-genome orthologs with single or multiple copies.\n' \
+            writer.write('{0:8}\t{1:8.2%}\t{2}-genome orthologs with single or multiple copies.\n'
                      .format(nr_of_orthologs, perc(nr_of_orthologs), nr_of_genomes))
         writer.write('{0:8}\t{1:8.2%}\tTotal number of orthologs\n'.format(nr_orthologs, perc(nr_orthologs)))
 

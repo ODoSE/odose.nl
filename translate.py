@@ -81,8 +81,8 @@ def _extract_gene_and_protein(out_dir, refseq_id, genbank_file, ptt_file = None)
     aa_file_dest = os.path.join(out_dir, os.path.split(file_root)[1] + '.faa')
 
     #Check if destination output files already exist and have content, and if so return them
-    if os.path.isfile(aa_file_dest) and 0 < os.path.getsize(aa_file_dest) and \
-        os.path.isfile(dna_file_dest) and 0 < os.path.getsize(dna_file_dest):
+    if (os.path.isfile(aa_file_dest) and 0 < os.path.getsize(aa_file_dest) and
+        os.path.isfile(dna_file_dest) and 0 < os.path.getsize(dna_file_dest)):
         return dna_file_dest, aa_file_dest
 
     #Use temporary files as write handles when translating, so we can not pollute cache with incomplete files

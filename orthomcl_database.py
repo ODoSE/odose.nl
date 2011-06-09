@@ -25,7 +25,7 @@ def create_database():
     db_connection = MySQLdb.connect(host = host, port = port, user = user, passwd = passwd)
     cursor = db_connection.cursor()
     cursor.execute('CREATE DATABASE ' + dbname)
-    cursor.execute('GRANT SELECT,INSERT,UPDATE,DELETE,CREATE VIEW,CREATE,INDEX,DROP on {0}.* TO orthomcl@{1};' \
+    cursor.execute('GRANT SELECT,INSERT,UPDATE,DELETE,CREATE VIEW,CREATE,INDEX,DROP on {0}.* TO orthomcl@{1};'
                    .format(dbname, host))
     cursor.execute('set password for orthomcl@{host} = password(\'pass\');'.format(host = host))
     db_connection.commit()

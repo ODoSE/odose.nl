@@ -138,7 +138,7 @@ def get_complete_genomes(genomes = _parse_genomes_table()):
             for key3 in sorted(dict3.keys()):
                 list4 = dict3[key3]
                 for genome in list4:
-                    name = '<b>{3}</b> - {0} &gt; {1} &gt; <i>{2}</i>'.format(\
+                    name = '<b>{3}</b> - {0} &gt; {1} &gt; <i>{2}</i>'.format(
                         by_group(genome), by_firstname(genome), genome['Organism Name'], genome['RefSeq project ID'])
                     yield name, genome['RefSeq project ID'], False
 
@@ -171,7 +171,7 @@ def download_genome_files(genome):
         else:
             log.error('Genome directory not found under %s%s for %s', host, base_dir, projectid)
 
-    assert project_dir, 'Failed to find folder for genome {0}: {1}'\
+    assert project_dir, 'Failed to find folder for genome {0}: {1}' \
         .format(genome['RefSeq project ID'], genome['Organism Name'])
 
     #Download .gbk & .ptt files for all genome refseq accessioncodes and append them to this list as tuples of gbk + ptt

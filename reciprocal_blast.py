@@ -66,6 +66,5 @@ def _blast_file_against_database(db_dir, blast_db, fasta_file, nucleotide = Fals
     check_call(command, cwd = db_dir, stdout = open('/dev/null', 'w'), stderr = STDOUT)
 
     #Sanity check
-    assert os.path.isfile(hits_file) and 0 < os.path.getsize(hits_file), \
-    hits_file + ' should exist and have some content'
+    assert os.path.isfile(hits_file) and 0 < os.path.getsize(hits_file), hits_file + ' should exist with some content'
     return hits_file
