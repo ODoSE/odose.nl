@@ -4,11 +4,14 @@
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
-from divergence import parse_options, create_directory
+from divergence import parse_options, create_directory, extract_archive_of_files
+from divergence.filter_orthologs import find_cogs_in_sequence_records
 from divergence.run_codeml import run_codeml, parse_codeml_output
 from itertools import product
+import logging as log
 import os.path
 import re
+import shutil
 import sys
 import tempfile
 
@@ -17,8 +20,8 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     run_dir = tempfile.mkdtemp(prefix = 'calculate_pnps')
 
     #For each alignment create separate alignments for clade A & clade B genomes
-    calculations_a_file = os.path.join(run_dir, 'calculations_a.tsv')
-    calculations_b_file = os.path.join(run_dir, 'calculations_b.tsv')
+    calculations_a_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_a_')[1]
+    calculations_b_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_b_')[1]
     _write_output_file_header(calculations_a_file, len(genome_ids_a) / 2)
     _write_output_file_header(calculations_b_file, len(genome_ids_b) / 2)
 
@@ -45,7 +48,9 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     #Finally, we might need a line which gives the sum for columns 3 to 15 plus the mean of column 16
 
     #Clean up
-    #TODO After moving files to proper paths outside removed directory: shutil.rmtree(run_dir)
+    shutil.rmtree(run_dir)
+
+    return calculations_a_file, calculations_b_file
 
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
@@ -62,10 +67,10 @@ def _four_fold_degenerate_patterns():
 
 FOUR_FOLD_DEGENERATE_PATTERNS = set(_four_fold_degenerate_patterns())
 
-def _get_nton_name(nton):
+def _get_nton_name(nton, prefix = ''):
     """Given the number of strains in which a polymorphism/substitution is found, give the appropriate SFS name."""
-    return {1:'singleton', 2:'doubleton', 3:'tripleton', 4:'quadrupleton', 5:'quintupleton'}.get(nton,
-                                                                                                 str(nton) + '-ton')
+    return prefix + {1:'singletons', 2:'doubletons', 3:'tripletons', 4:'quadrupletons', 5:'quintupletons'}.get(nton,
+                                                                                                    str(nton) + '-tons')
 
 def _perform_calculations(alignment, codeml_values):
     """Perform actual calculations on the alignment to determine pN, pS, SFS & the number of ignored cases per SICO."""
@@ -185,21 +190,20 @@ def _perform_calculations(alignment, codeml_values):
                 mixed_synonymous_polymorphisms += 1
 
     #Compute combined values from the above counted statistics 
-    computed_values = _compute_values_from_statistics(alignment_length, codeml_values,
+    computed_values = _compute_values_from_statistics(alignment, alignment_length, codeml_values,
                                                       synonymous_sfs, non_synonymous_sfs, four_fold_syn_sfs,
                                                       four_fold_synonymous_sites)
 
-    #2. number of strains (this will typically be the same for all genes)
-    computed_values['strains'] = len(alignment)
     #Miscellaneous additional values
     computed_values['codons'] = alignment_length / 3
     computed_values['multiple site polymorphisms'] = multiple_site_polymorphisms
     computed_values['synonymous and non-synonymous polymorphisms mixed'] = mixed_synonymous_polymorphisms
-    #TODO Add COGs to output file!
+    #Add COGs to output file
+    computed_values['cogs'] = ','.join(find_cogs_in_sequence_records(alignment))
 
     return computed_values
 
-def _compute_values_from_statistics(alignment_length, codeml_values,
+def _compute_values_from_statistics(alignment, alignment_length, codeml_values,
                                     synonymous_sfs, non_synonymous_sfs, four_fold_syn_sfs, four_fold_synonymous_sites):
     """Compute values (mostly from the site frequency spectra) that we'll output according to provided formula's."""
     #12. number of non-synonymous sites for divergence from PAML
@@ -215,13 +219,24 @@ def _compute_values_from_statistics(alignment_length, codeml_values,
     #Add all values in codeml_values to calc_values
     calc_values.update(codeml_values)
 
+    #2. number of strains (this will typically be the same for all genes)
+    calc_values['strains'] = len(alignment)
+
+    def _add_sfs_values_in_columns(sfs_name, sfs):
+        """Add values contained within SFS to named columns for singletons, doubletons, tripletons, etc.."""
+        max_nton = len(alignment) / 2 + 1
+        for nton in range(1, max_nton):
+            name = _get_nton_name(nton, prefix = sfs_name)
+            value = sfs[nton] if nton in sfs else 0
+            calc_values[name] = value
+
     #3. number of non-synonymous sites (see below for calculation) = LnP = L * LnD/(LnD+LsD)
     #where L is the length of the sequence from which the polymorphism data is taken (i.e. 3* no of codons used)
     calc_values['non-synonymous sites'] = alignment_length * paml_non_synonymous_sites / (paml_non_synonymous_sites +
                                                                                           paml_synonymous_sites)
 
     #4. SFS for non-synonymous polymorphsims
-    calc_values['non-synonymous sfs'] = non_synonymous_sfs
+    _add_sfs_values_in_columns('non-synonymous sfs ', non_synonymous_sfs)
 
     #5. The sum of SFS for non-synonymous polymorphisms = Pn
     calc_values['non-synonymous polymorphisms'] = non_synonymous_polymorphisms = sum(non_synonymous_sfs.values())
@@ -232,7 +247,7 @@ def _compute_values_from_statistics(alignment_length, codeml_values,
                                                                                   paml_synonymous_sites)
 
     #7. SFS for synonymous polymorphisms
-    calc_values['synonymous sfs'] = synonymous_sfs
+    _add_sfs_values_in_columns('synonymous sfs ', synonymous_sfs)
 
     #8. The sum of the SFS for synonymous polymorphisms = Ps
     calc_values['synonymous polymorphisms'] = synonymous_polymorphisms = sum(synonymous_sfs.values())
@@ -241,7 +256,7 @@ def _compute_values_from_statistics(alignment_length, codeml_values,
     calc_values['4-fold synonymous sites'] = four_fold_synonymous_sites
 
     #10. SFS for 4-fold synonymous polymorphisms
-    calc_values['4-fold synonymous sfs'] = four_fold_syn_sfs
+    _add_sfs_values_in_columns('4-fold synonymous sfs ', four_fold_syn_sfs)
 
     #11. Sum of the SFS for 4-folds = P4
     calc_values['4-fold synonymous polymorphisms'] = sum(four_fold_syn_sfs.values())
@@ -259,96 +274,87 @@ def _compute_values_from_statistics(alignment_length, codeml_values,
                                                                               synonymous_polymorphisms))
     return calc_values
 
+def _get_column_headers_in_sequence(max_nton):
+    """Return the column headers to the generated statistics files in the correct order, using max_nton for SFS max."""
+    #Some initial values
+    headers = ['cogs', 'strains', 'codons']
+
+    def _write_sfs_column_names(prefix):
+        """Return named columns for SFS singleton, doubleton, tripleton, etc.. upto max_nton."""
+        for number in range(1, max_nton + 1):
+            yield _get_nton_name(number, prefix)
+
+    #Non synonymous
+    headers.extend(['non-synonymous sites', 'non-synonymous polymorphisms'])
+    headers.extend(_write_sfs_column_names('non-synonymous sfs '))
+    #Synonymous
+    headers.extend(['synonymous sites', 'synonymous polymorphisms'])
+    headers.extend(_write_sfs_column_names('synonymous sfs '))
+    #4-fold synonymous
+    headers.extend(['4-fold synonymous sites', '4-fold synonymous polymorphisms'])
+    headers.extend(_write_sfs_column_names('4-fold synonymous sfs '))
+    #Miscellaneous additional statistics
+    headers.append('multiple site polymorphisms')
+    headers.append('synonymous and non-synonymous polymorphisms mixed')
+    #PAML
+    headers.extend(['N', 'Dn', 'S', 'Ds'])
+    headers.append('direction of selection')
+
+    return headers
+
 def _write_output_file_header(calculations_file, max_nton):
     """Write header line for combined statistics file."""
     with open(calculations_file, mode = 'a') as append_handle:
-        def _write_sfs_column_names():
-            """Write out named columns for SFS singleton, doubleton, tripleton, etc.. upto max_nton."""
-            append_handle.write('\t'.join(_get_nton_name(number) for number in range(1, max_nton + 1)) + '\t')
-
-        append_handle.write('{0}\t{1}\t{2}\t'.format('orthologname',
-                                                'strains',
-                                                'codons'))
-
-        #Non synonymous
-        append_handle.write('{0}\t{1}\t{2}\t'.format('non-synonymous sites',
-                                                     'non-synonymous polymorphisms',
-                                                     'non-synonymous sfs:'))
-        _write_sfs_column_names()
-
-        #Synonymous
-        append_handle.write('{0}\t{1}\t{2}\t'.format('synonymous sites',
-                                                     'synonymous polymorphisms',
-                                                     'synonymous sfs:'))
-        _write_sfs_column_names()
-
-        #4-fold synonymous
-        append_handle.write('{0}\t{1}\t{2}\t'.format('4-fold synonymous sites',
-                                                     '4-fold synonymous polymorphisms',
-                                                     '4-fold synonymous sfs:'))
-        _write_sfs_column_names()
-
-        #Miscellaneous additional statistics
-        append_handle.write('{0}\t{1}\t'.format('multiple site polymorphisms',
-                                                'synonymous and non-synonymous polymorphisms mixed'))
-
-        #PAML
-        append_handle.write('{0}\t{1}\t{2}\t{3}\t'.format('N',
-                                                          'Dn',
-                                                          'S',
-                                                          'Ds'))
-        append_handle.write('{0}\n'.format('direction of selection'))
+        append_handle.write('ortholog\t')
+        append_handle.write('\t'.join(_get_column_headers_in_sequence(max_nton)))
+        append_handle.write('\n')
 
 def _append_statistics(calculations_file, orthologname, comp_values, max_nton):
     """Append statistics for individual ortholog to genome-wide files."""
     with open(calculations_file, mode = 'a') as append_handle:
-        def _append_sfs_values(sfs):
-            """Append values for SFS into the correct columns according to column headers"""
-            for nton in range(1, max_nton + 1):
-                append_handle.write('{0}\t'.format(sfs[nton] if nton in sfs else 0))
-
-        #Write ortholog name & the number of strains
-        append_handle.write('{0}\t{1}\t{2}\t'.format(orthologname,
-                                                comp_values['strains'],
-                                                comp_values['codons']))
-
-        #Non synonymous
-        append_handle.write('{0}\t{1}\t\t'.format(comp_values['non-synonymous sites'],
-                                                  comp_values['non-synonymous polymorphisms']))
-        _append_sfs_values(comp_values['non-synonymous sfs'])
-
-        #Synonymous
-        append_handle.write('{0}\t{1}\t\t'.format(comp_values['synonymous sites'],
-                                                  comp_values['synonymous polymorphisms']))
-        _append_sfs_values(comp_values['synonymous sfs'])
-
-        #4-fold synonymous
-        append_handle.write('{0}\t{1}\t\t'.format(comp_values['4-fold synonymous sites'],
-                                                  comp_values['4-fold synonymous polymorphisms']))
-        _append_sfs_values(comp_values['4-fold synonymous sfs'])
-
-        #Miscellaneous additional statistics
-        append_handle.write('{0}\t{1}\t'.format(comp_values['multiple site polymorphisms'],
-                                                comp_values['synonymous and non-synonymous polymorphisms mixed']))
-
-        #PAML
-        append_handle.write('{0}\t{1}\t{2}\t{3}\t'.format(comp_values['N'],
-                                                          comp_values['Dn'],
-                                                          comp_values['S'],
-                                                          comp_values['Ds']))
-        append_handle.write('{0}\n'.format(comp_values['direction of selection']))
+        append_handle.write(orthologname + '\t')
+        append_handle.write('\t'.join(str(comp_values[column]) for column in _get_column_headers_in_sequence(max_nton)))
+        append_handle.write('\n')
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
-Usage: calculate_pnps.py 
---alignment=FILE    alignment file in FASTA format
+Usage: run_codeml.py 
+--genomes-a=FILE    file with RefSeq id from complete genomes table on each line for taxon A
+--genomes-b=FILE    file with RefSeq id from complete genomes table on each line for taxon B
+--sico-zip=FILE     archive of aligned & trimmed single copy orthologous (SICO) genes
+--table-a=FILE      destination file path for summary statistics table based on orthologs in taxon A
+--table-b=FILE      destination file path for summary statistics table based on orthologs in taxon B
 """
-    options = ['alignment']
-    (alignment_file,) = parse_options(usage, options, args)
+    options = ['genomes-a', 'genomes-b', 'sico-zip', 'table-a', 'table-b']
+    genome_a_ids_file, genome_b_ids_file, sico_zip, table_a, table_b = parse_options(usage, options, args)
 
-    alignment = AlignIO.read(alignment_file, 'fasta')
-    _perform_calculations(alignment, {'Dn':-1, 'Ds':-1, 'N':-1, 'S':-1})
+    #Parse file containing RefSeq project IDs to extract RefSeq project IDs
+    with open(genome_a_ids_file) as read_handle:
+        genome_ids_a = [line.split()[0] for line in read_handle]
+    with open(genome_b_ids_file) as read_handle:
+        genome_ids_b = [line.split()[0] for line in read_handle]
+
+    #Create run_dir to hold files relating to this run
+    run_dir = tempfile.mkdtemp(prefix = 'run_codeml_')
+
+    #Extract files from zip archive
+    sico_files = extract_archive_of_files(sico_zip, create_directory('sicos', inside_dir = run_dir))
+
+    #Actually do calculations
+    tmp_table_tuple = calculate_pnps(genome_ids_a, genome_ids_b, sico_files)
+
+    #Write the produced files to command line argument filenames
+    shutil.move(tmp_table_tuple[0], table_a)
+    shutil.move(tmp_table_tuple[1], table_b)
+
+    #Remove unused files to free disk space 
+    shutil.rmtree(run_dir)
+
+    #Exit after a comforting log message
+    log.info("Produced: \n%s\n%s", table_a, table_b)
+    return table_a, table_b
 
 if __name__ == '__main__':
     main(sys.argv[1:])
+
