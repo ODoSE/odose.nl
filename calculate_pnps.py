@@ -15,6 +15,8 @@ import shutil
 import sys
 import tempfile
 
+#TODO Rename this module to something more fitting, such as calculate_dos
+
 def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     """Calculate pN, pS, pN/pS & SFS values for all sico_files per clade, and write out statistics per SICO."""
     run_dir = tempfile.mkdtemp(prefix = 'calculate_pnps')
@@ -48,7 +50,9 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
             comp_values = _perform_calculations(alignment_b, value_dict)
             _append_statistics(calculations_b_file, basename, comp_values, len(genome_ids_b) / 2)
 
-    #Finally, we might need a line which gives the sum for columns 3 to 15 plus the mean of column 16
+    #TODO Finally, we might need a line which gives the sum for columns 3 to 15 plus the mean of column 16
+
+    #TODO Alternate method of calculating number of substitutions for independent X-axis of eventual graph
 
     #Clean up
     shutil.rmtree(run_dir)

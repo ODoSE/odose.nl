@@ -41,6 +41,8 @@ def _download_genomes_table():
             content = read_handle.read().decode('utf-8')
     return content
 
+
+#TODO Drop requirement on RefSeq ID and assure users can select / download genomes based on GenBank Project ID instead
 def _parse_genomes_table(complete_genome_table = _download_genomes_table(), require_refseq = True):
     """Parse table of genomes and return list of dictionaries with values per genome."""
     #Empty lists to hold column names and genome dictionaries
@@ -173,6 +175,8 @@ def download_genome_files(genome):
 
     assert project_dir, 'Failed to find folder for genome {0}: {1}' \
         .format(genome['RefSeq project ID'], genome['Organism Name'])
+
+    #TODO Write out provenance logfile with sources of retrieved files, and retrieval date / version
 
     #Download .gbk & .ptt files for all genome refseq accessioncodes and append them to this list as tuples of gbk + ptt
     genome_files = []

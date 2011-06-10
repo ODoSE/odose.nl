@@ -28,6 +28,7 @@ def _filter_multiple_cog_orthologs(ortholog_files):
 
     #Transfer COGs by overwriting sico_files with correct COG set
     for sico_file, cog in cog_transferable.iteritems():
+        #TODO Create file listing transfered COG annotations with donor and recipient protein IDs     
         _assign_cog_to_sequences(sico_file, cog)
 
     return ortholog_files
@@ -106,6 +107,9 @@ def filter_recombined_orthologs(run_dir, aligned_files):
     super_distance_file = _run_dna_dist(run_dir, super_concatemer)
     super_tree_file = _run_neighbor(run_dir, super_distance_file)
     genome_ids_a, genome_ids_b = _read_taxa_from_tree(super_tree_file)
+
+    #TODO Ensure the tree that's created here matches the tree that is created from the filtered dataset later
+    #Otherwise fail after print >> stderr, 'Unfiltered & filtered tree clustering does not match'
 
     #Assign ortholog files to the correct collection based on whether they show recombination
     log.info('Recombination found in the following orthologs:')
@@ -250,6 +254,7 @@ Usage: filter_orthologs.py
     #Create archives of files on command line specified output paths & move trim_stats_file
     create_archive_of_files(retained_zip, ortholog_files)
     if filter_recombination:
+        #FIXME Galaxy fails the run when no recombination files are found, probably because this file is empty
         create_archive_of_files(filter_recombination, recombined_files)
 
     #Remove unused files to free disk space 

@@ -11,11 +11,12 @@ import os
 import shutil
 import sys
 
-#Setup basic logging configuration with log level INFO  
+#Setup basic logging configuration with log level INFO
 log.basicConfig(level = log.INFO,
                 stream = sys.stdout,
                 format = '%(levelname)s\t%(asctime)s %(module)s.%(funcName)s:%(lineno)d\t%(message)s',
                 datefmt = '%H:%M:%S')
+#TODO This log output is currently used as metadata.info for output files. Find a way around this or raise log level
 
 #Require at least version 1.53 op BioPython
 assert 1.54 <= float(Bio.__version__), 'BioPython version 1.54 or higher is required'
