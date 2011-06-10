@@ -18,8 +18,8 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     run_dir = tempfile.mkdtemp(prefix = 'calculate_pnps')
 
     #For each alignment create separate alignments for clade A & clade B genomes
-    calculations_a_file = os.path.join(run_dir, 'calculations_a')
-    calculations_b_file = os.path.join(run_dir, 'calculations_b')
+    calculations_a_file = os.path.join(run_dir, 'calculations_a.tsv')
+    calculations_b_file = os.path.join(run_dir, 'calculations_b.tsv')
     _write_output_file_header(calculations_a_file)
     _write_output_file_header(calculations_b_file)
 
@@ -75,11 +75,6 @@ def _sfs2str(sfs):
 
 def _perform_calculations(alignment, codeml_values):
     """Perform actual calculations on the alignment to determine pN, pS, SFS & the number of ignored cases per SICO."""
-    #Print codons for easy debugging
-    for seqr in alignment:
-        seq = str(seqr.seq)
-        log.info('  '.join(seq[idx:idx + 3] for idx in range(0, len(seq), 3)))
-
     synonymous_sfs = {}
     four_fold_syn_sfs = {}
     non_synonymous_sfs = {}
@@ -130,7 +125,7 @@ def _perform_calculations(alignment, codeml_values):
         #Continue with next codon if none of the sites is polymorphic
         if not any(polymorphisms):
             #But do increase the number of 4-fold synonymous sites if the pattern matches
-            codon = site1[0] + site2[0] + site3[0]
+            codon = codons_nonstop[0]
             for pattern in FOUR_FOLD_DEGENERATE_PATTERNS:
                 if re.match(pattern, codon):
                     #Increase by one, as this site is for fold degenerate, even if it is not polymorphic
@@ -139,10 +134,6 @@ def _perform_calculations(alignment, codeml_values):
 
         #Determine if only one site is polymorphic by using boolean xor and not all
         single_site_polymorphism = site1_polymorphic ^ site2_polymorphic ^ site3_polymorphic and not all(polymorphisms)
-
-        #Debug print statement        
-        log.info('1:{0}  2:{1}  3:{2}  Translations:{3}\tSynonymous:{4}\tSingle-site:{5}' \
-        .format(site1_usage, site2_usage, site3_usage, translation_usage, synonymous, single_site_polymorphism))
 
         #Skip multiple site polymorphisms, but do keep a count of how many we encounter
         if not single_site_polymorphism:
@@ -166,48 +157,38 @@ def _perform_calculations(alignment, codeml_values):
         if local_sfs[reference_allele_count] == 0:
             del local_sfs[reference_allele_count]
 
+        def _update_sfs_with_local_sfs(sfs, local_sfs):
+            """Add values from local_sfs to gene-wide sfs"""
+            for maf, count in local_sfs.iteritems():
+                prev_occupations = sfs.get(maf, 0)
+                sfs[maf] = prev_occupations + count
+
         if synonymous:
             #If all polymorphisms encode for the same AA, we have multiple synonymous polymorphisms, where:
             #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
 
-            #Debug log statement
-            log.info('local SFS: {0}'.format(local_sfs))
-
             #Update synonymous SFS by adding values from local SFS
-            for maf, count in local_sfs.iteritems():
-                prev_occupations = synonymous_sfs.get(maf, 0)
-                synonymous_sfs[maf] = prev_occupations + count
+            _update_sfs_with_local_sfs(synonymous_sfs, local_sfs)
 
             #Codon is four fold degenerate if it matches any pattern in FOUR_FOLD_DEGENERATE_PATTERNS
             if site3_polymorphic:
-                codon = site1[0] + site2[0] + site3[0]
+                codon = codons_nonstop[0]
                 for pattern in FOUR_FOLD_DEGENERATE_PATTERNS:
                     if re.match(pattern, codon):
                         #Update four fold degenerate SFS by adding values from local SFS
-                        for maf, count in local_sfs.iteritems():
-                            prev_occupations = four_fold_syn_sfs.get(maf, 0)
-                            four_fold_syn_sfs[maf] = prev_occupations + count
+                        _update_sfs_with_local_sfs(four_fold_syn_sfs, local_sfs)
                         #Increase the number of four_fold synonymous sites here as well
                         four_fold_synonymous_sites += 1
-            continue
-
-        if not synonymous:
+        else: #not synonymous
             if len(polymorph_site_usage) == len(translation_usage):
                 #If all polymorphisms encode for different AA, we have multiple non-synonymous polymorphisms, where:
                 #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
 
-                #Debug log statement
-                log.info('local SFS: {0}'.format(local_sfs))
-
                 #Update non synonymous SFS by adding values from local SFS
-                for maf, count in local_sfs.iteritems():
-                    prev_occupations = non_synonymous_sfs.get(maf, 0)
-                    non_synonymous_sfs[maf] = prev_occupations + count
-                continue
+                _update_sfs_with_local_sfs(non_synonymous_sfs, local_sfs)
             else:
                 #Some, but not all polymorphisms encode for different AA, making it unclear how this should be scored
                 mixed_synonymous_polymorphisms += 1
-                continue
 
     log.info('%i Polymorphisms with mixed synonymous and non-synonymous polymorphisms', mixed_synonymous_polymorphisms)
     log.info('%i of %i codons have polymorphisms in multiple sites', multiple_site_polymorphisms, alignment_length / 3)
@@ -219,6 +200,7 @@ def _perform_calculations(alignment, codeml_values):
 
 def _compute_values_from_statistics(alignment, alignment_length, codeml_values, synonymous_sfs, non_synonymous_sfs,
                                     four_fold_syn_sfs, four_fold_synonymous_sites):
+    """Compute values (mostly from the site frequency spectra) that we'll output according to provided formula's."""
     #12. number of non-synonymous sites for divergence from PAML
     #(this might be different to 3, because this will come from two randomly chosen sequences) = LnD
     paml_non_synonymous_sites = codeml_values['N']
@@ -267,19 +249,20 @@ def _compute_values_from_statistics(alignment, alignment_length, codeml_values, 
     calc_values['4-fold synonymous polymorphisms'] = sum(four_fold_syn_sfs.values())
 
     #13. number of non-synonymous substitutions from PAML = Dn
-    paml_non_synonymous_substitutions = codeml_values['Dn']
+    paml_non_synonymous_substitut = codeml_values['Dn']
 
     #15. number of synonymous substitutions from PAML = Ds
     paml_synonymous_substitutions = codeml_values['Ds']
 
     #16. Direction of selection = Dn/(Dn+Ds) - Pn/(Pn+Ps)
-    calc_values['direction of selection'] = (paml_non_synonymous_substitutions / (paml_non_synonymous_substitutions +
+    calc_values['direction of selection'] = (paml_non_synonymous_substitut / (paml_non_synonymous_substitut +
                                                                                  paml_synonymous_substitutions)
                                             - non_synonymous_polymorphisms / (non_synonymous_polymorphisms +
                                                                               synonymous_polymorphisms))
     return calc_values
 
 def _write_output_file_header(calculations_file):
+    """Write header line for combined statistics file."""
     with open(calculations_file, mode = 'a') as append_handle:
         append_handle.write('{0}\t{1}\t'.format('orthologname',
                                                 'strains'))
@@ -300,6 +283,7 @@ def _write_output_file_header(calculations_file):
 
 
 def _append_statistics(calculations_file, orthologname, comp_values):
+    """Append statistics for individual """
     with open(calculations_file, mode = 'a') as append_handle:
         append_handle.write('{0}\t{1}\t'.format(orthologname,
                                                 comp_values['strains']))
