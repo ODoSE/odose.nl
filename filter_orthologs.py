@@ -14,31 +14,19 @@ import shutil
 import sys
 import tempfile
 
-def cog_based_filtering(sico_files):
-    """Inspect COGs for sequences marked as orthologs by OrthoMCL, and append some details about this to stats_file."""
-    #Retrieve SICO to cog dictionaries of cog conflicts & transferable cog annotations, and list of SICOs missing cog
-    cog_conflicts, cog_transferable, cog_missing = _group_cog_issues(sico_files)
-
-    #Filter out orthologs containing more than one COG annotation
-    sico_files = [sico for sico in sico_files if sico not in cog_conflicts.keys()]
-
-    #Transfer COGs by overwriting sico_files with correct COG set
-    for sico_file, cog in cog_transferable.iteritems():
-        seqrecords = SeqIO.to_dict(SeqIO.parse(sico_file, 'fasta')).values()
-        with open(sico_file, mode = 'w') as write_handle:
-            for seqr in seqrecords:
-                #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
-                #Or for missing COG: >58191|NC_010067.1|YP_001569097.1|None|core
-                split = seqr.id.split('|')
-                assert split[3] in (cog, 'None'), 'COG should be either {0} or None, but was {1}'.format(cog, split[3])
-                split[3] = cog
-                seqr = SeqRecord(seqr.seq, id = '|'.join(split), description = '')
-                SeqIO.write(seqr, write_handle, 'fasta')
-
-    #Log COG statistics
-    _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing)
-
-    return sico_files
+def find_cogs_in_sequence_records(sequence_records, include_none = False):
+    """Find unique COG annotations assigned to sequences within a single alignment."""
+    cogs = set()
+    for record in sequence_records:
+        #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
+        cog = record.id.split('|')[3]
+        if cog in cogs:
+            continue
+        if cog == 'None':
+            cog = None
+        if cog != None or include_none:
+            cogs.add(cog)
+    return cogs
 
 def _group_cog_issues(sico_files):
     """Find issues with COG assignments within SICO files by looking at COG conflicts, transferable and missing COGs."""
@@ -46,27 +34,30 @@ def _group_cog_issues(sico_files):
     cog_transferable = {}
     cog_missing = []
     for sico_file in sico_files:
-        with open(sico_file) as read_handle:
-            cogs = set()
-            unassigned_cog_found = False
-            for record in SeqIO.parse(read_handle, 'fasta'):
-                #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
-                cog = record.id.split('|')[3]
-                if cog in cogs:
-                    continue
-                if cog == 'None':
-                    unassigned_cog_found = True
-                    continue
-                cogs.add(cog)
-            if 0 == len(cogs):
-                cog_missing.append(sico_file)
-            elif 1 == len(cogs):
-                if unassigned_cog_found:
+        cogs = find_cogs_in_sequence_records(SeqIO.parse(sico_file, 'fasta'), include_none = True)
+        if 0 == len(cogs):
+            cog_missing.append(sico_file)
+            continue
+        if 1 < len(cogs):
+            if None in cogs:
+                cogs.remove(None)
+                if len(cogs) == 1:
                     cog_transferable[sico_file] = cogs.pop()
-            elif 1 < len(cogs):
-                cog_conflicts[sico_file] = cogs
+                    continue
+            cog_conflicts[sico_file] = cogs
     return cog_conflicts, cog_transferable, cog_missing
 
+def _assign_cog_to_sequences(fasta_file, cog):
+    """Assign cog annotatione to all sequences in fasta_file."""
+    seqrecords = SeqIO.to_dict(SeqIO.parse(fasta_file, 'fasta')).values()
+    with open(fasta_file, mode = 'w') as write_handle:
+        for seqr in seqrecords: #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
+            #Or for missing COG: >58191|NC_010067.1|YP_001569097.1|None|core
+            split = seqr.id.split('|')
+            assert split[3] in (cog, 'None'), 'COG should be either {0} or None, but was {1}'.format(cog, split[3])
+            split[3] = cog
+            seqr = SeqRecord(seqr.seq, id = '|'.join(split), description = '')
+            SeqIO.write(seqr, write_handle, 'fasta')
 
 def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
     """Append COG statistics to stats_file"""
@@ -228,8 +219,17 @@ Usage: filter_orthologs.py
     #Filter orthologs with multiple COG annotations among genes if flag was set
     if filter_cogs_enabled:
         log.info('Filtering orthologs with multiple COG annotations')
-        #Look COG assignment among orthologs; filter those with multiple COGs & carry over COGs to unannotated sequences
-        ortholog_files = cog_based_filtering(ortholog_files)
+
+        #Retrieve SICO to cog dictionaries of cog conflicts & transferable cog annotations and list of SICOs missing cog
+        cog_conflicts, cog_transferable, cog_missing = _group_cog_issues(ortholog_files)
+        _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing)
+
+        #Filter out orthologs containing more than one COG annotation
+        ortholog_files = [sico for sico in ortholog_files if sico not in cog_conflicts.keys()]
+
+        #Transfer COGs by overwriting sico_files with correct COG set
+        for sico_file, cog in cog_transferable.iteritems():
+            _assign_cog_to_sequences(sico_file, cog)
 
     #TODO Add option to filter out SICOs when any ortholog has been flagged as 'mobile element', 'phage' or 'IS element'
 
