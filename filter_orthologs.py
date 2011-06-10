@@ -14,6 +14,24 @@ import shutil
 import sys
 import tempfile
 
+def _filter_multiple_cog_orthologs(ortholog_files):
+    """Filter orthologs where multiple different COG annotations are found, and in addition transfer COGs."""
+
+    log.info('Filtering orthologs with multiple COG annotations')
+
+    #Retrieve SICO to cog dictionaries of cog conflicts & transferable cog annotations and list of SICOs missing cog
+    cog_conflicts, cog_transferable, cog_missing = _group_cog_issues(ortholog_files)
+    _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing)
+
+    #Filter out orthologs containing more than one COG annotation
+    ortholog_files = [sico for sico in ortholog_files if sico not in cog_conflicts.keys()]
+
+    #Transfer COGs by overwriting sico_files with correct COG set
+    for sico_file, cog in cog_transferable.iteritems():
+        _assign_cog_to_sequences(sico_file, cog)
+
+    return ortholog_files
+
 def find_cogs_in_sequence_records(sequence_records, include_none = False):
     """Find unique COG annotations assigned to sequences within a single alignment."""
     cogs = set()
@@ -74,6 +92,9 @@ def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
 def filter_recombined_orthologs(run_dir, aligned_files):
     """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees. 
     Return two collections of aligned files, the first without recombination, the second with recombination."""
+
+    log.info('Filtering orthologs where phylogenetic trees show evidence of recombination')
+
     #Collections to hold both non recombination files & files showing recombination 
     non_recomb = []
     recombined = []
@@ -102,7 +123,7 @@ def filter_recombined_orthologs(run_dir, aligned_files):
         #Parse tree file to ensure all genome_ids_a & genome_ids_b group together in the tree
         if _find_recombination(genome_ids_a, genome_ids_b, tree_file):
             recombined.append(ortholog_file)
-            log.info(base_name)
+            log.info('%s\t%s', base_name, '\t'.join(find_cogs_in_sequence_records(SeqIO.parse(ortholog_file, 'fasta'))))
         else:
             non_recomb.append(ortholog_file)
 
@@ -218,24 +239,12 @@ Usage: filter_orthologs.py
 
     #Filter orthologs with multiple COG annotations among genes if flag was set
     if filter_cogs_enabled:
-        log.info('Filtering orthologs with multiple COG annotations')
-
-        #Retrieve SICO to cog dictionaries of cog conflicts & transferable cog annotations and list of SICOs missing cog
-        cog_conflicts, cog_transferable, cog_missing = _group_cog_issues(ortholog_files)
-        _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing)
-
-        #Filter out orthologs containing more than one COG annotation
-        ortholog_files = [sico for sico in ortholog_files if sico not in cog_conflicts.keys()]
-
-        #Transfer COGs by overwriting sico_files with correct COG set
-        for sico_file, cog in cog_transferable.iteritems():
-            _assign_cog_to_sequences(sico_file, cog)
+        ortholog_files = _filter_multiple_cog_orthologs(ortholog_files)
 
     #TODO Add option to filter out SICOs when any ortholog has been flagged as 'mobile element', 'phage' or 'IS element'
 
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
     if filter_recombination:
-        log.info('Filtering orthologs where phylogenetic trees show evidence of recombination')
         ortholog_files, recombined_files = filter_recombined_orthologs(run_dir, ortholog_files)
 
     #Create archives of files on command line specified output paths & move trim_stats_file
