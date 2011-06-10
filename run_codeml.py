@@ -139,6 +139,7 @@ def _write_config_file(nexus_file, output_file, config_file):
         write_handle.write(config_contents)
 
 def parse_codeml_output(codeml_file):
+    """Parse last line of codeml output file to read initial values, and calculate Dn & Ds as derived values."""
     with open(codeml_file) as read_handle:
         #Extract & parse last line
         last_line = deque(read_handle).pop()

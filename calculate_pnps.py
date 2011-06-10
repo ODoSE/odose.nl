@@ -22,8 +22,11 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     #For each alignment create separate alignments for clade A & clade B genomes
     calculations_a_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_a_')[1]
     calculations_b_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_b_')[1]
-    _write_output_file_header(calculations_a_file, len(genome_ids_a) / 2)
-    _write_output_file_header(calculations_b_file, len(genome_ids_b) / 2)
+
+    if 1 < len(genome_ids_a):
+        _write_output_file_header(calculations_a_file, len(genome_ids_a) / 2)
+    if 1 < len(genome_ids_b):
+        _write_output_file_header(calculations_b_file, len(genome_ids_b) / 2)
 
     for sico_file in sico_files:
         ali = AlignIO.read(sico_file, 'fasta')
@@ -38,10 +41,10 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
         value_dict = parse_codeml_output(codeml_file)
 
         #Perform calculations for subaligments of each clade, if clade has more than one sequence; skipping outliers
-        if len(alignment_a):
+        if 1 < len(alignment_a):
             comp_values = _perform_calculations(alignment_a, value_dict)
             _append_statistics(calculations_a_file, basename, comp_values, len(genome_ids_a) / 2)
-        if len(alignment_b):
+        if 1 < len(alignment_b):
             comp_values = _perform_calculations(alignment_b, value_dict)
             _append_statistics(calculations_b_file, basename, comp_values, len(genome_ids_b) / 2)
 
@@ -81,10 +84,10 @@ def _perform_calculations(alignment, codeml_values):
     mixed_synonymous_polymorphisms = 0
     multiple_site_polymorphisms = 0
 
-    #Calculate alignment_length here so we can handle alignments that are not multiples of three
-    alignment_length = len(alignment[0]) - len(alignment[0]) % 3
+    #Calculate sequence_lengths here so we can handle alignments that are not multiples of three
+    sequence_lengths = len(alignment[0]) - len(alignment[0]) % 3
     #Split into codon_alignments
-    codon_alignments = [alignment[:, index:index + 3] for index in range(0, alignment_length, 3)]
+    codon_alignments = [alignment[:, index:index + 3] for index in range(0, sequence_lengths, 3)]
     for codon_alignment in codon_alignments:
         #Get string representations of codons for simplicity 
         codons = [str(seqr.seq) for seqr in codon_alignment]
@@ -190,12 +193,12 @@ def _perform_calculations(alignment, codeml_values):
                 mixed_synonymous_polymorphisms += 1
 
     #Compute combined values from the above counted statistics 
-    computed_values = _compute_values_from_statistics(alignment, alignment_length, codeml_values,
+    computed_values = _compute_values_from_statistics(len(alignment), sequence_lengths, codeml_values,
                                                       synonymous_sfs, non_synonymous_sfs, four_fold_syn_sfs,
                                                       four_fold_synonymous_sites)
 
     #Miscellaneous additional values
-    computed_values['codons'] = alignment_length / 3
+    computed_values['codons'] = sequence_lengths / 3
     computed_values['multiple site polymorphisms'] = multiple_site_polymorphisms
     computed_values['synonymous and non-synonymous polymorphisms mixed'] = mixed_synonymous_polymorphisms
     #Add COGs to output file
@@ -203,7 +206,7 @@ def _perform_calculations(alignment, codeml_values):
 
     return computed_values
 
-def _compute_values_from_statistics(alignment, alignment_length, codeml_values,
+def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_values,
                                     synonymous_sfs, non_synonymous_sfs, four_fold_syn_sfs, four_fold_synonymous_sites):
     """Compute values (mostly from the site frequency spectra) that we'll output according to provided formula's."""
     #12. number of non-synonymous sites for divergence from PAML
@@ -220,11 +223,11 @@ def _compute_values_from_statistics(alignment, alignment_length, codeml_values,
     calc_values.update(codeml_values)
 
     #2. number of strains (this will typically be the same for all genes)
-    calc_values['strains'] = len(alignment)
+    calc_values['strains'] = nr_of_strains
 
     def _add_sfs_values_in_columns(sfs_name, sfs):
         """Add values contained within SFS to named columns for singletons, doubletons, tripletons, etc.."""
-        max_nton = len(alignment) / 2 + 1
+        max_nton = nr_of_strains / 2 + 1
         for nton in range(1, max_nton):
             name = _get_nton_name(nton, prefix = sfs_name)
             value = sfs[nton] if nton in sfs else 0
@@ -232,7 +235,7 @@ def _compute_values_from_statistics(alignment, alignment_length, codeml_values,
 
     #3. number of non-synonymous sites (see below for calculation) = LnP = L * LnD/(LnD+LsD)
     #where L is the length of the sequence from which the polymorphism data is taken (i.e. 3* no of codons used)
-    calc_values['non-synonymous sites'] = alignment_length * paml_non_synonymous_sites / (paml_non_synonymous_sites +
+    calc_values['non-synonymous sites'] = sequence_lengths * paml_non_synonymous_sites / (paml_non_synonymous_sites +
                                                                                           paml_synonymous_sites)
 
     #4. SFS for non-synonymous polymorphsims
@@ -243,7 +246,7 @@ def _compute_values_from_statistics(alignment, alignment_length, codeml_values,
 
     #6. number of synonymous sites (see below for calculation) = LsP = L * LsD/(LnD+LsD)
     #where L is the length of the sequence from which the polymorphism data is taken (i.e. 3* no of codons used)
-    calc_values['synonymous sites'] = alignment_length * paml_synonymous_sites / (paml_non_synonymous_sites +
+    calc_values['synonymous sites'] = sequence_lengths * paml_synonymous_sites / (paml_non_synonymous_sites +
                                                                                   paml_synonymous_sites)
 
     #7. SFS for synonymous polymorphisms
