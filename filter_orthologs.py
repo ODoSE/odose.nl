@@ -2,12 +2,10 @@
 """Module to filter orthologs either with multiple COG annotations or when recombination is found."""
 
 from __future__ import division
-from Bio import AlignIO, Phylo, SeqIO
+from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-from divergence import create_directory, extract_archive_of_files, create_archive_of_files, \
-    parse_options
-from divergence.concatenate_orthologs import concatemer_per_genome, create_super_concatemer
-from subprocess import Popen, PIPE, STDOUT
+from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
+from divergence.concatemer_tree import _run_dna_dist, _run_neighbor, _read_taxa_from_tree
 import logging as log
 import os.path
 import shutil
@@ -90,7 +88,7 @@ def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
     if cog_missing:
         log.info('{0}\tOrthologs did not contain any COG annotations'.format(len(cog_missing)))
 
-def filter_recombined_orthologs(run_dir, aligned_files):
+def filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_ids_b):
     """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees. 
     Return two collections of aligned files, the first without recombination, the second with recombination."""
 
@@ -99,17 +97,6 @@ def filter_recombined_orthologs(run_dir, aligned_files):
     #Collections to hold both non recombination files & files showing recombination 
     non_recomb = []
     recombined = []
-
-    #Determine the taxa present in the super concatemer tree
-    concatemer_files = concatemer_per_genome(run_dir, aligned_files)
-    super_concatemer = os.path.join(run_dir, 'super_concatemer.fna')
-    create_super_concatemer(concatemer_files, super_concatemer)
-    super_distance_file = _run_dna_dist(run_dir, super_concatemer)
-    super_tree_file = _run_neighbor(run_dir, super_distance_file)
-    genome_ids_a, genome_ids_b = _read_taxa_from_tree(super_tree_file)
-
-    #TODO Ensure the tree that's created here matches the tree that is created from the filtered dataset later
-    #Otherwise fail after print >> stderr, 'Unfiltered & filtered tree clustering does not match'
 
     #Assign ortholog files to the correct collection based on whether they show recombination
     log.info('Recombination found in the following orthologs:')
@@ -135,70 +122,6 @@ def filter_recombined_orthologs(run_dir, aligned_files):
 
     return non_recomb, recombined
 
-DNADIST = '/projects/divergence/software/phylip-3.69/exe/dnadist'
-
-def _run_dna_dist(run_dir, aligned_file):
-    """Run dnadist to calculate distances between individual strains in a distance matrix, as input for neighbor."""
-    #Run calculations inside a directory
-    dnadist_dir = create_directory('dnadist/', inside_dir = run_dir)
-
-    #Read alignment file
-    alignment = AlignIO.read(aligned_file, 'fasta')
-
-    #Convert alignment in to proper input file for dnadist according to specification
-    nr_of_species = len(alignment)
-    nr_of_sites = len(alignment[0])
-    infile = os.path.join(dnadist_dir, 'infile')
-    with open(infile, mode = 'w') as write_handle:
-        write_handle.write('   {0}   {1}\n'.format(nr_of_species, nr_of_sites))
-
-        for seq_record in alignment:
-            name = seq_record.id.split('|')[0]
-            write_handle.write('{0:10}{1}\n'.format(name, seq_record.seq))
-
-    #Actually run the dnadist program in the correct directory, and send input to it for the first prompt
-    log.debug('Executing: %s in %s', DNADIST, dnadist_dir)
-    process = Popen(DNADIST, cwd = dnadist_dir, stdin = PIPE, stdout = PIPE, stderr = STDOUT)
-    process.communicate(input = 'Y\n')
-
-    #Retrieve outputfile
-    outfile = os.path.join(dnadist_dir, 'outfile')
-    assert os.path.exists(outfile) and 0 < os.path.getsize(outfile), outfile + ' should exist with some content now'
-    return outfile
-
-NEIGHBOR = '/projects/divergence/software/phylip-3.69/exe/neighbor'
-
-def _run_neighbor(run_dir, distance_file):
-    """Run neighbor to generate a tree of the distances in the distance file, and return the generated tree file."""
-    neighbor_dir = create_directory('neighbor', inside_dir = run_dir)
-
-    #Copy outfile from dnadist to infile inside neighbor_dir
-    shutil.copy(distance_file, os.path.join(neighbor_dir, 'infile'))
-
-    #Actually run neighbor
-    log.debug('Executing: %s in %s', NEIGHBOR, neighbor_dir)
-    process = Popen(NEIGHBOR, cwd = neighbor_dir, stdin = PIPE, stdout = PIPE, stderr = STDOUT)
-    process.communicate(input = 'N\nY\n')
-
-    #Retrieve newick tree file
-    treefile = os.path.join(neighbor_dir, 'outtree')
-    assert os.path.exists(treefile) and 0 < os.path.getsize(treefile), treefile + ' should exist with some content now'
-    return treefile
-
-def _read_taxa_from_tree(tree_file):
-    """Read tree_file in Newick format to identify the first two clades that split up this tree and their leafs."""
-    #Parse tree using BioPython, which wrongly interprets the RefSeq IDs as confidence scores, but that'll do for now.
-    phylo_tree = Phylo.read(tree_file, 'newick')
-
-    #Of the full tree retrieve the clades from the root clade, expecting exactly two distinct clades after UPGMA
-    clades = phylo_tree.clade.clades
-    assert len(clades) == 2, 'Expected two clades as child of tree\'s first clade, but was {0}'.format(len(clades))
-
-    #Get all the leafs for the above two clades in a similar format to the genome_ids
-    clade_one = sorted(str(int(leaf.confidence)) for leaf in clades[0].get_terminals())
-    clade_two = sorted(str(int(leaf.confidence)) for leaf in clades[1].get_terminals())
-    return clade_one, clade_two
-
 def _find_recombination(genome_ids_a, genome_ids_b, tree_file):
     """Look for evidence of recombination by seeing if all genomes of the separate taxa group together in the tree."""
 
@@ -214,12 +137,10 @@ def _find_recombination(genome_ids_a, genome_ids_b, tree_file):
     first_a_id = genome_ids_a[0]
     if first_a_id in clade_one:
         #We'll declare to have found recombination when the taxa identified through the tree do not match the user taxa
-        recombination_found = set(genome_ids_a) != set(clade_one) or set(genome_ids_b) != set(clade_two)
-    else:
-        assert first_a_id in clade_two, '{0}\n{1}\n{2}\n{3}'.format(tree_file, clade_one, clade_two, first_a_id)
-        recombination_found = set(genome_ids_a) != set(clade_two) or set(genome_ids_b) != set(clade_one)
+        return set(genome_ids_a) != set(clade_one) or set(genome_ids_b) != set(clade_two)
 
-    return recombination_found
+    assert first_a_id in clade_two, '{0}\n{1}\n{2}\n{3}'.format(tree_file, clade_one, clade_two, first_a_id)
+    return set(genome_ids_a) != set(clade_two) or set(genome_ids_b) != set(clade_one)
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
@@ -229,10 +150,14 @@ Usage: filter_orthologs.py
 --filter-multiple-cogs         filter orthologs with multiple COG annotations among genes [OPTIONAL]
 --filter-recombination=FILE    filter orthologs that show recombination when comparing phylogenetic trees [OPTIONAL]
                                destination file path for archive of recombination orthologs
+--taxon-a=FILE                 file with genome IDs for taxon A to use in recombination filtering
+--taxon-b=FILE                 file with genome IDs for taxon B to use in recombination filtering
 --retained-zip=FILE            destination file path for archive of retained orthologs after filtering
 """
-    options = ['orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination=?', 'retained-zip']
-    orthologs_zip, filter_cogs_enabled, filter_recombination, retained_zip = parse_options(usage, options, args)
+    options = ('orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination=?', 'taxon-a=?', 'taxon-b=?',
+               'retained-zip')
+    orthologs_zip, filter_cogs_enabled, \
+    filter_recombination, taxona, taxonb, retained_zip = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
     run_dir = tempfile.mkdtemp(prefix = 'filter_orthologs_')
@@ -249,7 +174,13 @@ Usage: filter_orthologs.py
 
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
     if filter_recombination:
-        ortholog_files, recombined_files = filter_recombined_orthologs(run_dir, ortholog_files)
+        #Parse file containing RefSeq project IDs to extract RefSeq project IDs
+        with open(taxona) as read_handle:
+            genome_ids_a = [line.split()[0] for line in read_handle]
+        with open(taxonb) as read_handle:
+            genome_ids_b = [line.split()[0] for line in read_handle]
+        ortholog_files, recombined_files = filter_recombined_orthologs(run_dir, ortholog_files,
+                                                                       genome_ids_a, genome_ids_b)
 
     #Create archives of files on command line specified output paths & move trim_stats_file
     create_archive_of_files(retained_zip, ortholog_files)
