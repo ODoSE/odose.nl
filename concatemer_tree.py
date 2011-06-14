@@ -143,12 +143,12 @@ def main(args):
     usage = """
 Usage: concatenate_orthologs.py
 --orthologs-zip=FILE      archive of orthologous genes in FASTA format
---concatemer-file=FILE    destination file path for super-concatemer of all genomes
+--concatemer=FILE    destination file path for super-concatemer of all genomes
 --taxon-a=FILE            destination file path for genome IDs for taxon A
 --taxon-b=FILE            destination file path for genome IDs for taxon B
 --tree=FILE               destination file path for tree visualization
 """
-    options = ['orthologs-zip', 'concatemer-file', 'taxon-a', 'taxon-b', 'tree']
+    options = ['orthologs-zip', 'concatemer', 'taxon-a', 'taxon-b', 'tree']
     orthologs_zip, target_concat_file, target_taxon_a, target_taxon_b, target_tree = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
