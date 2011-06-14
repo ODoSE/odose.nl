@@ -17,6 +17,22 @@ import tempfile
 
 #TODO Rename this module to something more fitting, such as calculate_dos
 
+def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_list):
+    """Append sums over columns 3 through -1, and the mean of the final direction of selection column."""
+    sum_comp_values_a = {}
+    dos_list_a = []
+    for comp_values in comp_values_list:
+    #Sum the following columns
+        for column in _get_column_headers_in_sequence(sfs_max_nton)[3:-1]:
+            old_value = sum_comp_values_a.get(column, 0)
+            sum_comp_values_a[column] = old_value + comp_values[column]
+        #Append value for DoS to list, so we can calculate the mean afterwards
+        if comp_values['direction of selection'] is not None:
+            dos_list_a.append(comp_values['direction of selection'])
+
+    sum_comp_values_a['direction of selection'] = sum(dos_list_a) / len(dos_list_a)
+    _append_statistics(calculations_file, 'total', sum_comp_values_a, sfs_max_nton)
+
 def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     """Calculate pN, pS, pN/pS & SFS values for all sico_files per clade, and write out statistics per SICO."""
     run_dir = tempfile.mkdtemp(prefix = 'calculate_pnps')
@@ -25,11 +41,18 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     calculations_a_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_a_')[1]
     calculations_b_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_b_')[1]
 
+    sfs_max_nton_a = len(genome_ids_a) / 2
+    sfs_max_nton_b = len(genome_ids_b) / 2
     if 1 < len(genome_ids_a):
-        _write_output_file_header(calculations_a_file, len(genome_ids_a) / 2)
+        _write_output_file_header(calculations_a_file, sfs_max_nton_a)
     if 1 < len(genome_ids_b):
-        _write_output_file_header(calculations_b_file, len(genome_ids_b) / 2)
+        _write_output_file_header(calculations_b_file, sfs_max_nton_b)
 
+    #Append all computed values to these lists, so we can compute sums and mean afterwards
+    comp_values_a = []
+    comp_values_b = []
+
+    #Perform calculation for each sico_file
     for sico_file in sico_files:
         ali = AlignIO.read(sico_file, 'fasta')
         alignment_a = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_a)
@@ -45,12 +68,16 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
         #Perform calculations for subaligments of each clade, if clade has more than one sequence; skipping outliers
         if 1 < len(alignment_a):
             comp_values = _perform_calculations(alignment_a, value_dict)
-            _append_statistics(calculations_a_file, basename, comp_values, len(genome_ids_a) / 2)
+            comp_values_a.append(comp_values)
+            _append_statistics(calculations_a_file, basename, comp_values, sfs_max_nton_a)
         if 1 < len(alignment_b):
             comp_values = _perform_calculations(alignment_b, value_dict)
-            _append_statistics(calculations_b_file, basename, comp_values, len(genome_ids_b) / 2)
+            comp_values_b.append(comp_values)
+            _append_statistics(calculations_b_file, basename, comp_values, sfs_max_nton_b)
 
-    #TODO Finally, we might need a line which gives the sum for columns 3 to 15 plus the mean of column 16
+    #"Finally, we might need a line which gives the sum for columns 3 to 15 plus the mean of column 16"
+    _append_sums_and_dos_average(calculations_a_file, sfs_max_nton_a, comp_values_a)
+    _append_sums_and_dos_average(calculations_b_file, sfs_max_nton_b, comp_values_b)
 
     #TODO Alternate method of calculating number of substitutions for independent X-axis of eventual graph
 
@@ -275,10 +302,15 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
     paml_synonymous_substitutions = codeml_values['Ds']
 
     #16. Direction of selection = Dn/(Dn+Ds) - Pn/(Pn+Ps)
-    calc_values['direction of selection'] = (paml_non_synonymous_substitut / (paml_non_synonymous_substitut +
-                                                                                 paml_synonymous_substitutions)
-                                            - non_synonymous_polymorphisms / (non_synonymous_polymorphisms +
-                                                                              synonymous_polymorphisms))
+    paml_total_substitutions = paml_non_synonymous_substitut + paml_synonymous_substitutions
+    paml_total_polymorphisms = non_synonymous_polymorphisms + synonymous_polymorphisms
+    #Prevent divide by zero by checking both values above are not null
+    if paml_total_substitutions != 0 and paml_total_polymorphisms != 0:
+        calc_values['direction of selection'] = (paml_non_synonymous_substitut / paml_total_substitutions
+                                                 - non_synonymous_polymorphisms / paml_total_polymorphisms)
+    else:
+        calc_values['direction of selection'] = None
+
     return calc_values
 
 def _get_column_headers_in_sequence(max_nton):
@@ -320,7 +352,8 @@ def _append_statistics(calculations_file, orthologname, comp_values, max_nton):
     """Append statistics for individual ortholog to genome-wide files."""
     with open(calculations_file, mode = 'a') as append_handle:
         append_handle.write(orthologname + '\t')
-        append_handle.write('\t'.join(str(comp_values[column]) for column in _get_column_headers_in_sequence(max_nton)))
+        append_handle.write('\t'.join(str(comp_values.get(column, ''))
+                                      for column in _get_column_headers_in_sequence(max_nton)))
         append_handle.write('\n')
 
 def main(args):
