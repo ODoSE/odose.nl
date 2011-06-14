@@ -82,7 +82,6 @@ def _run_dna_dist(run_dir, aligned_file):
             write_handle.write('{0:10}{1}\n'.format(name, seq_record.seq))
 
     #Actually run the dnadist program in the correct directory, and send input to it for the first prompt
-    log.debug('Executing: %s in %s', DNADIST, dnadist_dir)
     process = Popen(DNADIST, cwd = dnadist_dir, stdin = PIPE, stdout = PIPE, stderr = STDOUT)
     process.communicate(input = 'Y\n')
 
@@ -101,7 +100,6 @@ def _run_neighbor(run_dir, distance_file):
     shutil.copy(distance_file, os.path.join(neighbor_dir, 'infile'))
 
     #Actually run neighbor
-    log.debug('Executing: %s in %s', NEIGHBOR, neighbor_dir)
     process = Popen(NEIGHBOR, cwd = neighbor_dir, stdin = PIPE, stdout = PIPE, stderr = STDOUT)
     process.communicate(input = 'N\nY\n')
 
