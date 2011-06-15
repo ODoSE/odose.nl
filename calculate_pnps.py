@@ -76,8 +76,10 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
             _append_statistics(calculations_b_file, basename, comp_values, sfs_max_nton_b)
 
     #"Finally, we might need a line which gives the sum for columns 3 to 15 plus the mean of column 16"
-    _append_sums_and_dos_average(calculations_a_file, sfs_max_nton_a, comp_values_a)
-    _append_sums_and_dos_average(calculations_b_file, sfs_max_nton_b, comp_values_b)
+    if 1 < len(alignment_a):
+        _append_sums_and_dos_average(calculations_a_file, sfs_max_nton_a, comp_values_a)
+    if 1 < len(alignment_b):
+        _append_sums_and_dos_average(calculations_b_file, sfs_max_nton_b, comp_values_b)
 
     #TODO Alternate method of calculating number of substitutions for independent X-axis of eventual graph
 

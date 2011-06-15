@@ -185,7 +185,6 @@ Usage: filter_orthologs.py
     #Create archives of files on command line specified output paths & move trim_stats_file
     create_archive_of_files(retained_zip, ortholog_files)
     if filter_recombination:
-        #FIXME Galaxy fails the run when no recombination files are found, probably because this file is empty
         create_archive_of_files(filter_recombination, recombined_files)
 
     #Remove unused files to free disk space 
