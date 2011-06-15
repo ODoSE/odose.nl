@@ -2,7 +2,7 @@
 """Package divergence"""
 
 from pkg_resources import resource_filename #@UnresolvedImport #pylint: disable=E0611
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile, ZIP_DEFLATED, is_zipfile
 import Bio
 import getopt
 import httplib2
@@ -65,13 +65,14 @@ def concatenate(target_path, source_files):
 
 def create_archive_of_files(archive_file, file_iterable):
     """Write files in file_iterable to archive_file, using only filename for target path within archive_file."""
-    write_handle = ZipFile(archive_file, mode = 'w', compression = ZIP_DEFLATED)
-    written = False
-    for some_file in file_iterable:
-        write_handle.write(some_file, os.path.split(some_file)[1])
-        written = True
-    write_handle.close()
-    assert written, 'At least some file should have been written to ' + archive_file
+    zipfile_handle = ZipFile(archive_file, mode = 'w', compression = ZIP_DEFLATED)
+    if len(file_iterable):
+        for some_file in file_iterable:
+            zipfile_handle.write(some_file, os.path.split(some_file)[1])
+    else:
+        zipfile_handle.writestr('empty', '')
+    zipfile_handle.close()
+    assert is_zipfile(archive_file), 'File should now have been a valid zipfile: ' + archive_file
 
 def extract_archive_of_files(archive_file, target_dir):
     """Extract all files from archive to target directory, and return list of files extracted."""
