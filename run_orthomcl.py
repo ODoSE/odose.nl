@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Module to run orthoMCL."""
 
+from Bio import SeqIO
 from divergence import create_directory, resource_filename, extract_archive_of_files, parse_options
 from divergence.orthomcl_database import create_database, get_configuration_file, delete_database
 from divergence.reciprocal_blast import reciprocal_blast
@@ -180,8 +181,18 @@ def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length = 10, max_percen
             msg = 'OrthomclFilterFasta found suspicious proteomes based on values for length & percentage stop codons'
             assert 'Proteomes with > 10% poor proteins:' not in line, msg
 
-    #Same as above, but different method of checking
-    assert 0 == os.path.getsize(poor), 'No poor proteins should have been detected in ' + poor
+    #Warn the user about the poor proteins found here, if they were found at all
+    poor_records = list(SeqIO.parse(poor, 'fasta'))
+    if poor_records:
+        log.warn('%i poor sequence records identified by orthomclFilterFasta:', len(poor_records))
+        for seqr in poor_records:
+            log.warn('>%s: %s', seqr.id, seqr.seq)
+        #No more than 5 bad protein sequences should have been found (completely arbitrary cut-off at magical value)
+        if 5 < len(poor_records):
+            message = 'More than five poor proteins were found by orthomclFilterFasta'
+            log.error(message)
+            print >> sys.stderr, message
+            sys.exit(1)
 
     #Assert good exists and has some content
     assert os.path.isfile(good) and 0 < os.path.getsize(good), good + ' should exist and have some content'
