@@ -17,7 +17,7 @@ def fail(unfiltered_a, unfiltered_b, filtered_a, filtered_b):
                 log.error('{0}\t{1}'.format(key, value))
                 print >> sys.stderr, '{0}\t{1}'.format(key, value)
 
-    _log_error_and_print_stderr('Unfiltered & filtered tree clusterings do not match!')
+    _log_error_and_print_stderr('Failure: Unfiltered & filtered tree clusterings do not match!')
     _log_error_and_print_stderr('Unfiltered taxon A:', unfiltered_a)
     _log_error_and_print_stderr('Unfiltered taxon B:', unfiltered_b)
     _log_error_and_print_stderr('Filtered taxon A:', filtered_a)
@@ -56,6 +56,9 @@ Usage: compare_taxa.py
         if not (set(unfiltered_a.keys()) == set(filtered_b.keys())
                 and set(unfiltered_b.keys()) == set(filtered_a.keys())):
             fail(unfiltered_a, unfiltered_b, filtered_b, filtered_a)
+
+    #Else: no problems were found
+    log.info('Succes: Unfiltered & filtered tree clustering did not result in different taxa.')
 
 if __name__ == '__main__':
     main(sys.argv[1:])
