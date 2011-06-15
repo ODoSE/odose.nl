@@ -38,9 +38,13 @@ CODEML = '/projects/divergence/software/paml44/bin/codeml'
 def run_codeml(sub_dir, alignment_a, alignment_b):
     """Run codeml from PAML for selected sequence records from sico_file, returning main nexus output file."""
     #Select sequences from clade representatives in each SICO file
-    #TODO Shouldn't this actually be random, instead of the same first sequences each and every time?
     seqr_a = alignment_a[0]
     seqr_b = alignment_b[0]
+
+    #Note on whether or not I should be randomizing the above representative selection:
+    #"both alternatives have their advantages - just selecting one strain for the divergence calculation means that you 
+    # know exactly which strains the divergence comes from - but if this strain is anomalous then you might get some 
+    # strange results. i think i would stick with a single strain" - AEW
 
     #Write the representative sequence records out to file in codeml compatible format
     base_name = os.path.split(sub_dir)[1]

@@ -15,23 +15,29 @@ import shutil
 import sys
 import tempfile
 
-#TODO Rename this module to something more fitting, such as calculate_dos
+#TODO Rename this module to something more fitting
 
 def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_list):
     """Append sums over columns 3 through -1, and the mean of the final direction of selection column."""
-    sum_comp_values_a = {}
+    sum_comp_values = {}
     dos_list_a = []
     for comp_values in comp_values_list:
     #Sum the following columns
-        for column in _get_column_headers_in_sequence(sfs_max_nton)[3:-1]:
-            old_value = sum_comp_values_a.get(column, 0)
-            sum_comp_values_a[column] = old_value + comp_values[column]
+        for column in _get_column_headers_in_sequence(sfs_max_nton)[3:-2]:
+            if comp_values[column] is not None:
+                old_value = sum_comp_values.get(column, 0)
+                sum_comp_values[column] = old_value + comp_values[column]
         #Append value for DoS to list, so we can calculate the mean afterwards
         if comp_values['direction of selection'] is not None:
             dos_list_a.append(comp_values['direction of selection'])
 
-    sum_comp_values_a['direction of selection'] = sum(dos_list_a) / len(dos_list_a)
-    _append_statistics(calculations_file, 'total', sum_comp_values_a, sfs_max_nton)
+    #Calculate DoS average
+    sum_comp_values['direction of selection'] = sum(dos_list_a) / len(dos_list_a)
+
+    #Neutrality Index = Sum(X = Ds*Pn/(Ps+Ds)) / Sum(Y = Dn*Ps/(Ps+Ds))
+    sum_comp_values['neutrality index'] = sum_comp_values['Ds*Pn/(Ps+Ds)'] / sum_comp_values['Dn*Ps/(Ps+Ds)']
+
+    _append_statistics(calculations_file, 'total', sum_comp_values, sfs_max_nton)
 
 def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     """Calculate pN, pS, pN/pS & SFS values for all sico_files per clade, and write out statistics per SICO."""
@@ -305,13 +311,25 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
 
     #16. Direction of selection = Dn/(Dn+Ds) - Pn/(Pn+Ps)
     paml_total_substitutions = paml_non_synonymous_substitut + paml_synonymous_substitutions
-    paml_total_polymorphisms = non_synonymous_polymorphisms + synonymous_polymorphisms
+    total_polymorphisms = non_synonymous_polymorphisms + synonymous_polymorphisms
     #Prevent divide by zero by checking both values above are not null
-    if paml_total_substitutions != 0 and paml_total_polymorphisms != 0:
+    if paml_total_substitutions != 0 and total_polymorphisms != 0:
         calc_values['direction of selection'] = (paml_non_synonymous_substitut / paml_total_substitutions
-                                                 - non_synonymous_polymorphisms / paml_total_polymorphisms)
+                                                 - non_synonymous_polymorphisms / total_polymorphisms)
     else:
+        #"the direction of selection is undefined if either Dn+Ds or Pn+Ps are zero":Not a number
         calc_values['direction of selection'] = None
+
+    #These values will end up contributing to the Neutrality Index through NI = Sum(X) / Sum(Y)
+    ps_plus_ds = (synonymous_polymorphisms + paml_synonymous_substitutions)
+    if ps_plus_ds:
+        #X = Ds*Pn/(Ps+Ds)
+        calc_values['Ds*Pn/(Ps+Ds)'] = paml_synonymous_substitutions * non_synonymous_polymorphisms / ps_plus_ds
+        #Y = Dn*Ps/(Ps+Ds)
+        calc_values['Dn*Ps/(Ps+Ds)'] = paml_non_synonymous_substitut * synonymous_polymorphisms / ps_plus_ds
+    else:
+        calc_values['Ds*Pn/(Ps+Ds)'] = None
+        calc_values['Dn*Ps/(Ps+Ds)'] = None
 
     return calc_values
 
@@ -339,6 +357,11 @@ def _get_column_headers_in_sequence(max_nton):
     headers.append('synonymous and non-synonymous polymorphisms mixed')
     #PAML
     headers.extend(['N', 'Dn', 'S', 'Ds'])
+    headers.append('Ds*Pn/(Ps+Ds)')
+    headers.append('Dn*Ps/(Ps+Ds)')
+
+    #Final values here are ignored when calculation sums over complete table
+    headers.append('neutrality index')
     headers.append('direction of selection')
 
     return headers
