@@ -267,6 +267,7 @@ Usage: select_taxa.py
 
     #Retrieve genome dictionaries to get to Organism Name
     genomes = select_genomes_by_ids(genome_ids).values()
+    genomes = sorted(genomes, key = itemgetter('Organism Name'))
 
     #Write IDs to file, with organism name as second column, to make the project ID files more self explanatory. 
     with open(genomes_file, mode = 'w') as write_handle:
