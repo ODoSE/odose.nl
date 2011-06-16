@@ -14,15 +14,22 @@ import time
 def select_genomes_by_ids(genome_ids):
     """Return list of genomes from complete genomes table whose GenBank Project ID is in genome_ids."""
     #Loop over genomes and return any genomes whose GenBank Project ID is in genome_ids
-    genomes = [genome for genome in _parse_genomes_table() if genome['Project ID'] in genome_ids]
+    refseq_genomes = dict((genome['RefSeq project ID'], genome) for genome in _parse_genomes_table())
+    genbank_genomes = dict((genome['Project ID'], genome) for genome in _parse_genomes_table())
+
+    #Require that the RefSeq and GenBank project IDs do not overlap, otherwise this fuzzy matching wont work anymore!
+    assert set(refseq_genomes).isdisjoint(set(genbank_genomes)), 'RefSeq & GenBank project IDs should not overlap'
+
+    #Match genomes_ids to genomes 
+    matches = dict((queryid, refseq_genomes[queryid]) for queryid in genome_ids if queryid in refseq_genomes)
+    matches.update(dict((queryid, genbank_genomes[queryid]) for queryid in genome_ids if queryid in genbank_genomes))
 
     #See if we matched all genomes, else log a warning
-    selected_ids = [genome['Project ID'] for genome in genomes]
-    for genome_id in genome_ids:
-        if genome_id not in selected_ids:
-            log.warning('Could not find genome with Genbank Project ID %s in complete genomes table', genome_id)
+    for queryid in genome_ids:
+        if queryid not in matches:
+            log.warning('Could not find genome with Genbank Project ID %s in complete genomes table', queryid)
 
-    return genomes
+    return matches
 
 def _download_genomes_table():
     """Download complete genome table over HTTP with caching, decode as iso-8859-1 and return string."""
@@ -259,7 +266,7 @@ Usage: select_taxa.py
         sys.exit(1)
 
     #Retrieve genome dictionaries to get to Organism Name
-    genomes = select_genomes_by_ids(genome_ids)
+    genomes = select_genomes_by_ids(genome_ids).values()
 
     #Write IDs to file, with organism name as second column, to make the project ID files more self explanatory. 
     with open(genomes_file, mode = 'w') as write_handle:

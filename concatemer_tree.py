@@ -167,11 +167,11 @@ Usage: concatenate_orthologs.py
     super_tree_file = _run_neighbor(run_dir, super_distance_file)
     genome_ids_a, genome_ids_b = _read_taxa_from_tree(super_tree_file)
 
-    #Map GenBank Project IDs to Organism names
-    id_to_name_map = dict((genome['Project ID'], genome['Organism Name']) for genome in \
-                          select_genomes_by_ids(genome_ids_a + genome_ids_b))
+    #Map Project IDs to Organism names
+    id_to_name_map = dict((id, genome['Organism Name'])
+                          for id, genome in select_genomes_by_ids(genome_ids_a + genome_ids_b).iteritems())
 
-    #Write GenBank Project IDs and Organism Names to files
+    #Write Project IDs and Organism Names to files
     with open(target_taxon_a, mode = 'w') as write_handle:
         for genome_id in genome_ids_a:
             write_handle.write('{id}\t{name}\n'.format(id = genome_id, name = id_to_name_map[genome_id]))
