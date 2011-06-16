@@ -12,7 +12,7 @@ import shutil
 import sys
 import tempfile
 
-def _filter_multiple_cog_orthologs(ortholog_files):
+def _filter_multiple_cog_orthologs(run_dir, ortholog_files):
     """Filter orthologs where multiple different COG annotations are found, and in addition transfer COGs."""
 
     log.info('Filtering orthologs with multiple COG annotations')
@@ -24,12 +24,16 @@ def _filter_multiple_cog_orthologs(ortholog_files):
     #Filter out orthologs containing more than one COG annotation
     ortholog_files = [sico for sico in ortholog_files if sico not in cog_conflicts.keys()]
 
+    #File detailing transfered COG annotations for recipient protein IDs & COGs
+    transfered_cogs = os.path.join(run_dir, 'transfered_cogs.tsv')
+    with open(transfered_cogs, mode = 'w') as write_handle:
+        write_handle.write('ProjectID\tAccessioncode\tProteinID\tCOG\tsource\n')
+
     #Transfer COGs by overwriting sico_files with correct COG set
     for sico_file, cog in cog_transferable.iteritems():
-        #TODO Create file listing transfered COG annotations with donor and recipient protein IDs     
-        _assign_cog_to_sequences(sico_file, cog)
+        _assign_cog_to_sequences(sico_file, cog, transfered_cogs)
 
-    return ortholog_files
+    return ortholog_files, transfered_cogs
 
 def find_cogs_in_sequence_records(sequence_records, include_none = False):
     """Find unique COG annotations assigned to sequences within a single alignment."""
@@ -64,17 +68,25 @@ def _group_cog_issues(sico_files):
             cog_conflicts[sico_file] = cogs
     return cog_conflicts, cog_transferable, cog_missing
 
-def _assign_cog_to_sequences(fasta_file, cog):
+def _assign_cog_to_sequences(fasta_file, cog, transfered_cogs):
     """Assign cog annotatione to all sequences in fasta_file."""
+    #Read all sequence records from file
     seqrecords = SeqIO.to_dict(SeqIO.parse(fasta_file, 'fasta')).values()
+    #Write all sequence records back to the same(!) file 
     with open(fasta_file, mode = 'w') as write_handle:
-        for seqr in seqrecords: #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
-            #Or for missing COG: >58191|NC_010067.1|YP_001569097.1|None|core
-            split = seqr.id.split('|')
-            assert split[3] in (cog, 'None'), 'COG should be either {0} or None, but was {1}'.format(cog, split[3])
-            split[3] = cog
-            seqr = SeqRecord(seqr.seq, id = '|'.join(split), description = '')
-            SeqIO.write(seqr, write_handle, 'fasta')
+        with open(transfered_cogs, mode = 'a') as append_handle:
+            for seqr in seqrecords:
+                #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
+                #Or for missing COG: >58191|NC_010067.1|YP_001569097.1|None|core
+                split = seqr.id.split('|')
+                assert split[3] in (cog, 'None'), 'COG should be either {0} or None, but was {1}'.format(cog, split[3])
+                if split[3] == 'None':
+                    #Assign cog and alter seqr variable to include assigned cog
+                    split[3] = cog
+                    seqr = SeqRecord(seqr.seq, id = '|'.join(split), description = '')
+                    #Append this COG transfer to append_handle
+                    append_handle.write('\t'.join(split) + '\n')
+                SeqIO.write(seqr, write_handle, 'fasta')
 
 def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
     """Append COG statistics to stats_file"""
@@ -88,7 +100,7 @@ def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
     if cog_missing:
         log.info('{0}\tOrthologs did not contain any COG annotations'.format(len(cog_missing)))
 
-def filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_ids_b):
+def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_ids_b):
     """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees. 
     Return two collections of aligned files, the first without recombination, the second with recombination."""
 
@@ -154,9 +166,9 @@ Usage: filter_orthologs.py
 --taxon-b=FILE                 file with genome IDs for taxon B to use in recombination filtering
 --retained-zip=FILE            destination file path for archive of retained orthologs after filtering
 """
-    options = ('orthologs-zip', 'filter-multiple-cogs?', 'filter-recombination=?', 'taxon-a=?', 'taxon-b=?',
+    options = ('orthologs-zip', 'filter-multiple-cogs=?', 'filter-recombination=?', 'taxon-a=?', 'taxon-b=?',
                'retained-zip')
-    orthologs_zip, filter_cogs_enabled, \
+    orthologs_zip, filter_cogs, \
     filter_recombination, taxona, taxonb, retained_zip = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
@@ -167,8 +179,8 @@ Usage: filter_orthologs.py
     ortholog_files = extract_archive_of_files(orthologs_zip, temp_dir)
 
     #Filter orthologs with multiple COG annotations among genes if flag was set
-    if filter_cogs_enabled:
-        ortholog_files = _filter_multiple_cog_orthologs(ortholog_files)
+    if filter_cogs:
+        ortholog_files, transfered_cogs = _filter_multiple_cog_orthologs(run_dir, ortholog_files)
 
     #TODO Add option to filter out SICOs when any ortholog has been flagged as 'mobile element', 'phage' or 'IS element'
 
@@ -179,13 +191,15 @@ Usage: filter_orthologs.py
             genome_ids_a = [line.split()[0] for line in read_handle]
         with open(taxonb) as read_handle:
             genome_ids_b = [line.split()[0] for line in read_handle]
-        ortholog_files, recombined_files = filter_recombined_orthologs(run_dir, ortholog_files,
+        ortholog_files, recombined_files = _filter_recombined_orthologs(run_dir, ortholog_files,
                                                                        genome_ids_a, genome_ids_b)
 
-    #Create archives of files on command line specified output paths & move trim_stats_file
-    create_archive_of_files(retained_zip, ortholog_files)
+    #Create archives of files on command line specified output paths
+    if filter_cogs:
+        shutil.move(transfered_cogs, filter_cogs)
     if filter_recombination:
         create_archive_of_files(filter_recombination, recombined_files)
+    create_archive_of_files(retained_zip, ortholog_files)
 
     #Remove unused files to free disk space 
     shutil.rmtree(run_dir)
