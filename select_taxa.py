@@ -210,12 +210,15 @@ def _find_project_dir(ftp, base_dir, projectid):
 
 def _download_genome_file(ftp, remote_dir, filename, target_dir):
     """Download a single file from remote folder to target folder, only if it does not already exist."""
-    #Use a temporary file as write handle here, so we can not pollute cache when download is interrupted
-    tmp_file = tempfile.mkstemp(prefix = filename)[1]
+    #Move completed tmp_file to actual output path when done
+    out_file = os.path.join(target_dir, filename)
 
-    #Do not retrieve existing files
-    #TODO Add in some mechanism similar to _download_genomes_table to purge and re-download 'old'-files periodically
-    if not os.path.exists(tmp_file) or 0 == os.path.getsize(tmp_file):
+    #Do not retrieve existing files if they exist and have content and are less than a month old
+    min_file_age = time.time() - 30 * 24 * 60 * 60
+    if not os.path.exists(out_file) or 0 == os.path.getsize(out_file) or os.path.getmtime(out_file) < min_file_age:
+        #Use a temporary file as write handle here, so we can not pollute cache when download is interrupted
+        tmp_file = tempfile.mkstemp(prefix = filename + '_')[1]
+
         #Retrieve genbank & protein table files from FTP
         log.info('Retrieving genome file %s from %s%s to %s', filename, ftp.host, remote_dir, target_dir)
 
@@ -226,11 +229,13 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir):
                 """ftp.retrbinary requires a callback method"""
                 write_file.write(block)
             ftp.retrbinary('RETR {0}/{1}'.format(remote_dir, filename), download_callback)
-    assert os.path.isfile(tmp_file) and 0 < os.path.getsize(tmp_file), 'File should exist and include some content now'
 
-    #Move completed tmp_file to actual output path
-    out_file = os.path.join(target_dir, filename)
-    shutil.move(tmp_file, out_file)
+        #Assert file was actually written to
+        assert os.path.isfile(tmp_file) and 0 < os.path.getsize(tmp_file), 'File should have content now: ' + tmp_file
+
+        #Actually move now that we've finished downloading files
+        shutil.move(tmp_file, out_file)
+
     return out_file
 
 def main(args):
