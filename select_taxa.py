@@ -12,15 +12,15 @@ import tempfile
 import time
 
 def select_genomes_by_ids(genome_ids):
-    """Select genomes from complete genomes table if their RefSeq ID is in genome_file and return them as list."""
-    #Loop over genomes and return any genomes whose RefSeq project ID is in genome_ids
-    genomes = [genome for genome in _parse_genomes_table() if genome['RefSeq project ID'] in genome_ids]
+    """Return list of genomes from complete genomes table whose GenBank Project ID is in genome_ids."""
+    #Loop over genomes and return any genomes whose GenBank Project ID is in genome_ids
+    genomes = [genome for genome in _parse_genomes_table() if genome['Project ID'] in genome_ids]
 
     #See if we matched all genomes, else log a warning
-    selected_ids = [genome['RefSeq project ID'] for genome in genomes]
+    selected_ids = [genome['Project ID'] for genome in genomes]
     for genome_id in genome_ids:
         if genome_id not in selected_ids:
-            log.warning('Could not find genome with RefSeq Project ID %s in complete genomes table', genome_id)
+            log.warning('Could not find genome with Genbank Project ID %s in complete genomes table', genome_id)
 
     return genomes
 
@@ -41,9 +41,7 @@ def _download_genomes_table():
             content = read_handle.read().decode('utf-8')
     return content
 
-
-#TODO Drop requirement on RefSeq ID and assure users can select / download genomes based on GenBank Project ID instead
-def _parse_genomes_table(complete_genome_table = _download_genomes_table(), require_refseq = True):
+def _parse_genomes_table(complete_genome_table = _download_genomes_table(), require_refseq = False):
     """Parse table of genomes and return list of dictionaries with values per genome."""
     #Empty lists to hold column names and genome dictionaries
     columns = []
@@ -126,7 +124,7 @@ def _bin_using_keyfunctions(genomes, keyfunctions):
     return bins
 
 def get_complete_genomes(genomes = _parse_genomes_table()):
-    """Get tuples of Organism Name, RefSeq project ID & False, for input into Galaxy clade selection."""
+    """Get tuples of Organism Name, GenBank Project ID & False, for input into Galaxy clade selection."""
     #Bin genomes using the following key functions iteratively
     by_kingdom = itemgetter('Super Kingdom')
     by_group = itemgetter('Group')
@@ -141,11 +139,11 @@ def get_complete_genomes(genomes = _parse_genomes_table()):
                 list4 = dict3[key3]
                 for genome in list4:
                     name = '<b>{3}</b> - {0} &gt; {1} &gt; <i>{2}</i>'.format(
-                        by_group(genome), by_firstname(genome), genome['Organism Name'], genome['RefSeq project ID'])
-                    yield name, genome['RefSeq project ID'], False
+                        by_group(genome), by_firstname(genome), genome['Organism Name'], genome['Project ID'])
+                    yield name, genome['Project ID'], False
 
 def download_genome_files(genome):
-    """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples."""
+    """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples of three."""
     #ftp://ftp.ncbi.nih.gov/genbank/genomes/Bacteria/Sulfolobus_islandicus_M_14_25_uid18871/CP001400.ffn
     host = 'ftp.ncbi.nih.gov'
 
@@ -178,7 +176,7 @@ def download_genome_files(genome):
 
     #TODO Write out provenance logfile with sources of retrieved files, and retrieval date / version
 
-    #Download .gbk & .ptt files for all genome refseq accessioncodes and append them to this list as tuples of gbk + ptt
+    #Download .gbk & .ptt files for all genome accessioncodes and append them to this list as tuples of gbk + ptt
     genome_files = []
     for acc in accessioncodes:
         gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir)
@@ -190,7 +188,7 @@ def download_genome_files(genome):
                 ptt_file = None
             else:
                 raise err
-        genome_files.append((gbk_file, ptt_file))
+        genome_files.append((projectid, gbk_file, ptt_file))
 
     #Be nice and close the connection
     ftp.close()
@@ -200,10 +198,10 @@ def download_genome_files(genome):
 
 def _find_project_dir(ftp, base_dir, projectid):
     """Find a genome project directory in ftp directory based upon directory name postfix. Return None if not found."""
-    #Retrieve listing of directories under refseq_dir
+    #Retrieve listing of directories under base_dir
     directory_listing = ftp.nlst(base_dir)
 
-    #Find refseq dir based on directory suffix
+    #Find projectid dir based on directory suffix
     dir_suffix = '_uid{0}'.format(projectid)
     for ftp_file in directory_listing:
         if ftp_file.endswith(dir_suffix):
@@ -216,6 +214,7 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir):
     tmp_file = tempfile.mkstemp(prefix = filename)[1]
 
     #Do not retrieve existing files
+    #TODO Add in some mechanism similar to _download_genomes_table to purge and re-download 'old'-files periodically
     if not os.path.exists(tmp_file) or 0 == os.path.getsize(tmp_file):
         #Retrieve genbank & protein table files from FTP
         log.info('Retrieving genome file %s from %s%s to %s', filename, ftp.host, remote_dir, target_dir)
@@ -238,8 +237,8 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: select_taxa.py 
---genomes         comma-separated list of selected RefSeq project IDs from complete genomes table
---genomes-file    destination path for file with selected RefSeq project IDs followed by Organism Name on each line
+--genomes         comma-separated list of selected GenBank Project IDs from complete genomes table
+--genomes-file    destination path for file with selected GenBank Project IDs followed by Organism Name on each line
 """
     options = ['genomes', 'genomes-file']
     genomes_line, genomes_file = parse_options(usage, options, args)
@@ -257,14 +256,13 @@ Usage: select_taxa.py
     #Retrieve genome dictionaries to get to Organism Name
     genomes = select_genomes_by_ids(genome_ids)
 
-    #Write IDs to file, with organism name as second column, to make the RefSeq id files more self explanatory. 
+    #Write IDs to file, with organism name as second column, to make the project ID files more self explanatory. 
     with open(genomes_file, mode = 'w') as write_handle:
         for genome in genomes:
-            write_handle.write('{0}\t{1}\n'.format(genome['RefSeq project ID'], genome['Organism Name']))
+            write_handle.write('{0}\t{1}\n'.format(genome['Project ID'], genome['Organism Name']))
 
     #Exit after a comforting log message
     log.info("Produced: \n%s", genomes_file)
-    return genomes_file
 
 if __name__ == '__main__':
     main(sys.argv[1:])

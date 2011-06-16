@@ -53,8 +53,8 @@ def _blast_file_against_database(db_dir, blast_db, fasta_file, nucleotide = Fals
     assert os.path.exists(blast_program) and os.access(blast_program, os.X_OK), 'Could not find or run ' + blast_program
 
     #Determine output file name
-    refseqac = os.path.splitext(os.path.split(fasta_file)[1])[0]
-    hits_file = os.path.join(db_dir, refseqac + '-vs-all.tsv')
+    basename = os.path.splitext(os.path.split(fasta_file)[1])[0]
+    hits_file = os.path.join(db_dir, basename + '-vs-all.tsv')
 
     #Actually run the blast program
     command = [blast_program,

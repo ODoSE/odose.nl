@@ -57,23 +57,23 @@ def _translate_genome(genome, tuples_of_gbk_and_ptt_files):
     """Translate all files for genome and concatenate them into single DNA and Protein fasta files."""
     assert tuples_of_gbk_and_ptt_files is not None, 'No genbank files were provided for genome: ' + genome
 
-    refseq_id = genome['RefSeq project ID']
-    out_dir = create_directory('translations/' + refseq_id)
+    project_id = tuples_of_gbk_and_ptt_files[0][0]
+    out_dir = create_directory('translations/' + project_id)
     dna_files = []
     protein_files = []
-    for gbk_file, ptt_file in tuples_of_gbk_and_ptt_files:
-        dna_file, protein_file = _extract_gene_and_protein(out_dir, refseq_id, gbk_file, ptt_file)
+    for project_id, gbk_file, ptt_file in tuples_of_gbk_and_ptt_files:
+        dna_file, protein_file = _extract_gene_and_protein(out_dir, project_id, gbk_file, ptt_file)
         dna_files.append(dna_file)
         protein_files.append(protein_file)
 
     #Concatenate files into one
-    dna_concatemer = os.path.join(out_dir, '{pid}.ffn'.format(pid = refseq_id))
-    protein_concatemer = os.path.join(out_dir, '{pid}.faa'.format(pid = refseq_id))
+    dna_concatemer = os.path.join(out_dir, '{pid}.ffn'.format(pid = project_id))
+    protein_concatemer = os.path.join(out_dir, '{pid}.faa'.format(pid = project_id))
     concatenate(dna_concatemer, dna_files)
     concatenate(protein_concatemer, protein_files)
     return dna_concatemer, protein_concatemer
 
-def _extract_gene_and_protein(out_dir, refseq_id, genbank_file, ptt_file = None):
+def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file = None):
     """Translate genbank DNA to protein and return resulting fasta files."""
     #Determine filenames for temporary and cache destination output files
     file_root = os.path.splitext(genbank_file)[0]
@@ -109,7 +109,7 @@ def _extract_gene_and_protein(out_dir, refseq_id, genbank_file, ptt_file = None)
                         plasmid = True
                     #Skip any non coding sequence features or pseudo (non-functional version) CDS
                     if gb_featr.type == 'CDS' and not 'pseudo' in gb_featr.qualifiers:
-                        _extract_and_translate_cds(cog_dict, aa_wrtr, dna_wrtr, refseq_id, gb_recrd, gb_featr, plasmid)
+                        _extract_and_translate_cds(cog_dict, aa_wrtr, dna_wrtr, project_id, gb_recrd, gb_featr, plasmid)
 
     assert os.path.isfile(dna_tmp) and 0 < os.path.getsize(dna_tmp), dna_tmp + ' should exist and have some content'
     assert os.path.isfile(aa_tmp) and 0 < os.path.getsize(aa_tmp), aa_tmp + ' should exist and have some content'
@@ -120,7 +120,7 @@ def _extract_gene_and_protein(out_dir, refseq_id, genbank_file, ptt_file = None)
 
     return dna_file_dest, aa_file_dest
 
-def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb_record, gb_feature, plasmid):
+def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, project_id, gb_record, gb_feature, plasmid):
     """Extract DNA for Coding sequences, translate using GBK translation table and return dna & protein fasta files."""
 
     #Protein identifier is a property of the genbank feature
@@ -195,9 +195,9 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, refseq_id, gb
     if cds_has_stopcodon:
         extracted_seq = extracted_seq[:-3]
 
-    #Write out fasta. Header format as requested: >refseq_id|genbank_ac|protein_id|cog|source (either core or plasmid)
+    #Write out fasta. Header format as requested: >project_id|genbank_ac|protein_id|cog|source (either core or plasmid)
     source = 'plasmid' if plasmid else 'core'
-    header = '{0}|{1}|{2}|{3}|{4}'.format(refseq_id, gb_record.id, protein_id, cog, source)
+    header = '{0}|{1}|{2}|{3}|{4}'.format(project_id, gb_record.id, protein_id, cog, source)
     _write_fasta(aa_writer, header, str(protein_seq))
     _write_fasta(dna_writer, header, str(extracted_seq))
 
@@ -217,18 +217,18 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: translate.py 
---genomes=FILE        file with refseq id from complete genomes table on each line 
+--genomes=FILE        file with genbank id from complete genomes table on each line 
 --dna-zip=FILE        destination file path for zip archive of extracted DNA files
 --protein-zip=FILE    destination file path for zip archive of translated protein files
 """
     options = ['genomes', 'dna-zip', 'protein-zip']
     genome_ids_file, dna_zipfile, protein_zipfile = parse_options(usage, options, args)
 
-    #Read genomes ids from genomes_file, each on their own line
+    #Read GenBank Project IDs from genomes_file, each on their own line
     with open(genome_ids_file) as read_handle:
         genome_ids = [line.split()[0] for line in read_handle]
 
-    #Parse file containing RefSeq project IDs & retrieve associated genome dictionaries from complete genomes table
+    #Retrieve associated genome dictionaries from complete genomes table
     genomes = select_genomes_by_ids(genome_ids)
 
     #Actually translate the genomes to produced a set of files for both  dna files & protein files
@@ -242,7 +242,6 @@ Usage: translate.py
 
     #Exit after a comforting log message
     log.info("Produced: \n%s &\n%s", dna_zipfile, protein_zipfile)
-    return dna_zipfile, protein_zipfile
 
 if __name__ == '__main__':
     main(sys.argv[1:])

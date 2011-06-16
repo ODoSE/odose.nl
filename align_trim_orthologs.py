@@ -172,7 +172,6 @@ Usage: filter_orthologs.py
 
     #Exit after a comforting log message
     log.info('Produced: \n%s\n%s\n%s', aligned_zip, trimmed_zip, target_stats_path)
-    return aligned_zip, trimmed_zip, target_stats_path
 
 if __name__ == '__main__':
     main(sys.argv[1:])

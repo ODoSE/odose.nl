@@ -417,7 +417,6 @@ Usage: run_orthomcl.py
 
     #Exit after a comforting log message
     log.info("Produced: \n%s", target_groups_path)
-    return target_groups_path
 
 if __name__ == '__main__':
     main(sys.argv[1:])

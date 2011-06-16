@@ -37,7 +37,7 @@ Usage: compare_taxa.py
     options = ['unfiltered-taxon-a', 'unfiltered-taxon-b', 'filtered-taxon-a', 'filtered-taxon-b']
     unfiltered_a_file, unfiltered_b_file, filtered_a_file, filtered_b_file = parse_options(usage, options, args)
 
-    #Parse file containing RefSeq project IDs to extract RefSeq project IDs
+    #Parse ID files to extract GenBank Project IDs & Organism Name
     with open(unfiltered_a_file) as read_handle:
         unfiltered_a = dict((line.split('\t')[0], line.strip().split('\t')[1]) for line in read_handle)
     with open(unfiltered_b_file) as read_handle:

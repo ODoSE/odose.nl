@@ -34,7 +34,7 @@ def extract_orthologs(run_dir, genomes, dna_files, groups_file):
     return sico_files, muco_files, subset_files, stats_file
 
 def _create_ortholog_dictionaries(groups_file):
-    """Convert groups file into a list of ortholog dictionaries, which map refseq_id to their associated proteins."""
+    """Convert groups file into a list of ortholog dictionaries, which map project_id to their associated proteins."""
     #Sample line: group_5332: 58017|YP_219088.1 58191|YP_001572431.1 59431|YP_002149136.1
     ortholog_proteins_per_genome = []
     with open(groups_file) as read_handle:
@@ -43,10 +43,10 @@ def _create_ortholog_dictionaries(groups_file):
             remainder = line.split()
             proteins_per_genome = {}
             for ortholog in remainder:
-                refseq_id, protein_id = ortholog.split('|')
+                project_id, protein_id = ortholog.split('|')
                 #Use dict().get(key, fallback_value) here to retrieve and assign valid array values for missing keys 
-                proteins_per_genome[refseq_id] = proteins_per_genome.get(refseq_id, [])
-                proteins_per_genome[refseq_id].append(protein_id)
+                proteins_per_genome[project_id] = proteins_per_genome.get(project_id, [])
+                proteins_per_genome[project_id].append(protein_id)
             #Assign proteins per genome dictionary to orthologs per group as 
             ortholog_proteins_per_genome.append(proteins_per_genome)
     return ortholog_proteins_per_genome
@@ -88,7 +88,7 @@ def _extract_shared_orthologs(selected_genome_ids, groups_file):
     sum_length = len(shared_single_copy) + len(shared_multi_copy) + len(non_shared_orthologs)
     assert len(ortholog_proteins_per_genome) == sum_length, 'All orthologs should fall into any one of three groups'
 
-    #Return three collections of dictionaries mapping refseq_id to proteins for all orthologs
+    #Return three collections of dictionaries mapping project_id to proteins for all orthologs
     return shared_single_copy, shared_multi_copy, non_shared_orthologs
 
 def _dna_file_per_sico(run_dir, dna_files, shared_single_copy, shared_multi_copy, non_shared):
@@ -120,18 +120,18 @@ def _write_record_to_ortholog_file(directory, ortholog_dictionaries, record):
     #Sample header line:    >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
     #Corresponding ortholog: {'58191': ['YP_001569097.1'], ...}
     split_header = record.id.split('|')
-    refseq_id = split_header[0]
+    project_id = split_header[0]
     protein_id = split_header[2]
 
     affected_ortholog_files = set()
     #Find the current sequence record in dictionaries of orthologs to append it to the right target file(s?)
     for number, ortholog in enumerate(ortholog_dictionaries):
-        #Skip this ortholog if it does not contain refseq_id
-        if refseq_id not in ortholog:
+        #Skip this ortholog if it does not contain project_id
+        if project_id not in ortholog:
             continue
 
-        #Write header & sequence to ortholog file if protein ID is included in protein IDs mapped to by refseq_id
-        if protein_id in ortholog[refseq_id]:
+        #Write header & sequence to ortholog file if protein ID is included in protein IDs mapped to by project_id
+        if protein_id in ortholog[project_id]:
             #Create filename for the current ortholog, to which previous or further sequence records might also be added
             sico_file = os.path.join(directory, 'ortholog_{0:06}.ffn'.format(number))
             affected_ortholog_files.add(sico_file)
@@ -196,7 +196,7 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: extract_orthologs.py 
---genomes=FILE       file with refseq id from complete genomes table on each line 
+--genomes=FILE       file with GenBank Project IDs from complete genomes table on each line 
 --dna-zip=FILE       zip archive of extracted DNA files
 --groups=FILE        file listing groups of orthologous proteins
 
@@ -209,7 +209,7 @@ Usage: extract_orthologs.py
     genome_ids_file, dna_zip, groups_file, target_sico, target_muco, target_subset, target_stats_path = \
     parse_options(usage, options, args)
 
-    #Parse file containing RefSeq project IDs to extract RefSeq project IDs
+    #Parse file extract GenBank Project IDs
     with open(genome_ids_file) as read_handle:
         genomes = [line.split()[0] for line in read_handle]
 
@@ -234,7 +234,6 @@ Usage: extract_orthologs.py
 
     #Exit after a comforting log message
     log.info("Produced: \n%s\n%s\n%s\n%s", target_sico, target_muco, target_subset, target_stats_path)
-    return target_sico, target_muco, target_subset, target_stats_path
 
 if __name__ == '__main__':
     main(sys.argv[1:])

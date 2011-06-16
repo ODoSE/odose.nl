@@ -174,7 +174,7 @@ Usage: filter_orthologs.py
 
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
     if filter_recombination:
-        #Parse file containing RefSeq project IDs to extract RefSeq project IDs
+        #Parse file to extract GenBank Project IDs
         with open(taxona) as read_handle:
             genome_ids_a = [line.split()[0] for line in read_handle]
         with open(taxonb) as read_handle:
@@ -195,10 +195,6 @@ Usage: filter_orthologs.py
     log.info(retained_zip)
     if filter_recombination:
         log.info(filter_recombination)
-
-    if filter_recombination:
-        return retained_zip, filter_recombination
-    return retained_zip
 
 if __name__ == '__main__':
     main(sys.argv[1:])

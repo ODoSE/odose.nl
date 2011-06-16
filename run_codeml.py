@@ -183,8 +183,8 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: run_codeml.py 
---genomes-a=FILE     file with RefSeq id from complete genomes table on each line for taxon A
---genomes-b=FILE     file with RefSeq id from complete genomes table on each line for taxon B
+--genomes-a=FILE     file with GenBank Project IDs from complete genomes table on each line for taxon A
+--genomes-b=FILE     file with GenBank Project IDs from complete genomes table on each line for taxon B
 --sico-zip=FILE      archive of aligned & trimmed single copy orthologous (SICO) genes
 --codeml-zip=FILE     destination file path for archive of codeml output per SICO gene
 --dnds-stats=FILE     destination file path for file with dN, dS & dN/dS values per SICO gene
@@ -192,7 +192,7 @@ Usage: run_codeml.py
     options = ['genomes-a', 'genomes-b', 'sico-zip', 'codeml-zip', 'dnds-stats']
     genome_a_ids_file, genome_b_ids_file, sico_zip, codeml_zip, dnds_file = parse_options(usage, options, args)
 
-    #Parse file containing RefSeq project IDs to extract RefSeq project IDs
+    #Parse file to extract GenBank Project IDs
     with open(genome_a_ids_file) as read_handle:
         genome_ids_a = [line.split()[0] for line in read_handle]
     with open(genome_b_ids_file) as read_handle:
@@ -218,7 +218,6 @@ Usage: run_codeml.py
 
     #Exit after a comforting log message
     log.info("Produced: \n%s\n%s", codeml_zip, dnds_file)
-    return codeml_zip
 
 if __name__ == '__main__':
     main(sys.argv[1:])
