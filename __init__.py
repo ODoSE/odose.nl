@@ -70,6 +70,7 @@ def create_archive_of_files(archive_file, file_iterable):
         for some_file in file_iterable:
             zipfile_handle.write(some_file, os.path.split(some_file)[1])
     else:
+        logging.warn('No files in file_iterable: %s will be empty!', archive_file)
         zipfile_handle.writestr('empty', '')
     zipfile_handle.close()
     assert is_zipfile(archive_file), 'File should now have been a valid zipfile: ' + archive_file

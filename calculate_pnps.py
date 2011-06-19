@@ -8,6 +8,7 @@ from divergence import parse_options, create_directory, extract_archive_of_files
 from divergence.filter_orthologs import find_cogs_in_sequence_records
 from divergence.run_codeml import run_codeml, parse_codeml_output
 from itertools import product
+from random import choice
 import logging as log
 import os.path
 import re
@@ -16,6 +17,39 @@ import sys
 import tempfile
 
 #TODO Rename this module to something more fitting
+
+def _bootstrap(comp_values_list):
+    """Bootstrap by gene to get to confidence scores for Neutrality Index."""
+
+    def _sample_with_replacement(sample_set, sample_size = None):
+        """Sample sample_size items from sample_set, or len(sample_set) items if sample_size is None (default)."""
+        if sample_size is None:
+            sample_size = len(sample_set)
+        taken = 0
+        while taken < sample_size:
+            yield choice(sample_set)
+            taken += 1
+
+    #"to get the confident interval on this you need to boostrap by gene - i.e. if we have 1000 genes, we form a
+    # boostrap sample by resampling, with replacement 1000 genes from the original sample; recalculate NI and repeat
+    # 1000 times; the SE on the estimate is the standard deviation across bootstraps, and your 95% confidence
+    # interval van be obtained by sorting the values and taking the 25t and 975th values"
+    ni_values = []
+    while len(ni_values) < len(comp_values_list):
+        samples = _sample_with_replacement(comp_values_list)
+        sum_dspn = sum(comp_values['Ds*Pn/(Ps+Ds)'] for comp_values in samples)
+        sum_dnps = sum(comp_values['Dn*Ps/(Ps+Ds)'] for comp_values in samples)
+        if sum_dnps != 0:
+            neutrality_index = sum_dspn / sum_dnps
+        else:
+            neutrality_index = float('nan')
+        ni_values.append(neutrality_index)
+
+    ni_values = sorted(ni_values)
+    print '95% of NI values fall within: '
+    print ni_values[int(round(0.025 * len(ni_values)))]
+    print ni_values
+    print ni_values[int(round(0.975 * len(ni_values)))]
 
 def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_list):
     """Append sums over columns 3 through -1, and the mean of the final direction of selection column."""
@@ -36,6 +70,8 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
 
     #Neutrality Index = Sum(X = Ds*Pn/(Ps+Ds)) / Sum(Y = Dn*Ps/(Ps+Ds))
     sum_comp_values['neutrality index'] = sum_comp_values['Ds*Pn/(Ps+Ds)'] / sum_comp_values['Dn*Ps/(Ps+Ds)']
+
+    #_bootstrap(comp_values_list)
 
     _append_statistics(calculations_file, 'total', sum_comp_values, sfs_max_nton)
 
