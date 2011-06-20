@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Module to calculate pn ps."""
 
+from __future__ import division
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
@@ -83,8 +84,8 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     calculations_a_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_a_')[1]
     calculations_b_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_b_')[1]
 
-    sfs_max_nton_a = len(genome_ids_a) / 2
-    sfs_max_nton_b = len(genome_ids_b) / 2
+    sfs_max_nton_a = len(genome_ids_a) // 2
+    sfs_max_nton_b = len(genome_ids_b) // 2
     if 1 < len(genome_ids_a):
         _write_output_file_header(calculations_a_file, sfs_max_nton_a)
     if 1 < len(genome_ids_b):
@@ -273,7 +274,7 @@ def _perform_calculations(alignment, codeml_values):
                                                       four_fold_synonymous_sites)
 
     #Miscellaneous additional values
-    computed_values['codons'] = sequence_lengths / 3
+    computed_values['codons'] = sequence_lengths // 3
     computed_values['multiple site polymorphisms'] = multiple_site_polymorphisms
     computed_values['synonymous and non-synonymous polymorphisms mixed'] = mixed_synonymous_polymorphisms
     #Add COGs to output file
@@ -302,7 +303,7 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
 
     def _add_sfs_values_in_columns(sfs_name, sfs):
         """Add values contained within SFS to named columns for singletons, doubletons, tripletons, etc.."""
-        max_nton = nr_of_strains / 2 + 1
+        max_nton = nr_of_strains // 2 + 1
         for nton in range(1, max_nton):
             name = _get_nton_name(nton, prefix = sfs_name)
             value = sfs[nton] if nton in sfs else 0
