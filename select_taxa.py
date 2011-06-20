@@ -149,7 +149,7 @@ def get_complete_genomes(genomes = _parse_genomes_table()):
                         by_group(genome), by_firstname(genome), genome['Organism Name'], genome['Project ID'])
                     yield name, genome['Project ID'], False
 
-def download_genome_files(genome):
+def download_genome_files(genome, download_log = None):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples of three."""
     #ftp://ftp.ncbi.nih.gov/genbank/genomes/Bacteria/Sulfolobus_islandicus_M_14_25_uid18871/CP001400.ffn
     host = 'ftp.ncbi.nih.gov'
@@ -181,7 +181,12 @@ def download_genome_files(genome):
     assert project_dir, 'Failed to find folder for genome {0}: {1}' \
         .format(genome['RefSeq project ID'], genome['Organism Name'])
 
-    #TODO Write out provenance logfile with sources of retrieved files, and retrieval date / version
+    #Write out provenance logfile with sources of retrieved files, and retrieval date
+    #This file could coincidently also serve as genome ID file for extract taxa
+    if download_log:
+        with open(download_log, mode = 'a') as append_handle:
+            append_handle.write('{0}\t{1}\t'.format(projectid, genome['Organism Name']))
+            append_handle.write('{0}{1}\n'.format(host, project_dir))
 
     #Download .gbk & .ptt files for all genome accessioncodes and append them to this list as tuples of gbk + ptt
     genome_files = []
@@ -269,10 +274,10 @@ Usage: select_taxa.py
     genomes = select_genomes_by_ids(genome_ids).values()
     genomes = sorted(genomes, key = itemgetter('Organism Name'))
 
-    #Write IDs to file, with organism name as second column, to make the project ID files more self explanatory. 
-    with open(genomes_file, mode = 'w') as write_handle:
-        for genome in genomes:
-            write_handle.write('{0}\t{1}\n'.format(genome['Project ID'], genome['Organism Name']))
+    #Write IDs to file, with organism name as second column, to make the project ID files more self explanatory.
+    for genome in genomes:
+        #Download files here, but ignore returned files: These can be retrieved from cache during extraction/translation
+        download_genome_files(genome, genomes_file)
 
     #Exit after a comforting log message
     log.info("Produced: \n%s", genomes_file)
