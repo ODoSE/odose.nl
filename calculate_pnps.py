@@ -55,7 +55,7 @@ def _bootstrap(comp_values_list):
 def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_list):
     """Append sums over columns 3 through -1, and the mean of the final direction of selection column."""
     sum_comp_values = {}
-    dos_list_a = []
+    dos_list = []
     for comp_values in comp_values_list:
     #Sum the following columns
         for column in _get_column_headers_in_sequence(sfs_max_nton)[3:-2]:
@@ -64,10 +64,10 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
                 sum_comp_values[column] = old_value + comp_values[column]
         #Append value for DoS to list, so we can calculate the mean afterwards
         if comp_values['direction of selection'] is not None:
-            dos_list_a.append(comp_values['direction of selection'])
+            dos_list.append(comp_values['direction of selection'])
 
     #Calculate DoS average
-    sum_comp_values['direction of selection'] = sum(dos_list_a) / len(dos_list_a)
+    sum_comp_values['direction of selection'] = sum(dos_list) / len(dos_list)
 
     #Neutrality Index = Sum(X = Ds*Pn/(Ps+Ds)) / Sum(Y = Dn*Ps/(Ps+Ds))
     sum_comp_values['neutrality index'] = sum_comp_values['Ds*Pn/(Ps+Ds)'] / sum_comp_values['Dn*Ps/(Ps+Ds)']
@@ -394,6 +394,7 @@ def _get_column_headers_in_sequence(max_nton):
     headers.append('synonymous and non-synonymous polymorphisms mixed')
     #PAML
     headers.extend(['N', 'Dn', 'S', 'Ds'])
+    #TODO Hide the following columns in the output, but do calculate & pass their values
     headers.append('Ds*Pn/(Ps+Ds)')
     headers.append('Dn*Ps/(Ps+Ds)')
 

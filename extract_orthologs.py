@@ -35,14 +35,14 @@ def extract_orthologs(run_dir, genomes, dna_files, groups_file):
 
 def _create_ortholog_dictionaries(groups_file):
     """Convert groups file into a list of ortholog dictionaries, which map project_id to their associated proteins."""
-    #Sample line: group_5332: 58017|YP_219088.1 58191|YP_001572431.1 59431|YP_002149136.1
+    #Sample line: 58017|YP_219088.1 58191|YP_001572431.1 59431|YP_002149136.1
     ortholog_proteins_per_genome = []
     with open(groups_file) as read_handle:
         for line in read_handle:
-            #Start at 1 to ignore incremental generated group_id
             remainder = line.split()
             proteins_per_genome = {}
             for ortholog in remainder:
+                #Sample: 58017|YP_219088.1
                 project_id, protein_id = ortholog.split('|')
                 #Use dict().get(key, fallback_value) here to retrieve and assign valid array values for missing keys 
                 proteins_per_genome[project_id] = proteins_per_genome.get(project_id, [])
