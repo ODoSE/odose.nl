@@ -26,10 +26,10 @@ def _bootstrap(comp_values_list):
         """Sample sample_size items from sample_set, or len(sample_set) items if sample_size is None (default)."""
         if sample_size is None:
             sample_size = len(sample_set)
-        taken = 0
-        while taken < sample_size:
-            yield choice(sample_set)
-            taken += 1
+        samples = []
+        while len(samples) < sample_size:
+            samples.append(choice(sample_set))
+        return samples
 
     #"to get the confident interval on this you need to boostrap by gene - i.e. if we have 1000 genes, we form a
     # boostrap sample by resampling, with replacement 1000 genes from the original sample; recalculate NI and repeat
@@ -40,24 +40,21 @@ def _bootstrap(comp_values_list):
         samples = _sample_with_replacement(comp_values_list)
         sum_dspn = sum(comp_values['Ds*Pn/(Ps+Ds)'] for comp_values in samples)
         sum_dnps = sum(comp_values['Dn*Ps/(Ps+Ds)'] for comp_values in samples)
-        if sum_dnps != 0:
-            neutrality_index = sum_dspn / sum_dnps
-        else:
-            neutrality_index = float('nan')
+        neutrality_index = sum_dspn / sum_dnps
         ni_values.append(neutrality_index)
 
+    #95 percent of values fall between n*.025th element & n*.975th element when NI values are sorted
     ni_values = sorted(ni_values)
-    print '95% of NI values fall within: '
-    print ni_values[int(round(0.025 * len(ni_values)))]
-    print ni_values
-    print ni_values[int(round(0.975 * len(ni_values)))]
+    lower_limit = int(round(0.025 * (len(ni_values) - 1)))
+    upper_limit = int(round(0.975 * (len(ni_values) - 1)))
+    return ni_values[lower_limit], ni_values[upper_limit]
 
 def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_list):
     """Append sums over columns 3 through -1, and the mean of the final direction of selection column."""
     sum_comp_values = {}
     dos_list = []
     for comp_values in comp_values_list:
-    #Sum the following columns
+        #Sum the following columns
         for column in _get_column_headers_in_sequence(sfs_max_nton)[3:-2]:
             if comp_values[column] is not None:
                 old_value = sum_comp_values.get(column, 0)
@@ -66,15 +63,20 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
         if comp_values['direction of selection'] is not None:
             dos_list.append(comp_values['direction of selection'])
 
+    _append_statistics(calculations_file, 'sum', sum_comp_values, sfs_max_nton)
+
     #Calculate DoS average
-    sum_comp_values['direction of selection'] = sum(dos_list) / len(dos_list)
+    mean_values = dict((key, value / len(comp_values_list)) for key, value in sum_comp_values.iteritems())
+    mean_values['direction of selection'] = sum(dos_list) / len(dos_list)
+    _append_statistics(calculations_file, 'mean', mean_values, sfs_max_nton)
 
     #Neutrality Index = Sum(X = Ds*Pn/(Ps+Ds)) / Sum(Y = Dn*Ps/(Ps+Ds))
-    sum_comp_values['neutrality index'] = sum_comp_values['Ds*Pn/(Ps+Ds)'] / sum_comp_values['Dn*Ps/(Ps+Ds)']
-
-    #_bootstrap(comp_values_list)
-
-    _append_statistics(calculations_file, 'total', sum_comp_values, sfs_max_nton)
+    neutrality_values = {'neutrality index': sum_comp_values['Ds*Pn/(Ps+Ds)'] / sum_comp_values['Dn*Ps/(Ps+Ds)']}
+    _append_statistics(calculations_file, 'NI', neutrality_values, sfs_max_nton)
+    #Find lower and upper limits within which 95% of values fall, by using bootstrapping statistics
+    lower_95percent_limit, upper_95percent_limit = _bootstrap(comp_values_list)
+    _append_statistics(calculations_file, 'NI 95% lower limit', {'neutrality index': lower_95percent_limit}, sfs_max_nton)
+    _append_statistics(calculations_file, 'NI 95% upper limit', {'neutrality index': upper_95percent_limit}, sfs_max_nton)
 
 def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
     """Calculate pN, pS, pN/pS & SFS values for all sico_files per clade, and write out statistics per SICO."""
@@ -105,8 +107,11 @@ def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
         basename = os.path.split(sico_file)[1].split('.')[0]
 
         #Run codeml to calculate values for dn & ds
+        #TODO Possible speed-up here in running codeml asynchronously
         codeml_file = run_codeml(create_directory(basename, inside_dir = run_dir), alignment_a, alignment_b)
         value_dict = parse_codeml_output(codeml_file)
+
+        #TODO Add Dn odd, Dn even, Ds odd & Ds even by separating odd and even codons within codeml fed alignments 
 
         #Perform calculations for subaligments of each clade, if clade has more than one sequence; skipping outliers
         if 1 < len(alignment_a):
@@ -354,7 +359,7 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
         calc_values['direction of selection'] = (paml_non_synonymous_substitut / paml_total_substitutions
                                                  - non_synonymous_polymorphisms / total_polymorphisms)
     else:
-        #"the direction of selection is undefined if either Dn+Ds or Pn+Ps are zero":Not a number
+        #"the direction of selection is undefined if either Dn+Ds or Pn+Ps are zero": None or Not a Number?
         calc_values['direction of selection'] = None
 
     #These values will end up contributing to the Neutrality Index through NI = Sum(X) / Sum(Y)
