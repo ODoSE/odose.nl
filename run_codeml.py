@@ -5,6 +5,7 @@ from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from collections import deque
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
+from multiprocessing import Pool
 from subprocess import check_call, STDOUT
 import logging as log
 import os.path
@@ -16,8 +17,8 @@ def run_codeml_for_sicos(codeml_dir, genome_ids_a, genome_ids_b, sico_files):
     """Run codeml for representatives of clades A and B in each of the SICO files, to calculate dN/dS."""
     log.info('Running codeml for {0} aligned and trimmed SICOs'.format(len(sico_files)))
 
-    codeml_files = []
-    #Run codeml for every SICO file
+    pool = Pool()
+    future_files = []
     for sico_file in sico_files:
         #Separate alignments for clade A & clade B genomes 
         ali = AlignIO.read(sico_file, 'fasta')
@@ -30,8 +31,11 @@ def run_codeml_for_sicos(codeml_dir, genome_ids_a, genome_ids_b, sico_files):
         base_name = filename[:filename.find('.')]
         sub_dir = create_directory(base_name, inside_dir = codeml_dir)
 
-        codeml_files.append(run_codeml(sub_dir, alignment_a, alignment_b))
-    return codeml_files
+        #Submit for asynchronous calculation
+        ft_codeml_file = pool.apply_async(run_codeml, (sub_dir, alignment_a, alignment_b))
+        future_files.append(ft_codeml_file)
+
+    return [ft_codeml_file.get() for ft_codeml_file in future_files]
 
 CODEML = '/projects/divergence/software/paml44/bin/codeml'
 
