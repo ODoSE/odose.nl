@@ -205,10 +205,12 @@ Usage: filter_orthologs.py
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info('Produced: ')
-    log.info(retained_zip)
+    log.info('Produced:')
+    if filter_cogs:
+        log.info(filter_cogs)
     if filter_recombination:
         log.info(filter_recombination)
+    log.info(retained_zip)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

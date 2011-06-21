@@ -7,6 +7,7 @@ from Bio.Data.CodonTable import TranslationError
 from divergence import create_directory, concatenate, create_archive_of_files, parse_options
 from divergence.select_taxa import download_genome_files, select_genomes_by_ids
 from multiprocessing import Pool
+from operator import itemgetter
 import logging as log
 import os
 import shutil
@@ -230,6 +231,7 @@ Usage: translate.py
 
     #Retrieve associated genome dictionaries from complete genomes table
     genomes = select_genomes_by_ids(genome_ids).values()
+    genomes = sorted(genomes, key = itemgetter('Organism Name'))
 
     #Actually translate the genomes to produced a set of files for both  dna files & protein files
     dna_files, protein_files = translate_genomes(genomes)
