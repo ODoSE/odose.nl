@@ -132,7 +132,8 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, project_id, g
 
     if len(extracted_seq) % 3:
         #Skip CDS feature if length of extracted_seq is not a multiple of three
-        log.error('Length of extracted coding sequence not a multiple of 3: %i\n%s', len(extracted_seq), extracted_seq)
+        log.warn('Length of extracted coding sequence %s not a multiple of 3: %i\n%s',
+                  protein_id, len(extracted_seq), extracted_seq)
         return
 
     #Translation table is a property of the genbank feature
