@@ -147,6 +147,8 @@ def get_complete_genomes(genomes = _parse_genomes_table()):
                 for genome in list4:
                     name = '<b>{3}</b> - {0} &gt; {1} &gt; <i>{2}</i>'.format(
                         by_group(genome), by_firstname(genome), genome['Organism Name'], genome['Project ID'])
+                    #TODO New!, Updated! labels by looking at release and updated dates in the genome dictionary  
+                    #TODO Small! Warn when genomes contain less than 0.5 MegaBase: unlikely to result in any orthologs
                     yield name, genome['Project ID'], False
 
 def download_genome_files(genome, download_log = None):
@@ -166,7 +168,8 @@ def download_genome_files(genome, download_log = None):
         accessioncodes = genome['List of RefSeq accessions']
         target_dir = create_directory('refseq/' + projectid)
     else:
-        log.warn('Genome directory not found under %s%s for %s', host, base_dir, projectid)
+        if projectid:
+            log.warn('Genome directory not found under %s%s for %s', host, base_dir, projectid)
 
         #Try instead to find project directory in GenBank originals listing
         projectid = genome['Project ID']
@@ -257,6 +260,7 @@ Usage: select_taxa.py
 --genomes         comma-separated list of selected GenBank Project IDs from complete genomes table
 --genomes-file    destination path for file with selected GenBank Project IDs followed by Organism Name on each line
 """
+    #TODO Allow for input of old genomes-file from previous / failed run
     options = ['genomes', 'genomes-file']
     genomes_line, genomes_file = parse_options(usage, options, args)
 
