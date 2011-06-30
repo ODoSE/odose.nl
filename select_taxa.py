@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Module for the select taxa step."""
 
+from datetime import datetime, timedelta
 from divergence import create_directory, HTTP_CACHE, parse_options
 from ftplib import FTP, error_perm
 from operator import itemgetter
@@ -147,9 +148,39 @@ def get_complete_genomes(genomes = _parse_genomes_table()):
                 for genome in list4:
                     name = '<b>{3}</b> - {0} &gt; {1} &gt; <i>{2}</i>'.format(
                         by_group(genome), by_firstname(genome), genome['Organism Name'], genome['Project ID'])
-                    #TODO New!, Updated! labels by looking at release and updated dates in the genome dictionary  
-                    #TODO Small! Warn when genomes contain less than 0.5 MegaBase: unlikely to result in any orthologs
+                    name += _get_colored_labels(genome)
+
+                    #Yield the composed name, the project ID & False according to the expected input for Galaxy
                     yield name, genome['Project ID'], False
+
+def _get_colored_labels(genome):
+    """Optionally return colored labels for genome based on a release date, modified date and genome size."""
+    labels = ''
+
+    #Add New! & Updated! labels by looking at release and updated dates in the genome dictionary
+    date_format = '%m/%d/%Y'
+    day_limit = datetime.today() - timedelta(days = 30)
+
+    #Released date 01/27/2009
+    released_date = genome['Released date']
+    if released_date and day_limit < datetime.strptime(released_date, date_format):
+        title = 'title="Since {0}"'.format(released_date)
+        labels += ' <span {0} style="background-color: lightgreen">New!</span>'.format(title)
+
+    #Modified date 02/10/2011 17:38:40
+    modified_date = genome['Modified date']
+    if modified_date and day_limit < datetime.strptime(modified_date.split()[0], date_format):
+        title = 'title="Since {0}"'.format(modified_date)
+        labels += ' <span {0} style="background-color: yellow">Updated!</span>'.format(title)
+
+    #Warn when genomes contain less than 0.5 MegaBase: unlikely to result in any orthologs
+    genome_size = genome['Genome Size']
+    if genome_size and float(genome_size) < 1:
+        ttl = 'title="Small genomes are unlikely to result in orthologs present across all genomes"'
+        style = 'style="background-color: orange"'
+        labels += ' <span {0} {1}>(Only {2} Mb!)</span>'.format(ttl, style, genome_size)
+
+    return labels
 
 def download_genome_files(genome, download_log = None):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples of three."""
