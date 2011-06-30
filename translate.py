@@ -103,14 +103,29 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file = None
     log.info('Translating %s', genbank_file)
     with open(aa_tmp, mode = 'w') as aa_wrtr:
         with open(dna_tmp, mode = 'w') as dna_wrtr:
-            for gb_recrd in SeqIO.parse(genbank_file, 'genbank'):#Bio.GenBank.Record
-                plasmid = False
-                for gb_featr in gb_recrd.features:#Bio.SeqFeature
-                    if gb_featr.type == 'source' and 'plasmid' in gb_featr.qualifiers:
-                        plasmid = True
-                    #Skip any non coding sequence features or pseudo (non-functional version) CDS
-                    if gb_featr.type == 'CDS' and not 'pseudo' in gb_featr.qualifiers:
-                        _extract_and_translate_cds(cog_dict, aa_wrtr, dna_wrtr, project_id, gb_recrd, gb_featr, plasmid)
+            #Bio.GenBank.Record
+            gb_recrd = SeqIO.read(genbank_file, 'genbank')
+
+            #Determine whether the source of this genbank file is core genome or plasmid
+            plasmid = False
+            for gb_featr in gb_recrd.features:#Bio.SeqFeature
+                if gb_featr.type == 'source' and 'plasmid' in gb_featr.qualifiers:
+                    plasmid = True
+                    break
+
+            #Select only the coding sequences from all feature records
+            coding_features = [gb_featr for gb_featr in gb_recrd.features
+                               #Skip any non coding sequence features or pseudo (non-functional version) CDS
+                               if gb_featr.type == 'CDS' and not 'pseudo' in gb_featr.qualifiers]
+
+            #If there are no coding features, report this back to the user with a clear message rather than empty file
+            if 0 == len(coding_features):
+                log.error('No coding sequences found in genbank file %s', genbank_file)
+                #TODO What are the consequences & how can the user recover from this?
+
+            #Translate all coding sequences
+            for cds_featr in coding_features:
+                _extract_and_translate_cds(cog_dict, aa_wrtr, dna_wrtr, project_id, gb_recrd, cds_featr, plasmid)
 
     assert os.path.isfile(dna_tmp) and 0 < os.path.getsize(dna_tmp), dna_tmp + ' should exist and have some content'
     assert os.path.isfile(aa_tmp) and 0 < os.path.getsize(aa_tmp), aa_tmp + ' should exist and have some content'
