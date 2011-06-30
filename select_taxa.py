@@ -178,7 +178,7 @@ def _get_colored_labels(genome):
     if genome_size and float(genome_size) < 1:
         ttl = 'title="Small genomes are unlikely to result in orthologs present across all genomes"'
         style = 'style="background-color: orange"'
-        labels += ' <span {0} {1}>(Only {2} Mb!)</span>'.format(ttl, style, genome_size)
+        labels += ' <span {0} {1}>Only {2} Mb!</span>'.format(ttl, style, genome_size)
 
     return labels
 
@@ -288,15 +288,21 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: select_taxa.py 
---genomes         comma-separated list of selected GenBank Project IDs from complete genomes table
---genomes-file    destination path for file with selected GenBank Project IDs followed by Organism Name on each line
+--genomes          comma-separated list of selected GenBank Project IDs from complete genomes table
+--previous-file    optional previously or externally created GenBank Project IDs file whose genomes should be reselected
+--genomes-file     destination path for file with selected GenBank Project IDs followed by Organism Name on each line
 """
-    #TODO Allow for input of old genomes-file from previous / failed run
-    options = ['genomes', 'genomes-file']
-    genomes_line, genomes_file = parse_options(usage, options, args)
+    options = ['genomes', 'previous-file=?', 'genomes-file']
+    genomes_line, previous_file, genomes_file = parse_options(usage, options, args)
 
     #Split clade_a_ids & clade_b_ids each on comma
     genome_ids = [val for val in genomes_line.split(',') if val]
+
+    #Allow for input of previous or externally created genomes-file to rerun an analysis
+    if previous_file:
+        #Read previous GenBank Project IDs from previous_file, each on their own line
+        with open(previous_file) as read_handle:
+            genome_ids.extend(line.split()[0] for line in read_handle)
 
     #Assert each clade contains enough IDs
     minimum = 2
