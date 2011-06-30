@@ -292,11 +292,14 @@ Usage: select_taxa.py
 --previous-file    optional previously or externally created GenBank Project IDs file whose genomes should be reselected
 --genomes-file     destination path for file with selected GenBank Project IDs followed by Organism Name on each line
 """
-    options = ['genomes', 'previous-file=?', 'genomes-file']
+    options = ['genomes=?', 'previous-file=?', 'genomes-file']
     genomes_line, previous_file, genomes_file = parse_options(usage, options, args)
 
+    genome_ids = []
+
     #Split clade_a_ids & clade_b_ids each on comma
-    genome_ids = [val for val in genomes_line.split(',') if val]
+    if genomes_line:
+        genome_ids.extend(val for val in genomes_line.split(',') if val)
 
     #Allow for input of previous or externally created genomes-file to rerun an analysis
     if previous_file:
