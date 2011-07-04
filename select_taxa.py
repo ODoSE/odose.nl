@@ -299,7 +299,7 @@ Usage: select_taxa.py
 --require-protein-table    require protein table files to be present for all downloaded genomes
 --genomes-file=FILE        destination path for file with selected GenBank Project IDs followed by Organism Name on each line
 """
-    options = ['genomes=?', 'previous-file=?', 'require-protein-table', 'genomes-file']
+    options = ['genomes=?', 'previous-file=?', 'require-protein-table?', 'genomes-file']
     genomes_line, previous_file, require_ptt, genomes_file = parse_options(usage, options, args)
 
     genome_ids = []
