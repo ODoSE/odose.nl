@@ -45,8 +45,8 @@ def translate_genomes(genomes):
 
     #Use a pool to download files in the background while translating
     pool = Pool()
-    futures = [(genome, pool.apply_async(download_genome_files, (genome,))) for genome in genomes]
-    dna_aa_pairs = [_translate_genome(genome, gbk_ptt_pairs.get()) for genome, gbk_ptt_pairs in futures]
+    futures = [pool.apply_async(download_genome_files, (genome,)) for genome in genomes]
+    dna_aa_pairs = [_translate_genome(gbk_ptt_pairs.get()) for gbk_ptt_pairs in futures if gbk_ptt_pairs.get() != None]
 
     #Extract DNA & Protein files separately from dna_aa_pairs
     dna_files = [pair[0] for pair in dna_aa_pairs]
@@ -54,9 +54,9 @@ def translate_genomes(genomes):
 
     return dna_files, aa_files
 
-def _translate_genome(genome, tuples_of_gbk_and_ptt_files):
+def _translate_genome(tuples_of_gbk_and_ptt_files):
     """Translate all files for genome and concatenate them into single DNA and Protein fasta files."""
-    assert tuples_of_gbk_and_ptt_files is not None, 'No genbank files were provided for genome: ' + genome
+    assert tuples_of_gbk_and_ptt_files is not None, 'No genbank files were provided'
 
     project_id = tuples_of_gbk_and_ptt_files[0][0]
     out_dir = create_directory('translations/' + project_id)

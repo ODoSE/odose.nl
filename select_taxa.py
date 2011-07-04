@@ -182,7 +182,7 @@ def _get_colored_labels(genome):
 
     return labels
 
-def download_genome_files(genome, download_log = None):
+def download_genome_files(genome, download_log = None, require_ptt = False):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples of three."""
     #ftp://ftp.ncbi.nih.gov/genbank/genomes/Bacteria/Sulfolobus_islandicus_M_14_25_uid18871/CP001400.ffn
     host = 'ftp.ncbi.nih.gov'
@@ -215,13 +215,6 @@ def download_genome_files(genome, download_log = None):
     assert project_dir, 'Failed to find folder for genome {0}: {1}' \
         .format(genome['RefSeq project ID'], genome['Organism Name'])
 
-    #Write out provenance logfile with sources of retrieved files, and retrieval date
-    #This file could coincidently also serve as genome ID file for extract taxa
-    if download_log:
-        with open(download_log, mode = 'a') as append_handle:
-            append_handle.write('{0}\t{1}\t'.format(projectid, genome['Organism Name']))
-            append_handle.write('{0}{1}\n'.format(host, project_dir))
-
     #Download .gbk & .ptt files for all genome accessioncodes and append them to this list as tuples of gbk + ptt
     genome_files = []
     for acc in accessioncodes:
@@ -231,13 +224,26 @@ def download_genome_files(genome, download_log = None):
         except error_perm as err:
             if 'No such file or directory' in str(err):
                 log.warn(err)
-                ptt_file = None
+                if not require_ptt:
+                    ptt_file = None
+                else:
+                    log.warn('Skipping %s as no protein table file was found: Probably no coding sequences', projectid)
+                    #This also ignores other accession codes that did have ptt files
+                    ftp.close()
+                    return None
             else:
                 raise err
         genome_files.append((projectid, gbk_file, ptt_file))
 
     #Be nice and close the connection
     ftp.close()
+
+    #Write out provenance logfile with sources of retrieved files, and retrieval date
+    #This file could coincidentally also serve as genome ID file for extract taxa
+    if download_log:
+        with open(download_log, mode = 'a') as append_handle:
+            append_handle.write('{0}\t{1}\t'.format(projectid, genome['Organism Name']))
+            append_handle.write('{0}{1}\n'.format(host, project_dir))
 
     #Return genome files
     return genome_files
@@ -288,12 +294,13 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: select_taxa.py 
---genomes          comma-separated list of selected GenBank Project IDs from complete genomes table
---previous-file    optional previously or externally created GenBank Project IDs file whose genomes should be reselected
---genomes-file     destination path for file with selected GenBank Project IDs followed by Organism Name on each line
+--genomes                  comma-separated list of selected GenBank Project IDs from complete genomes table
+--previous-file=FILE       optional previously or externally created GenBank Project IDs file whose genomes should be reselected
+--require-protein-table    require protein table files to be present for all downloaded genomes
+--genomes-file=FILE        destination path for file with selected GenBank Project IDs followed by Organism Name on each line
 """
-    options = ['genomes=?', 'previous-file=?', 'genomes-file']
-    genomes_line, previous_file, genomes_file = parse_options(usage, options, args)
+    options = ['genomes=?', 'previous-file=?', 'require-protein-table', 'genomes-file']
+    genomes_line, previous_file, require_ptt, genomes_file = parse_options(usage, options, args)
 
     genome_ids = []
 
@@ -321,7 +328,7 @@ Usage: select_taxa.py
     #Write IDs to file, with organism name as second column, to make the project ID files more self explanatory.
     for genome in genomes:
         #Download files here, but ignore returned files: These can be retrieved from cache during extraction/translation
-        download_genome_files(genome, genomes_file)
+        download_genome_files(genome, genomes_file, require_ptt = require_ptt)
 
     #Exit after a comforting log message
     log.info("Produced: \n%s", genomes_file)
