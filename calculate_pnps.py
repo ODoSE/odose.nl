@@ -83,30 +83,26 @@ def _codeml_values_for_sico_files(codeml_dir, genome_ids_a, genome_ids_b, sico_f
     """Calculate codeml values for sico files for full alignment, and alignments of even and odd codons."""
     ali = AlignIO.read(sico_file, 'fasta')
     #For below calculations in codeml it does not matter whether or not genome_ids_a & genome_ids_b are switched
-    alignment_x = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_a)
-    alignment_y = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_b)
+    ali_x = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_a)
+    ali_y = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_b)
 
     #1. gene name
     orthologname = os.path.split(sico_file)[1].split('.')[0]
 
     #Run codeml to calculate values for dn & ds
-    codeml_file = run_codeml(create_directory(orthologname, inside_dir = codeml_dir), alignment_x, alignment_y)
+    codeml_file = run_codeml(create_directory(orthologname, inside_dir = codeml_dir), ali_x, ali_y)
     codeml_values_dict = parse_codeml_output(codeml_file)
 
     #Add Dn odd, Dn even, Ds odd & Ds even, by separating odd and even codons within codeml fed alignments,
     #as alternate method of calculating number of substitutions for independent X-axis of eventual graph
 
     #Odd Dn & Ds
-    ali_a_odd = alignment_x[1::2]
-    ali_b_odd = alignment_y[1::2]
-    codeml_file = run_codeml(create_directory(orthologname + '_odd', inside_dir = codeml_dir), ali_a_odd, ali_b_odd)
+    codeml_file = run_codeml(create_directory(orthologname + '_odd', inside_dir = codeml_dir), ali_x[1::2], ali_y[1::2])
     odd_value_dict = parse_codeml_output(codeml_file)
     codeml_values_dict.update({'Dn odd': odd_value_dict['Dn'], 'Ds odd': odd_value_dict['Ds']})
 
     #Even Dn & Ds
-    ali_a_even = alignment_x[::2]
-    ali_b_even = alignment_y[::2]
-    codeml_file = run_codeml(create_directory(orthologname + '_even', inside_dir = codeml_dir), ali_a_even, ali_b_even)
+    codeml_file = run_codeml(create_directory(orthologname + '_even', inside_dir = codeml_dir), ali_x[::2], ali_y[::2])
     even_value_dict = parse_codeml_output(codeml_file)
     codeml_values_dict.update({'Dn even': even_value_dict['Dn'], 'Ds even': even_value_dict['Ds']})
 
@@ -125,7 +121,9 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
     shutil.rmtree(codeml_dir)
 
     #Create separate data table for genome_ids_a and genome_ids_b
+    log.info('About to start calculations of %i clade A genomes vs %i clade B', len(genome_ids_a), len(genome_ids_b))
     calculations_a = _calculate_per_clade(genome_ids_a, sico_file_codeml_values)
+    log.info('About to start calculations of %i clade B genomes vs %i clade A', len(genome_ids_b), len(genome_ids_a))
     calculations_b = _calculate_per_clade(genome_ids_b, sico_file_codeml_values)
     return calculations_a, calculations_b
 
@@ -460,7 +458,7 @@ def _append_statistics(calculations_file, orthologname, comp_values, max_nton):
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
-Usage: run_codeml.py 
+Usage: calculate_pnps.py 
 --genomes-a=FILE    file with GenBank Project IDs from complete genomes table on each line for taxon A
 --genomes-b=FILE    file with GenBank Project IDs from complete genomes table on each line for taxon B
 --sico-zip=FILE     archive of aligned & trimmed single copy orthologous (SICO) genes
