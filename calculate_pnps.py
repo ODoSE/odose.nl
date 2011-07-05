@@ -74,67 +74,97 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
     neutrality_values = {'neutrality index': sum_comp_values['Ds*Pn/(Ps+Ds)'] / sum_comp_values['Dn*Ps/(Ps+Ds)']}
     _append_statistics(calculations_file, 'NI', neutrality_values, sfs_max_nton)
     #Find lower and upper limits within which 95% of values fall, by using bootstrapping statistics
-    lower_95percent_limit, upper_95percent_limit = _bootstrap(comp_values_list)
-    _append_statistics(calculations_file, 'NI 95% lower limit', {'neutrality index': lower_95percent_limit}, sfs_max_nton)
-    _append_statistics(calculations_file, 'NI 95% upper limit', {'neutrality index': upper_95percent_limit}, sfs_max_nton)
+    lower_95perc_limit, upper_95perc_limit = _bootstrap(comp_values_list)
+    _append_statistics(calculations_file, 'NI 95% lower limit', {'neutrality index': lower_95perc_limit}, sfs_max_nton)
+    _append_statistics(calculations_file, 'NI 95% upper limit', {'neutrality index': upper_95perc_limit}, sfs_max_nton)
 
-def calculate_pnps(genome_ids_a, genome_ids_b, sico_files):
-    """Calculate pN, pS, pN/pS & SFS values for all sico_files per clade, and write out statistics per SICO."""
-    run_dir = tempfile.mkdtemp(prefix = 'calculate_pnps')
+def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
+    """Compute a spreadsheet of data points each for A and B based the SICO files, without duplicating computations."""
+    def _codeml_values_for_sico_files(sico_files):
+        """Calculate codeml values for sico files for full alignment, and alignments of even and odd codons."""
+        codeml_dir = tempfile.mkdtemp(prefix = 'codeml_')
+        for sico_file in sico_files:
+            ali = AlignIO.read(sico_file, 'fasta')
+            #For below calculations in codeml it does not matter whether or not genome_ids_a & genome_ids_b are switched
+            alignment_x = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_a)
+            alignment_y = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_b)
 
-    #For each alignment create separate alignments for clade A & clade B genomes
-    calculations_a_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_a_')[1]
-    calculations_b_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_b_')[1]
+            #1. gene name
+            orthologname = os.path.split(sico_file)[1].split('.')[0]
 
-    sfs_max_nton_a = len(genome_ids_a) // 2
-    sfs_max_nton_b = len(genome_ids_b) // 2
-    if 1 < len(genome_ids_a):
-        _write_output_file_header(calculations_a_file, sfs_max_nton_a)
-    if 1 < len(genome_ids_b):
-        _write_output_file_header(calculations_b_file, sfs_max_nton_b)
+            #Run codeml to calculate values for dn & ds
+            #TODO Possible speed-up here in running codeml asynchronously
+            codeml_file = run_codeml(create_directory(orthologname, inside_dir = codeml_dir), alignment_x, alignment_y)
+            codeml_values_dict = parse_codeml_output(codeml_file)
 
-    #Append all computed values to these lists, so we can compute sums and mean afterwards
-    comp_values_a = []
-    comp_values_b = []
+            #Add Dn odd, Dn even, Ds odd & Ds even, by separating odd and even codons within codeml fed alignments,
+            #as alternate method of calculating number of substitutions for independent X-axis of eventual graph
+
+            #Odd Dn & Ds
+            ali_a_odd = alignment_x[1::2]
+            ali_b_odd = alignment_y[1::2]
+            codeml_file = run_codeml(create_directory(orthologname + '_odd', inside_dir = codeml_dir), ali_a_odd, ali_b_odd)
+            odd_value_dict = parse_codeml_output(codeml_file)
+            codeml_values_dict.update({'Dn odd': odd_value_dict['Dn'], 'Ds odd': odd_value_dict['Ds']})
+
+            #Even Dn & Ds
+            ali_a_even = alignment_x[::2]
+            ali_b_even = alignment_y[::2]
+            codeml_file = run_codeml(create_directory(orthologname + '_even', inside_dir = codeml_dir), ali_a_even, ali_b_even)
+            even_value_dict = parse_codeml_output(codeml_file)
+            codeml_values_dict.update({'Dn even': even_value_dict['Dn'], 'Ds even': even_value_dict['Ds']})
+
+            yield sico_file, orthologname, codeml_values_dict
+
+        #Remove codeml_dir
+        shutil.rmtree(codeml_dir)
+
+    sico_file_codeml_values = list(_codeml_values_for_sico_files(sico_files))
+
+    #Create separate data table for genome_ids_a and genome_ids_b
+    calculations_a = _calculate_per_clade(genome_ids_a, sico_file_codeml_values)
+    calculations_b = _calculate_per_clade(genome_ids_b, sico_file_codeml_values)
+    return calculations_a, calculations_b
+
+def _calculate_per_clade(genome_ids_x, sico_file_codeml_values):
+    """Calculate spreadsheet of data for genomes in genome_ids_x using the provided sico files and codeml values."""
+    #Create the output file here
+    calculations_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_')[1]
+
+    #Return empty file if genome_ids_x contains no or only a single genome
+    if len(genome_ids_x) <= 1:
+        return calculations_file
+
+    #Temp dir for calculations
+    run_dir = tempfile.mkdtemp(prefix = 'calculate_')
+
+    #Determine the maximum number of columns for singleton, doubleton, etc.
+    sfs_max_nton = len(genome_ids_x) // 2
+
+    #Write out statistics file header
+    _write_output_file_header(calculations_file, sfs_max_nton)
+
+    #Append all computed values to this list, so we can compute sums and mean afterwards
+    all_comp_values = []
 
     #Perform calculation for each sico_file
-    for sico_file in sico_files:
+    for sico_file, orthologname, codeml_values_dict in sico_file_codeml_values:
+        #Parse sico file again, but now only extract lines for the selected genome ids
         ali = AlignIO.read(sico_file, 'fasta')
-        alignment_a = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_a)
-        alignment_b = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_b)
-
-        #1. gene name
-        basename = os.path.split(sico_file)[1].split('.')[0]
-
-        #Run codeml to calculate values for dn & ds
-        #TODO Possible speed-up here in running codeml asynchronously
-        codeml_file = run_codeml(create_directory(basename, inside_dir = run_dir), alignment_a, alignment_b)
-        value_dict = parse_codeml_output(codeml_file)
-
-        #TODO Add Dn odd, Dn even, Ds odd & Ds even by separating odd and even codons within codeml fed alignments 
+        alignment_x = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_x)
 
         #Perform calculations for subaligments of each clade, if clade has more than one sequence; skipping outliers
-        if 1 < len(alignment_a):
-            comp_values = _perform_calculations(alignment_a, value_dict)
-            comp_values_a.append(comp_values)
-            _append_statistics(calculations_a_file, basename, comp_values, sfs_max_nton_a)
-        if 1 < len(alignment_b):
-            comp_values = _perform_calculations(alignment_b, value_dict)
-            comp_values_b.append(comp_values)
-            _append_statistics(calculations_b_file, basename, comp_values, sfs_max_nton_b)
+        comp_values = _perform_calculations(alignment_x, codeml_values_dict)
+        all_comp_values.append(comp_values)
+        _append_statistics(calculations_file, orthologname, comp_values, sfs_max_nton)
 
     #"Finally, we might need a line which gives the sum for columns 3 to 15 plus the mean of column 16"
-    if 1 < len(alignment_a):
-        _append_sums_and_dos_average(calculations_a_file, sfs_max_nton_a, comp_values_a)
-    if 1 < len(alignment_b):
-        _append_sums_and_dos_average(calculations_b_file, sfs_max_nton_b, comp_values_b)
-
-    #TODO Alternate method of calculating number of substitutions for independent X-axis of eventual graph
+    _append_sums_and_dos_average(calculations_file, sfs_max_nton, all_comp_values)
 
     #Clean up
     shutil.rmtree(run_dir)
 
-    return calculations_a_file, calculations_b_file
+    return calculations_file
 
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
@@ -398,7 +428,7 @@ def _get_column_headers_in_sequence(max_nton):
     headers.append('multiple site polymorphisms')
     headers.append('synonymous and non-synonymous polymorphisms mixed')
     #PAML
-    headers.extend(['N', 'Dn', 'S', 'Ds'])
+    headers.extend(['N', 'Dn', 'Dn odd', 'Dn even', 'S', 'Ds', 'Ds odd', 'Ds even'])
     #TODO Hide the following columns in the output, but do calculate & pass their values
     headers.append('Ds*Pn/(Ps+Ds)')
     headers.append('Dn*Ps/(Ps+Ds)')
@@ -450,7 +480,7 @@ Usage: run_codeml.py
     sico_files = extract_archive_of_files(sico_zip, create_directory('sicos', inside_dir = run_dir))
 
     #Actually do calculations
-    tmp_table_tuple = calculate_pnps(genome_ids_a, genome_ids_b, sico_files)
+    tmp_table_tuple = calculate_tables(genome_ids_a, genome_ids_b, sico_files)
 
     #Write the produced files to command line argument filenames
     shutil.move(tmp_table_tuple[0], table_a)
