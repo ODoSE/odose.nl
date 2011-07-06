@@ -18,8 +18,6 @@ import shutil
 import sys
 import tempfile
 
-#TODO Rename this module to something more fitting
-
 def _bootstrap(comp_values_list):
     """Bootstrap by gene to get to confidence scores for Neutrality Index."""
 
@@ -478,7 +476,7 @@ def _append_statistics(calculations_file, orthologname, comp_values, max_nton):
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
-Usage: calculate_pnps.py 
+Usage: calculations.py 
 --genomes-a=FILE    file with GenBank Project IDs from complete genomes table on each line for taxon A
 --genomes-b=FILE    file with GenBank Project IDs from complete genomes table on each line for taxon B
 --sico-zip=FILE     archive of aligned & trimmed single copy orthologous (SICO) genes
