@@ -79,7 +79,7 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
     _append_statistics(calculations_file, 'NI 95% lower limit', {'neutrality index': lower_95perc_limit}, sfs_max_nton)
     _append_statistics(calculations_file, 'NI 95% upper limit', {'neutrality index': upper_95perc_limit}, sfs_max_nton)
 
-def _codeml_values_for_sico_files(codeml_dir, genome_ids_a, genome_ids_b, sico_file):
+def _codeml_values_for_sico_file(codeml_dir, genome_ids_a, genome_ids_b, sico_file):
     """Calculate codeml values for sico files for full alignment, and alignments of even and odd codons."""
     ali = AlignIO.read(sico_file, 'fasta')
     #For below calculations in codeml it does not matter whether or not genome_ids_a & genome_ids_b are switched
@@ -96,13 +96,33 @@ def _codeml_values_for_sico_files(codeml_dir, genome_ids_a, genome_ids_b, sico_f
     #Add Dn odd, Dn even, Ds odd & Ds even, by separating odd and even codons within codeml fed alignments,
     #as alternate method of calculating number of substitutions for independent X-axis of eventual graph
 
+    def _concat_codons_to_alignment(codons):
+        """Concatenate codons as Bio.Align.MultipleSeqAlignment to one another to create a composed MSA."""
+        alignment = codons[0]
+        for codon in codons[1:]:
+            alignment += codon
+        return alignment
+
+    #Calculate sequence_length to use when splitting MSA into codons 
+    sequence_lengths = len(ali_x[0]) - len(ali_x[0]) % 3
+    ali_x_codons = [ali_x[:, index:index + 3] for index in range(0, sequence_lengths, 3)]
+    ali_y_codons = [ali_y[:, index:index + 3] for index in range(0, sequence_lengths, 3)]
+
+    #Odd alignments are the sum of the odd codons
+    ali_x_odd = _concat_codons_to_alignment([codon for index, codon in enumerate(ali_x_codons, 1) if index % 2 == 1])
+    ali_y_odd = _concat_codons_to_alignment([codon for index, codon in enumerate(ali_y_codons, 1) if index % 2 == 1])
+
+    #Even alignments are the sum of the even codons
+    ali_x_even = _concat_codons_to_alignment([codon for index, codon in enumerate(ali_x_codons, 1) if index % 2 == 0])
+    ali_y_even = _concat_codons_to_alignment([codon for index, codon in enumerate(ali_y_codons, 1) if index % 2 == 0])
+
     #Odd Dn & Ds
-    codeml_file = run_codeml(create_directory(orthologname + '_odd', inside_dir = codeml_dir), ali_x[1::2], ali_y[1::2])
+    codeml_file = run_codeml(create_directory(orthologname + '_odd', inside_dir = codeml_dir), ali_x_odd, ali_y_odd)
     odd_value_dict = parse_codeml_output(codeml_file)
     codeml_values_dict.update({'Dn odd': odd_value_dict['Dn'], 'Ds odd': odd_value_dict['Ds']})
 
     #Even Dn & Ds
-    codeml_file = run_codeml(create_directory(orthologname + '_even', inside_dir = codeml_dir), ali_x[::2], ali_y[::2])
+    codeml_file = run_codeml(create_directory(orthologname + '_even', inside_dir = codeml_dir), ali_x_even, ali_y_even)
     even_value_dict = parse_codeml_output(codeml_file)
     codeml_values_dict.update({'Dn even': even_value_dict['Dn'], 'Ds even': even_value_dict['Ds']})
 
@@ -114,7 +134,7 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
     codeml_dir = tempfile.mkdtemp(prefix = 'codeml_')
     #Run codeml calculations per sico asynchronously for a significant speed up
     pool = Pool()
-    async_values = [pool.apply_async(_codeml_values_for_sico_files,
+    async_values = [pool.apply_async(_codeml_values_for_sico_file,
                                    (codeml_dir, genome_ids_a, genome_ids_b, sico_file)) for sico_file in sico_files]
     sico_file_codeml_values = [async_value.get() for async_value in async_values]
     #Remove codeml_dir
