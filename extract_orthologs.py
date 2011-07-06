@@ -211,7 +211,7 @@ Usage: extract_orthologs.py
 
     #Parse file extract GenBank Project IDs
     with open(genome_ids_file) as read_handle:
-        genomes = [line.split()[0] for line in read_handle]
+        genomes = [line.split()[0] for line in read_handle if not line.startswith('#')]
 
     #Create temporary directory within which to extract orthologs
     run_dir = tempfile.mkdtemp(prefix = 'extract_orthologs_run_')

@@ -243,7 +243,7 @@ Usage: translate.py
 
     #Read GenBank Project IDs from genomes_file, each on their own line
     with open(genome_ids_file) as read_handle:
-        genome_ids = [line.split()[0] for line in read_handle]
+        genome_ids = [line.split()[0] for line in read_handle if not line.startswith('#')]
 
     #Retrieve associated genome dictionaries from complete genomes table
     genomes = select_genomes_by_ids(genome_ids).values()

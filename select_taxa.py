@@ -229,6 +229,17 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
                 else:
                     log.warn('Skipping %s as no protein table file was found: Probably no coding sequences', projectid)
                     #This also ignores other accession codes that did have ptt files
+                    if 1 < len(accessioncodes) and acc != accessioncodes[0]:
+                        log.warn('However, and alternate accessioncode in %s did have a ptt file, but was also ignored!'
+                                 .format(projectid))
+
+                    #Write out commented out line to the logfile detailing this error
+                    if download_log:
+                        with open(download_log, mode = 'a') as append_handle:
+                            append_handle.write('#{0}\t{1}\t'.format(projectid, genome['Organism Name']))
+                            append_handle.write('#Genome skipped because of missing protein table file\n')
+
+                    #Close ftp and return None, which should be picked up by the caller
                     ftp.close()
                     return None
             else:
@@ -238,7 +249,7 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
     #Be nice and close the connection
     ftp.close()
 
-    #Write out provenance logfile with sources of retrieved files, and retrieval date
+    #Write out provenance logfile with sources of retrieved files
     #This file could coincidentally also serve as genome ID file for extract taxa
     if download_log:
         with open(download_log, mode = 'a') as append_handle:
