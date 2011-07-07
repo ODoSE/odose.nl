@@ -5,7 +5,7 @@ from __future__ import division
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
-from divergence import parse_options, create_directory, extract_archive_of_files
+from divergence import parse_options, create_directory, extract_archive_of_files, concatenate
 from divergence.filter_orthologs import find_cogs_in_sequence_records
 from divergence.run_codeml import run_codeml, parse_codeml_output
 from itertools import product
@@ -92,10 +92,8 @@ def _every_other_codon_alignments(alignment):
 
     #Odd alignments are the sum of the odd codons
     ali_odd = _concat_codons_to_alignment([codon for index, codon in enumerate(alignment_codons, 1) if index % 2 == 1])
-
     #Even alignments are the sum of the even codons
     ali_even = _concat_codons_to_alignment([codon for index, codon in enumerate(alignment_codons, 1) if index % 2 == 0])
-
     return ali_odd, ali_even
 
 def _codeml_values_for_alignments(codeml_dir, ali_x, ali_y):
@@ -103,7 +101,6 @@ def _codeml_values_for_alignments(codeml_dir, ali_x, ali_y):
     #Run codeml to calculate values for dn & ds
     codeml_file = run_codeml(tempfile.mkdtemp(dir = codeml_dir), ali_x, ali_y)
     codeml_values_dict = parse_codeml_output(codeml_file)
-
     return codeml_values_dict
 
 def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
@@ -116,12 +113,53 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
                          MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_b))
                         for sico_file, alignment in sico_alignments]
 
+    #Calculate tables for normal sico alignments
+    log.info('Starting calculations for full alignments')
+    table_a, table_b = _calculate_for_split_alignments(split_alignments)
+
+    #Split each alignment for a and b into two further alignments of odd and even codons 
+    odd_even_split_orth_alignments = [(orthologname,
+                                      _every_other_codon_alignments(alignment_x),
+                                      _every_other_codon_alignments(alignment_y))
+                                      for orthologname, alignment_x, alignment_y in split_alignments]
+
+    #Recover odd alignments as first from each pair of alignments
+    odd_split_alignments = [(orthologname,
+                            odd_even_x[0],
+                            odd_even_y[0])
+                            for orthologname, odd_even_x, odd_even_y in odd_even_split_orth_alignments]
+
+    #Calculate tables for odd codon sico alignments
+    log.info('Starting calculations for odd alignments')
+    #TODO Prepend some kind of header indicating this is the odd table
+    table_a_odd, table_b_odd = _calculate_for_split_alignments(odd_split_alignments)
+
+    #Recover even alignments as second from each pair of alignments
+    even_split_alignments = [(orthologname,
+                            odd_even_x[1],
+                            odd_even_y[1])
+                            for orthologname, odd_even_x, odd_even_y in odd_even_split_orth_alignments]
+
+    #Calculate tables for even codon sico alignments
+    log.info('Starting calculations for even alignments')
+    #TODO Prepend some kind of header indicating this is the even table
+    table_a_even, table_b_even = _calculate_for_split_alignments(even_split_alignments)
+
+    #Concatenate table and return their values
+    table_a_full = tempfile.mkstemp(suffix = '.tsv', prefix = 'table_a_full_')[1]
+    table_b_full = tempfile.mkstemp(suffix = '.tsv', prefix = 'table_b_full_')[1]
+    concatenate(table_a_full, table_a, table_a_odd, table_a_even)
+    concatenate(table_b_full, table_b, table_b_odd, table_b_even)
+    return table_a_full, table_b_full
+
+def _calculate_for_split_alignments(split_ortholog_alignments):
+    """"""
     #Create temporary folder for codeml files
     codeml_dir = tempfile.mkdtemp(prefix = 'codeml_')
     #Run codeml calculations per sico asynchronously for a significant speed up
     pool = Pool()
     async_values = dict((ortholog, pool.apply_async(_codeml_values_for_alignments, (codeml_dir, alignx, aligny)))
-                        for ortholog, alignx, aligny in split_alignments)
+                        for ortholog, alignx, aligny in split_ortholog_alignments)
     ortholog_codeml_values = {}
     for ortholog, async_value in async_values.iteritems():
         ortholog_codeml_values[ortholog] = async_value.get()
@@ -129,8 +167,8 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
     shutil.rmtree(codeml_dir)
 
     #Extract ortholog name and correct alignments from split_alignments
-    alignments_a = [itemgetter(0, 1)(split_alignment) for split_alignment in split_alignments]
-    alignments_b = [itemgetter(0, 2)(split_alignment) for split_alignment in split_alignments]
+    alignments_a = [itemgetter(0, 1)(split_alignment) for split_alignment in split_ortholog_alignments]
+    alignments_b = [itemgetter(0, 2)(split_alignment) for split_alignment in split_ortholog_alignments]
 
     #Create separate data table for genome_ids_a and genome_ids_b
     log.info('About to start calculations of %i clade A genomes vs %i clade B', len(alignments_a), len(alignments_b))
