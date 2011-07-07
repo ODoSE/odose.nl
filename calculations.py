@@ -103,7 +103,7 @@ def _codeml_values_for_alignments(codeml_dir, ali_x, ali_y):
     codeml_values_dict = parse_codeml_output(codeml_file)
     return codeml_values_dict
 
-def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
+def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
     """Compute a spreadsheet of data points each for A and B based the SICO files, without duplicating computations."""
     #Split individual sico alignments into separate alignments for each of the clades per ortholog
     #These split alignments can later be reversed and/or subselections can be made to calculate for alternate alignments
@@ -116,6 +116,9 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
     #Calculate tables for normal sico alignments
     log.info('Starting calculations for full alignments')
     table_a, table_b = _tables_for_split_alignments(split_alignments)
+
+    if not oddeven:
+        return table_a, table_b
 
     #As an alternate method of calculating number of substitutions for independent X-axis of eventual graph:
     #split each alignment for a and b into two further alignments of odd and even codons 
@@ -146,7 +149,7 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
     #TODO Prepend some kind of header indicating this is the even table
     table_a_even, table_b_even = _tables_for_split_alignments(even_split_alignments)
 
-    #Concatenate table and return their values
+    #Concatenate tables and return their values
     table_a_full = tempfile.mkstemp(suffix = '.tsv', prefix = 'table_a_full_')[1]
     table_b_full = tempfile.mkstemp(suffix = '.tsv', prefix = 'table_b_full_')[1]
     concatenate(table_a_full, [table_a, table_a_odd, table_a_even])
@@ -461,6 +464,12 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
                                * (1 - i / nr_of_strains)
                                for i in range(1, nr_of_strains // 2 + 1))) / sequence_lengths
 
+    #Watterson's estimator of theta: S / (L*Sum(1/i, i from 1 to n-1))
+    #where L is the number of segregating [polymorphic] sites = Sum(D(i), i from 1 to RoundDown(n/2))
+    seg_sites = sum(polymorpisms_sfs.get(i, 0) for i in range(1, nr_of_strains // 2 + 1))
+    harmonic = sum(1 / i for i in range(1, nr_of_strains))#Not +/-1 as range already excludes the stop value
+    calc_values['Theta'] = paml_synonymous_sites / (seg_sites * harmonic)
+
     #These values will end up contributing to the Neutrality Index through NI = Sum(X) / Sum(Y)
     ps_plus_ds = (synonymous_polymorphisms + paml_synonymous_substitutions)
     if ps_plus_ds:
@@ -500,7 +509,7 @@ def _get_column_headers_in_sequence(max_nton):
     headers.extend(['N', 'Dn', 'S', 'Ds'])
 
     #Measures of nucleotide diversity per SICO
-    headers.append('Pi')
+    headers.extend(['Pi', 'Theta'])
 
     #TODO Hide the following columns in the output, but do calculate & pass their values
     headers.append('Ds*Pn/(Ps+Ds)')
@@ -531,14 +540,15 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: calculations.py 
---genomes-a=FILE    file with GenBank Project IDs from complete genomes table on each line for taxon A
---genomes-b=FILE    file with GenBank Project IDs from complete genomes table on each line for taxon B
---sico-zip=FILE     archive of aligned & trimmed single copy orthologous (SICO) genes
---table-a=FILE      destination file path for summary statistics table based on orthologs in taxon A
---table-b=FILE      destination file path for summary statistics table based on orthologs in taxon B
+--genomes-a=FILE     file with GenBank Project IDs from complete genomes table on each line for taxon A
+--genomes-b=FILE     file with GenBank Project IDs from complete genomes table on each line for taxon B
+--sico-zip=FILE      archive of aligned & trimmed single copy orthologous (SICO) genes
+--table-a=FILE       destination file path for summary statistics table based on orthologs in taxon A
+--table-b=FILE       destination file path for summary statistics table based on orthologs in taxon B
+--append-odd-even    append separate tables calculated for odd and even codons of ortholog alignments [OPTIONAL]
 """
-    options = ['genomes-a', 'genomes-b', 'sico-zip', 'table-a', 'table-b']
-    genome_a_ids_file, genome_b_ids_file, sico_zip, table_a, table_b = parse_options(usage, options, args)
+    options = ['genomes-a', 'genomes-b', 'sico-zip', 'table-a', 'table-b', 'append-odd-even?']
+    genome_a_ids_file, genome_b_ids_file, sico_zip, table_a, table_b, oddeven = parse_options(usage, options, args)
 
     #Parse file containing GenBank GenBank Project IDs to extract GenBank Project IDs
     with open(genome_a_ids_file) as read_handle:
@@ -553,7 +563,7 @@ Usage: calculations.py
     sico_files = extract_archive_of_files(sico_zip, create_directory('sicos', inside_dir = run_dir))
 
     #Actually do calculations
-    tmp_table_tuple = calculate_tables(genome_ids_a, genome_ids_b, sico_files)
+    tmp_table_tuple = calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven)
 
     #Write the produced files to command line argument filenames
     shutil.move(tmp_table_tuple[0], table_a)
