@@ -115,9 +115,10 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
 
     #Calculate tables for normal sico alignments
     log.info('Starting calculations for full alignments')
-    table_a, table_b = _calculate_for_split_alignments(split_alignments)
+    table_a, table_b = _tables_for_split_alignments(split_alignments)
 
-    #Split each alignment for a and b into two further alignments of odd and even codons 
+    #As an alternate method of calculating number of substitutions for independent X-axis of eventual graph:
+    #split each alignment for a and b into two further alignments of odd and even codons 
     odd_even_split_orth_alignments = [(orthologname,
                                       _every_other_codon_alignments(alignment_x),
                                       _every_other_codon_alignments(alignment_y))
@@ -132,7 +133,7 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
     #Calculate tables for odd codon sico alignments
     log.info('Starting calculations for odd alignments')
     #TODO Prepend some kind of header indicating this is the odd table
-    table_a_odd, table_b_odd = _calculate_for_split_alignments(odd_split_alignments)
+    table_a_odd, table_b_odd = _tables_for_split_alignments(odd_split_alignments)
 
     #Recover even alignments as second from each pair of alignments
     even_split_alignments = [(orthologname,
@@ -143,7 +144,7 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
     #Calculate tables for even codon sico alignments
     log.info('Starting calculations for even alignments')
     #TODO Prepend some kind of header indicating this is the even table
-    table_a_even, table_b_even = _calculate_for_split_alignments(even_split_alignments)
+    table_a_even, table_b_even = _tables_for_split_alignments(even_split_alignments)
 
     #Concatenate table and return their values
     table_a_full = tempfile.mkstemp(suffix = '.tsv', prefix = 'table_a_full_')[1]
@@ -152,7 +153,7 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
     concatenate(table_b_full, [table_b, table_b_odd, table_b_even])
     return table_a_full, table_b_full
 
-def _calculate_for_split_alignments(split_ortholog_alignments):
+def _tables_for_split_alignments(split_ortholog_alignments):
     """"""
     #Create temporary folder for codeml files
     codeml_dir = tempfile.mkdtemp(prefix = 'codeml_')
@@ -175,10 +176,6 @@ def _calculate_for_split_alignments(split_ortholog_alignments):
     calculations_a = _calculate_for_clade_alignments(alignments_a, ortholog_codeml_values)
     log.info('About to start calculations of %i clade B genomes vs %i clade A', len(alignments_b), len(alignments_a))
     calculations_b = _calculate_for_clade_alignments(alignments_b, ortholog_codeml_values)
-
-    #TODO Same tables for odd and even codons only, by separating odd and even codons within codeml fed alignments,
-    #as alternate method of calculating number of substitutions for independent X-axis of eventual graph
-
     return calculations_a, calculations_b
 
 def _calculate_for_clade_alignments(alignments_x, ortholog_codeml_values):
@@ -447,6 +444,23 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
         #"the direction of selection is undefined if either Dn+Ds or Pn+Ps are zero": None or Not a Number?
         calc_values['direction of selection'] = None
 
+    #Combine synonymous and non synonymous site frequency spectra to get polymorphism sfs for below Pi calculation
+    polymorpisms_sfs = synonymous_sfs.copy()
+    for key, value in non_synonymous_sfs.iteritems():
+        #Merge values such that their values are added up when a conflicting key is found
+        polymorpisms_sfs[key] = polymorpisms_sfs[key] + value if key in polymorpisms_sfs else value
+
+    #Pi: n/(n-1) * Sum[ D(i) * 2 i/n (1-i/n), i from 1 to RoundDown(n/2)]
+    #where n is number of strains
+    #and D(i) is the number of polymorphisms present in i of n strains    
+    #finally divide everything by the number of sites
+    calc_values['Pi'] = (nr_of_strains
+                         / (nr_of_strains - 1)
+                         * sum(polymorpisms_sfs.get(i, 0)
+                               * 2 * i / nr_of_strains
+                               * (1 - i / nr_of_strains)
+                               for i in range(1, nr_of_strains // 2 + 1))) / sequence_lengths
+
     #These values will end up contributing to the Neutrality Index through NI = Sum(X) / Sum(Y)
     ps_plus_ds = (synonymous_polymorphisms + paml_synonymous_substitutions)
     if ps_plus_ds:
@@ -484,11 +498,15 @@ def _get_column_headers_in_sequence(max_nton):
     headers.append('synonymous and non-synonymous polymorphisms mixed')
     #PAML
     headers.extend(['N', 'Dn', 'S', 'Ds'])
+
+    #Measures of nucleotide diversity per SICO
+    headers.append('Pi')
+
     #TODO Hide the following columns in the output, but do calculate & pass their values
     headers.append('Ds*Pn/(Ps+Ds)')
     headers.append('Dn*Ps/(Ps+Ds)')
 
-    #Final values here are ignored when calculation sums over complete table
+    #Final _two_ values here are ignored when calculation sums over complete table
     headers.append('neutrality index')
     headers.append('direction of selection')
 
