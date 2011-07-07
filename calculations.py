@@ -115,6 +115,7 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
 
     #Calculate tables for normal sico alignments
     log.info('Starting calculations for full alignments')
+    #TODO Prepend general information: # orthologs dropped in each step, # cut-off used to trim alignments, # of strains
     table_a, table_b = _tables_for_split_alignments(split_alignments)
 
     if not oddeven:
