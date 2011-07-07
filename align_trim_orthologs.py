@@ -53,11 +53,11 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
     trimmed_dir = create_directory('trimmed', inside_dir = run_dir)
 
     #Use Pool().map again to scale trimming out over multiple cores. This requires tuple'd arguments however
-    tuples = [(trimmed_dir, dna_alignment) for dna_alignment in dna_alignments]
-    trim_tpls = Pool().map(_trim_alignment, tuples)
+    trim_tpls = Pool().map(_trim_alignment, ((trimmed_dir, dna_alignment) for dna_alignment in dna_alignments))
 
     remaining_percts = [tpl[3] for tpl in trim_tpls]
     trimmed_alignments = [tpl[0] for tpl in trim_tpls if retained_threshold <= tpl[3]]
+    misaligned = [tpl[0] for tpl in trim_tpls if retained_threshold > tpl[3]]
 
     #Write trim statistics to file in such a way that they're easily converted to a graph in Galaxy
     with open(stats_file, mode = 'w') as append_handle:
@@ -70,7 +70,7 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
         log.info(msg)
         append_handle.write('#' + msg + '\n')
 
-        filtered = len(trim_tpls) - len(trimmed_alignments)
+        filtered = len(misaligned)
         msg = '{0:6} orthologs filtered as they retained less than {1}%'.format(filtered, str(retained_threshold))
         log.info(msg)
         append_handle.write('#' + msg + '\n')
@@ -82,7 +82,7 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
             append_handle.write(str(tpl[2]) + '\t')
             append_handle.write('{0:.2f}\n'.format(tpl[3]))
 
-    return sorted(trimmed_alignments)
+    return sorted(trimmed_alignments), sorted(misaligned)
 
 def _trim_alignment((trimmed_dir, dna_alignment)):
     """Trim alignment to retain first & last non-gapped codons across alignment, and everything in between (+gaps!).
@@ -139,11 +139,13 @@ Usage: filter_orthologs.py
 --orthologs-zip=FILE           archive of orthologous genes in FASTA format
 --retained-threshold=PERC      filter orthologs that retain less than PERC % of sequence after trimming alignment 
 --aligned-zip=FILE             destination file path for archive of aligned orthologous genes
+--misaligned-zip=FILE          destination file path for archive of misaligned orthologous genes per retained-threshold
 --trimmed-zip=FILE             destination file path for archive of aligned & trimmed orthologous genes
 --stats=FILE                   destination file path for ortholog trimming statistics file
 """
-    options = ['orthologs-zip', 'retained-threshold', 'aligned-zip', 'trimmed-zip', 'stats']
-    orthologs_zip, retained_threshold, aligned_zip, trimmed_zip, target_stats_path = parse_options(usage, options, args)
+    options = ['orthologs-zip', 'retained-threshold', 'aligned-zip', 'misaligned-zip', 'trimmed-zip', 'stats']
+    orthologs_zip, retained_threshold, aligned_zip, misaligned_zip, trimmed_zip, target_stats_path = \
+        parse_options(usage, options, args)
 
     #Convert retained threshold to integer, so we can fail fast if argument value format was wrong
     retained_threshold = int(retained_threshold)
@@ -160,10 +162,11 @@ Usage: filter_orthologs.py
     aligned_files = _align_sicos(run_dir, sico_files)
 
     #Filter orthologs that retain less than PERC % of sequence after trimming alignment    
-    trimmed_files = _trim_alignments(run_dir, aligned_files, retained_threshold, trim_stats_file)
+    trimmed_files, misaligned_files = _trim_alignments(run_dir, aligned_files, retained_threshold, trim_stats_file)
 
     #Create archives of files on command line specified output paths & move trim_stats_file
     create_archive_of_files(aligned_zip, aligned_files)
+    create_archive_of_files(misaligned_zip, misaligned_files)
     create_archive_of_files(trimmed_zip, trimmed_files)
     shutil.move(trim_stats_file, target_stats_path)
 
@@ -171,7 +174,7 @@ Usage: filter_orthologs.py
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info('Produced: \n%s\n%s\n%s', aligned_zip, trimmed_zip, target_stats_path)
+    log.info('Produced: \n%s\n%s\n%s\n%s', aligned_zip, misaligned_zip, trimmed_zip, target_stats_path)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
