@@ -148,8 +148,8 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files):
     #Concatenate table and return their values
     table_a_full = tempfile.mkstemp(suffix = '.tsv', prefix = 'table_a_full_')[1]
     table_b_full = tempfile.mkstemp(suffix = '.tsv', prefix = 'table_b_full_')[1]
-    concatenate(table_a_full, table_a, table_a_odd, table_a_even)
-    concatenate(table_b_full, table_b, table_b_odd, table_b_even)
+    concatenate(table_a_full, [table_a, table_a_odd, table_a_even])
+    concatenate(table_b_full, [table_b, table_b_odd, table_b_even])
     return table_a_full, table_b_full
 
 def _calculate_for_split_alignments(split_ortholog_alignments):

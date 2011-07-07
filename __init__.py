@@ -54,7 +54,7 @@ def create_directory(dirname, inside_dir = BASE_OUTPUT_PATH):
 #Initialize shared cache for files downloaded through httplib2
 HTTP_CACHE = httplib2.Http(create_directory('.cache'))
 
-def concatenate(target_path, *source_files):
+def concatenate(target_path, source_files):
     """Concatenate arbitrary number of files into target_path by reading and writing in binary mode.
     
     WARNING: The binary mode implies new \n characters will NOT be added in between files!"""
