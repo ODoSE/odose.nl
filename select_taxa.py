@@ -218,36 +218,42 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
     #Download .gbk & .ptt files for all genome accessioncodes and append them to this list as tuples of gbk + ptt
     genome_files = []
     for acc in accessioncodes:
-        gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir)
+        #Try genbank file, which is always required
+        try:
+            gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir)
+        except error_perm as err:
+            if 'No such file or directory' not in str(err):
+                raise err
+            log.warn(err)
+            log.warn('GenBank file %s missing for %s', acc, projectid)
+            continue
+
+        #Try protein table file, which could be optional
         try:
             ptt_file = _download_genome_file(ftp, project_dir, acc + '.ptt', target_dir)
         except error_perm as err:
-            if 'No such file or directory' in str(err):
-                log.warn(err)
-                if not require_ptt:
-                    ptt_file = None
-                else:
-                    log.warn('Skipping %s as no protein table file was found: Probably no coding sequences', projectid)
-                    #This also ignores other accession codes that did have ptt files
-                    if 1 < len(accessioncodes) and acc != accessioncodes[0]:
-                        log.warn('However, and alternate accessioncode in %s did have a ptt file, but was also ignored!'
-                                 .format(projectid))
-
-                    #Write out commented out line to the logfile detailing this error
-                    if download_log:
-                        with open(download_log, mode = 'a') as append_handle:
-                            append_handle.write('#{0}\t{1}\t'.format(projectid, genome['Organism Name']))
-                            append_handle.write('#Genome skipped because of missing protein table file\n')
-
-                    #Close ftp and return None, which should be picked up by the caller
-                    ftp.close()
-                    return None
-            else:
+            if 'No such file or directory' not in str(err):
                 raise err
+            log.warn(err)
+            if require_ptt:
+                log.warn('Protein table file %s missing for %s: Probably no coding sequences', acc, projectid)
+                continue
+            else:
+                ptt_file = None
         genome_files.append((projectid, gbk_file, ptt_file))
 
     #Be nice and close the connection
     ftp.close()
+
+    if len(genome_files) == 0:
+        #Write out commented out line to the logfile detailing this error
+        if download_log:
+            with open(download_log, mode = 'a') as append_handle:
+                append_handle.write('#{0}\t{1}\t'.format(projectid, genome['Organism Name']))
+                append_handle.write('#Genome skipped because of missing protein table file\n')
+
+        #Return nothing when none of the accessioncodes resulted in files 
+        return None
 
     #Write out provenance logfile with sources of retrieved files
     #This file could coincidentally also serve as genome ID file for extract taxa
