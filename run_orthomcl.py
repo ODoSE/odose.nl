@@ -27,14 +27,14 @@ MCL = '/projects/divergence/software/mcl-10-201/src/shmcl/mcl'
 
 DEFAULT_ORTHOMCL_CONFIG = resource_filename(__name__, 'orthomcl.config')
 
-def run_orthomcl(proteome_files):
+def run_orthomcl(proteome_files, poor_protein_length):
     """Run all the steps in the orthomcl pipeline, starting with a set of proteomes and ending up with groups.txt."""
     #Delete orthomcl directory to prevent lingering files from previous runs to influence new runs
     run_dir = tempfile.mkdtemp(prefix = 'orthomcl_run_')
 
     #Steps leading up to and performing the reciprocal blast, as well as minor post processing
     adjusted_fasta_dir, fasta_files = _step5_orthomcl_adjust_fasta(run_dir, proteome_files)
-    good = _step6_orthomcl_filter_fasta(run_dir, adjusted_fasta_dir)
+    good, poor = _step6_orthomcl_filter_fasta(run_dir, adjusted_fasta_dir, min_length = poor_protein_length)
     allvsall = _step7_blast_all_vs_all(run_dir, good, fasta_files)
     similar_sequences = _step8_orthomcl_blast_parser(run_dir, allvsall, adjusted_fasta_dir)
 
@@ -61,7 +61,7 @@ def run_orthomcl(proteome_files):
     #Remove run_dir to free disk space
     shutil.rmtree(run_dir)
 
-    return target_groups
+    return target_groups, poor
 
 def _step4_orthomcl_install_schema(run_dir, config_file):
     """Create OrthoMCL schema in an Oracle or Mysql database.
@@ -187,18 +187,12 @@ def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length = 10, max_percen
         log.warn('%i poor sequence records identified by orthomclFilterFasta:', len(poor_records))
         for seqr in poor_records:
             log.warn('>%s: %s', seqr.id, seqr.seq)
-        #No more than 5 bad protein sequences should have been found (completely arbitrary cut-off at magical value)
-        if 5 < len(poor_records):
-            message = 'More than five poor proteins were found by orthomclFilterFasta'
-            log.error(message)
-            print >> sys.stderr, message
-            sys.exit(1)
 
     #Assert good exists and has some content
     assert os.path.isfile(good) and 0 < os.path.getsize(good), good + ' should exist and have some content'
 
-    #Only return good, as poor has no content
-    return good
+    #Only good and poor proteins
+    return good, poor
 
 def _step7_blast_all_vs_all(run_dir, good_proteins_file, fasta_files):
     """Input:
@@ -396,27 +390,30 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: run_orthomcl.py 
---protein-zip=FILE    zip archive of translated protein files
---groups=FILE         destination file path for file listing groups of orthologous proteins
+--protein-zip=FILE           zip archive of translated protein files
+--poor-protein-length=INT    filter poor proteins when smaller than poor-protein-length
+--poor-proteins=FILE         destination file path for filtered poor proteins
+--groups=FILE                destination file path for file listing groups of orthologous proteins
 """
-    options = ['protein-zip', 'groups']
-    protein_zipfile, target_groups_path = parse_options(usage, options, args)
+    options = ['protein-zip', 'poor-protein-length', 'poor-proteins', 'groups']
+    protein_zipfile, poor_protein_length, target_poor_proteins, target_groups_path = parse_options(usage, options, args)
 
     #Extract files from zip archive
     temp_dir = tempfile.mkdtemp()
     proteome_files = extract_archive_of_files(protein_zipfile, temp_dir)
 
     #Actually run orthomcl
-    groups_file = run_orthomcl(proteome_files)
+    groups_file, poor_proteins_file = run_orthomcl(proteome_files, poor_protein_length)
 
-    #Move produced groups.txt file to target output path
+    #Move files to expected output paths 
+    shutil.move(poor_proteins_file, target_poor_proteins)
     shutil.move(groups_file, target_groups_path)
 
     #Remove unused files to free disk space 
     shutil.rmtree(temp_dir)
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s", target_groups_path)
+    log.info("Produced: \n%s\n%s", target_poor_proteins, target_groups_path)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
