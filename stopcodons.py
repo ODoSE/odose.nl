@@ -27,11 +27,12 @@ def _sample_genomes(sample_size = 100):
     while len(previous_names) < sample_size:
         genome = choice(genomes)
 
-        if genome['Super Kingdom'] != 'Bacteria':
+        if genome['Super Kingdom'] != 'Bacteria':#Archaea / Bacteria
             continue
 
         #Skip some known troublesome cases
-        if genome['RefSeq project ID'] in ('59133', '62947', '57853'):
+        if genome['RefSeq project ID'] in ('57665', '57721', '57727', '57755', '57757', '57853', '58069', '58599', \
+                                           '58901', '58941', '59133', '62947', '68249', '59189', '58407'):
             continue
 
         firstname = genome['Organism Name'].split()[0]
@@ -41,9 +42,14 @@ def _sample_genomes(sample_size = 100):
             continue
 
         #Yield organism
-        logging.info('Selected:\t%s', genome['Organism Name'])
+        logging.info('Selected:\t%s %s', genome['RefSeq project ID'], genome['Organism Name'])
         previous_names.add(firstname)
         yield genome
+
+def _read_genbank_file(genbank_file):
+    """Parse GenBank file using BioPython. Future extension point for sanity checks on input."""
+    print genbank_file
+    return SeqIO.read(genbank_file, 'genbank')
 
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
 BACTERIAL_CODON_TABLE = unambiguous_dna_by_id.get(11)
@@ -166,7 +172,7 @@ def __main__():
         genbank_files = list(glob.iglob('/data/dev/workspace-python/lib-divergence/divergence-cache/refseq/*/*.gbk'))
 
     #Extract coding sequences from genome files
-    gbk_records = (SeqIO.read(genbank_file, 'genbank') for genbank_file in genbank_files)
+    gbk_records = (_read_genbank_file(genbank_file) for genbank_file in genbank_files)
     cds_per_genome = ((gbk_record.annotations['organism'], _extract_coding_sequences(gbk_record))
                                    for gbk_record in gbk_records)
 
@@ -176,22 +182,12 @@ def __main__():
 
     #Per genome, calculate overall stopcodon usage
     with open('stats.tsv', mode = 'w', buffering = 1) as write_handle:
-        header = '\t'.join(('Organism',
-                            'Codon',
-                            'Operons',
-                            'Genes',
-                            'Genes per Operon',
-                            'Times used overall',
-                            'Fraction of stopcodons',
-                            'Percentage +/- as first',
-                            'Percentage +/- as last'))
-        print header
-        write_handle.write(header + ' \n')
-
+        #Extract usage tuples per stopcodon 
         taa_tuples = []
         tag_tuples = []
         tga_tuples = []
 
+        #Calculate stopcodon usage
         usage_tuples = (_get_stopcodon_usage(organism, genm_operons) for organism, genm_operons in operons_per_genome)
         codongetter = itemgetter(1)
         for usage_tuple in chain.from_iterable(usage_tuples):
@@ -201,18 +197,34 @@ def __main__():
                 tag_tuples.append(usage_tuple)
             elif codongetter(usage_tuple) == 'TGA':
                 tga_tuples.append(usage_tuple)
-            line = '\t'.join(str(item) for item in usage_tuple)
-            print line
-            write_handle.write(line + '\n')
+
+        #Print header
+        header = '\t'.join(('Organism',
+                            'Codon',
+                            'Operons',
+                            'Genes',
+                            'Genes per Operon',
+                            'Times used overall',
+                            'Fraction of stopcodons',
+                            'Percentage +/- as first',
+                            'Percentage +/- as last'))
+        write_handle.write(header + ' \n')
 
         #Write out averages
-        write_handle.write(header + ' \n')
-        taa_averages = (sum(usage_tuple[idx] for usage_tuple in taa_tuples) / len(taa_tuples) for idx in range(2, 9))
-        write_handle.write('Average\tTAA\t' + '\t'.join(str(average) for average in taa_averages) + ' \n')
-        tag_averages = (sum(usage_tuple[idx] for usage_tuple in tag_tuples) / len(tag_tuples) for idx in range(2, 9))
-        write_handle.write('Average\tTAG\t' + '\t'.join(str(average) for average in tag_averages) + ' \n')
         tga_averages = (sum(usage_tuple[idx] for usage_tuple in tga_tuples) / len(tga_tuples) for idx in range(2, 9))
         write_handle.write('Average\tTGA\t' + '\t'.join(str(average) for average in tga_averages) + ' \n')
+        tag_averages = (sum(usage_tuple[idx] for usage_tuple in tag_tuples) / len(tag_tuples) for idx in range(2, 9))
+        write_handle.write('Average\tTAG\t' + '\t'.join(str(average) for average in tag_averages) + ' \n')
+        taa_averages = (sum(usage_tuple[idx] for usage_tuple in taa_tuples) / len(taa_tuples) for idx in range(2, 9))
+        write_handle.write('Average\tTAA\t' + '\t'.join(str(average) for average in taa_averages) + ' \n')
+
+        #Print per stopcodon, sorted by relevant columns
+        for usage_tuple in sorted(tga_tuples, key = itemgetter(8)):
+            write_handle.write('\t'.join(str(item) for item in usage_tuple) + '\n')
+        for usage_tuple in sorted(tag_tuples, key = itemgetter(8)):
+            write_handle.write('\t'.join(str(item) for item in usage_tuple) + '\n')
+        for usage_tuple in sorted(taa_tuples, key = itemgetter(8)):
+            write_handle.write('\t'.join(str(item) for item in usage_tuple) + '\n')
 
     print 'Done!'
 
