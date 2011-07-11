@@ -11,25 +11,45 @@ import shutil
 import sys
 import tempfile
 
+def _produce_heatmap(genomes, shared_single_copy, shared_multi_copy, accessory_genes):
+
+    print shared_single_copy
+
+    sico_counts = ((str(len(genome_proteins.get(genome, []))) for genome in genomes) for genome_proteins in shared_single_copy)
+    muco_counts = (tuple(str(len(genome_proteins.get(genome, []))) for genome in genomes) for genome_proteins in shared_multi_copy)
+    accessory_counts = (tuple(str(len(genome_proteins.get(genome, []))) for genome in genomes) for genome_proteins in accessory_genes)
+
+    print '\t'.join(genomes)
+    for some_count in sico_counts:
+        print '\t'.join(some_count)
+    for some_count in sorted(muco_counts):
+        print '\t'.join(some_count)
+    for some_count in sorted(accessory_counts):
+        print '\t'.join(some_count)
+    pass
+
 def extract_orthologs(run_dir, genomes, dna_files, groups_file):
     """Extract DNA sequences for SICO, MUCO & partially shared orthologs to a single file per ortholog."""
     #Subdivide orthologs into groups
-    shared_single_copy, shared_multi_copy, non_shared = _extract_shared_orthologs(genomes, groups_file)
+    shared_single_copy, shared_multi_copy, accessory_genes = _extract_shared_orthologs(genomes, groups_file)
+
+    #Produce heatmap
+    _produce_heatmap(genomes, shared_single_copy, shared_multi_copy, accessory_genes)
 
     #Extract fasta files per orthologs
     sico_files, muco_files, subset_files, nr_of_seqs = \
-        _dna_file_per_sico(run_dir, dna_files, shared_single_copy, shared_multi_copy, non_shared)
+        _dna_file_per_sico(run_dir, dna_files, shared_single_copy, shared_multi_copy, accessory_genes)
 
     #Assertions
     if shared_single_copy:
         assert sico_files
     if shared_multi_copy:
         assert muco_files
-    if non_shared:
+    if accessory_genes:
         assert subset_files
 
     #Write statistics file
-    stats_file = _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, non_shared, nr_of_seqs)
+    stats_file = _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, accessory_genes, nr_of_seqs)
 
     return sico_files, muco_files, subset_files, stats_file
 
