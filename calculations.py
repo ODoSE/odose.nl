@@ -12,6 +12,7 @@ from itertools import product
 from multiprocessing import Pool
 from operator import itemgetter
 from random import choice
+from subprocess import CalledProcessError
 import logging as log
 import os.path
 import re
@@ -96,13 +97,6 @@ def _every_other_codon_alignments(alignment):
     ali_even = _concat_codons_to_alignment([codon for index, codon in enumerate(alignment_codons, 1) if index % 2 == 0])
     return ali_odd, ali_even
 
-def _codeml_values_for_alignments(codeml_dir, ali_x, ali_y):
-    """Calculate codeml values for sico files for full alignment, and alignments of even and odd codons."""
-    #Run codeml to calculate values for dn & ds
-    codeml_file = run_codeml(tempfile.mkdtemp(dir = codeml_dir), ali_x, ali_y)
-    codeml_values_dict = parse_codeml_output(codeml_file)
-    return codeml_values_dict
-
 def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
     """Compute a spreadsheet of data points each for A and B based the SICO files, without duplicating computations."""
     #Split individual sico alignments into separate alignments for each of the clades per ortholog
@@ -157,8 +151,21 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
     concatenate(table_b_full, [table_b, table_b_odd, table_b_even])
     return table_a_full, table_b_full
 
+def _codeml_values_for_alignments(codeml_dir, ali_x, ali_y):
+    """Calculate codeml values for sico files for full alignment, and alignments of even and odd codons."""
+    try:
+        #Run codeml to calculate values for dn & ds
+        subdir = tempfile.mkdtemp(dir = codeml_dir)
+        codeml_file = run_codeml(subdir, ali_x, ali_y)
+        codeml_values_dict = parse_codeml_output(codeml_file)
+        return codeml_values_dict
+    except CalledProcessError as cpe:
+        log.warn(cpe)
+        #FIXME This leads to problems with calculating sums / averages etc.. Instead skip orthologs with stopcodons
+        return {'t': None, 'S': None, 'N': None, 'dN/dS': None, 'dN': None, 'dS': None, 'Dn': None, 'Ds': None}
+
 def _tables_for_split_alignments(split_ortholog_alignments):
-    """"""
+    """Calculate full tables of values for """
     #Create temporary folder for codeml files
     codeml_dir = tempfile.mkdtemp(prefix = 'codeml_')
     #Run codeml calculations per sico asynchronously for a significant speed up
@@ -166,6 +173,7 @@ def _tables_for_split_alignments(split_ortholog_alignments):
     async_values = dict((ortholog, pool.apply_async(_codeml_values_for_alignments, (codeml_dir, alignx, aligny)))
                         for ortholog, alignx, aligny in split_ortholog_alignments)
     ortholog_codeml_values = {}
+    #Retrieve asynchronously calculated values
     for ortholog, async_value in async_values.iteritems():
         ortholog_codeml_values[ortholog] = async_value.get()
     #Remove codeml_dir
