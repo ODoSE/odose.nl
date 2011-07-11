@@ -3,6 +3,7 @@
 from Bio import AlignIO, Phylo, SeqIO
 from divergence import create_directory, parse_options, extract_archive_of_files
 from divergence.select_taxa import select_genomes_by_ids
+from divergence.versions import DNADIST, NEIGHBOR
 from subprocess import Popen, PIPE, STDOUT
 import logging as log
 import os.path
@@ -59,9 +60,6 @@ def create_super_concatemer(concatemer_files, destination_path):
             seqr = SeqIO.read(concatemer, 'fasta')
             SeqIO.write(seqr, write_handle, 'fasta')
 
-
-DNADIST = '/projects/divergence/software/phylip-3.69/exe/dnadist'
-
 def _run_dna_dist(run_dir, aligned_file):
     """Run dnadist to calculate distances between individual strains in a distance matrix, as input for neighbor."""
     #Run calculations inside a directory
@@ -89,8 +87,6 @@ def _run_dna_dist(run_dir, aligned_file):
     outfile = os.path.join(dnadist_dir, 'outfile')
     assert os.path.exists(outfile) and 0 < os.path.getsize(outfile), outfile + ' should exist with some content now'
     return outfile
-
-NEIGHBOR = '/projects/divergence/software/phylip-3.69/exe/neighbor'
 
 def _run_neighbor(run_dir, distance_file):
     """Run neighbor to generate a tree of the distances in the distance file, and return the generated tree file."""

@@ -4,6 +4,7 @@
 from __future__ import division
 from Bio import AlignIO
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
+from divergence.versions import TRANSLATORX
 from multiprocessing import Pool
 from operator import itemgetter
 from subprocess import check_call, STDOUT
@@ -19,8 +20,6 @@ def _align_sicos(run_dir, sico_files):
     #We'll multiplex this embarrassingly parallel task using a pool of workers
     tuples = [(run_dir, sico_file) for sico_file in sico_files]
     return Pool().map(_run_translatorx, tuples)
-
-TRANSLATORX = '/projects/divergence/software/translatorx/translatorx_v1.1.pl'
 
 def _run_translatorx((run_dir, sico_file), translation_table = '11'):
     """Run TranslatorX to create DNA level alignment file of protein level aligned DNA sequences within sico_file."""

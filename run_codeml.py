@@ -5,6 +5,7 @@ from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from collections import deque
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
+from divergence.versions import CODEML
 from multiprocessing import Pool
 from subprocess import check_call, STDOUT
 import logging as log
@@ -36,8 +37,6 @@ def run_codeml_for_sicos(codeml_dir, genome_ids_a, genome_ids_b, sico_files):
         future_files.append(ft_codeml_file)
 
     return [ft_codeml_file.get() for ft_codeml_file in future_files]
-
-CODEML = '/projects/divergence/software/paml44/bin/codeml'
 
 def run_codeml(sub_dir, alignment_a, alignment_b):
     """Run codeml from PAML for selected sequence records from sico_file, returning main nexus output file."""

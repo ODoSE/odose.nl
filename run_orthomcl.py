@@ -2,9 +2,11 @@
 """Module to run orthoMCL."""
 
 from Bio import SeqIO
-from divergence import create_directory, resource_filename, extract_archive_of_files, parse_options
+from divergence import create_directory, extract_archive_of_files, parse_options
 from divergence.orthomcl_database import create_database, get_configuration_file, delete_database
 from divergence.reciprocal_blast import reciprocal_blast
+from divergence.versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
+    ORTHOMCL_BLAST_PARSER, ORTHOMCL_LOAD_BLAST, ORTHOMCL_PAIRS, ORTHOMCL_DUMP_PAIRS_FILES
 from subprocess import Popen, PIPE, CalledProcessError, check_call, STDOUT
 import logging as log
 import multiprocessing
@@ -12,20 +14,6 @@ import os.path
 import shutil
 import sys
 import tempfile
-
-ORTHOMCL_DIR = '/projects/divergence/software/orthomclSoftware-v2.0.2/bin/'
-ORTHOMCL_INSTALL_SCHEMA = ORTHOMCL_DIR + 'orthomclInstallSchema'
-ORTHOMCL_ADJUST_FASTA = ORTHOMCL_DIR + 'orthomclAdjustFasta'
-ORTHOMCL_FILTER_FASTA = ORTHOMCL_DIR + 'orthomclFilterFasta'
-ORTHOMCL_BLAST_PARSER = ORTHOMCL_DIR + 'orthomclBlastParser'
-ORTHOMCL_LOAD_BLAST = ORTHOMCL_DIR + 'orthomclLoadBlast'
-ORTHOMCL_PAIRS = ORTHOMCL_DIR + 'orthomclPairs'
-ORTHOMCL_DUMP_PAIRS_FILES = ORTHOMCL_DIR + 'orthomclDumpPairsFiles'
-ORTHOMCL_MCL_TO_GROUPS = ORTHOMCL_DIR + 'orthomclMclToGroups'
-
-MCL = '/projects/divergence/software/mcl-10-201/src/shmcl/mcl'
-
-DEFAULT_ORTHOMCL_CONFIG = resource_filename(__name__, 'orthomcl.config')
 
 def run_orthomcl(proteome_files, poor_protein_length, target_poor_proteins_file, target_groups_file):
     """Run all the steps in the orthomcl pipeline, starting with a set of proteomes and ending up with groups.txt."""

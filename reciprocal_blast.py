@@ -2,15 +2,11 @@
 """Module for the reciprocal blast step."""
 
 from divergence import create_directory, concatenate
+from divergence.versions import MAKEBLASTDB, BLASTN, BLASTP
 from multiprocessing import Pool
 from subprocess import check_call, STDOUT
 import logging as log
 import os
-
-NCBI_BLAST_DIR = '/projects/divergence/software/ncbi-blast-2.2.24+/bin/'
-MAKEBLASTDB = NCBI_BLAST_DIR + 'makeblastdb'
-BLASTP = NCBI_BLAST_DIR + 'blastp'
-BLASTN = NCBI_BLAST_DIR + 'blastn'
 
 def reciprocal_blast(run_dir, good_proteins_fasta, fasta_files):
     """Create blast database for good_proteins_fasta, blast all fasta_files against this database & return hits."""
