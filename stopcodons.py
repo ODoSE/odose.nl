@@ -26,6 +26,14 @@ def _sample_genomes(sample_size = 100):
 
     while len(previous_names) < sample_size:
         genome = choice(genomes)
+
+        if genome['Super Kingdom'] != 'Bacteria':
+            continue
+
+        #Skip some known troublesome cases
+        if genome['RefSeq project ID'] in ('59133', '62947', '57853'):
+            continue
+
         firstname = genome['Organism Name'].split()[0]
 
         #Skip genome if organism firstname was previously selected
@@ -142,9 +150,9 @@ def _get_stopcodon_usage(organism, genome_operons):
 
 def __main__():
     """Main method called when run from terminal."""
-    if False:
+    if True:
         #Select random genomes
-        genomes = _sample_genomes(100)
+        genomes = _sample_genomes(200)
 
         #Download genbank files for genomes in the background
         from multiprocessing import Pool
