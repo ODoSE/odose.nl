@@ -53,20 +53,29 @@ def _extract_coding_sequences(gbk_record):
         #Skipping plasmids for now
         raise StopIteration
 
+    coding_features = (gb_feature
+                        for gb_feature in gbk_record.features
+                        #Skip any non coding sequence features or pseudo (non-functional version) CDS
+                        if gb_feature.type == 'CDS' and not 'pseudo' in gb_feature.qualifiers)
+
     #Select only the coding sequences from all feature records: Bio.SeqFeature
-    for gb_feature in gbk_record.features:
-        #Only look at positive strand for now
-        if gb_feature.strand != 1:
+    for cds_feature in coding_features:
+        #Handle positive and negative strand separately
+        if cds_feature.strand == 1:
+            cds_start = cds_feature.location.start.position
+            cds_end = cds_feature.location.end.position
+        elif cds_feature.strand == -1:
+            cds_start = 0 - cds_feature.location.end.position
+            cds_end = 0 - cds_feature.location.start.position
+        else:
+            logging.warn('Expected strand value %i encountered in %s of %s', cds_feature.strand, cds_feature.id,
+                         gbk_record.annotations["organism"])
             continue
 
-        #Skip any non coding sequence features or pseudo (non-functional version) CDS
-        if gb_feature.type == 'CDS' and not 'pseudo' in gb_feature.qualifiers:
-            last_codon = str(gb_feature.extract(gbk_record.seq)[-3:])
-            #Yield start position, end position and last codon if stopcodon
-            if last_codon in BACTERIAL_CODON_TABLE.stop_codons:
-                cds_start = gb_feature.location.start.position
-                cds_end = gb_feature.location.end.position
-                yield cds_start, cds_end, last_codon
+        last_codon = str(cds_feature.extract(gbk_record.seq)[-3:])
+        #Yield start position, end position and last codon if stopcodon
+        if last_codon in BACTERIAL_CODON_TABLE.stop_codons:
+            yield cds_start, cds_end, last_codon
 
 def _group_cds_by_operons(coding_sequences, operon_distance = 300):
     """Group coding sequences into operons based on how close the start of a gene is to the end of the previous gene."""
@@ -76,6 +85,7 @@ def _group_cds_by_operons(coding_sequences, operon_distance = 300):
 
     operon = []
     #This sorted call retrieves all coding sequences in one go
+    #This code does not yet take into account the positive and negative strand handling introduced in _extract_cds above
     for cds in sorted(coding_sequences, key = cds_end_func):
         #Append coding sequence to operon if it's start is smaller than the current operon's largest end + distance 
         if not operon or cds_start_func(cds) < max(cds_end_func(cds2) for cds2 in operon) + operon_distance:
@@ -88,6 +98,7 @@ def _group_cds_by_operons(coding_sequences, operon_distance = 300):
             operon = [cds]
 
 def _get_stopcodon_usage(organism, genome_operons):
+    """Get stopcodon usage per stopcodon in operon, and show difference between overall usage and as first/last."""
     #Some initial printed conclusions
     nr_operons = len(genome_operons)
     if nr_operons == 0:
@@ -98,10 +109,6 @@ def _get_stopcodon_usage(organism, genome_operons):
     if nr_genes == 0:
         print >> sys.stderr, 'No genes found'
         return
-    print 'Operons:\t{0:5}\tGenes:\t{1:5}\tGenes per operon:\t{2}\tOrganism:\t{3}'.format(nr_operons,
-                                                                                      nr_genes,
-                                                                                      nr_genes / nr_operons,
-                                                                                      organism)
 
     #Extract only stopcodons
     stopcodons = [cds[2] for operon in genome_operons for cds in operon]
@@ -114,39 +121,45 @@ def _get_stopcodon_usage(organism, genome_operons):
 
     #Now determine the stopcodon usage for the first genes each operon
     first_stopcodons = [operon[0][2] for operon in genome_operons]
-    first_stopcodon_usage = dict((codon, first_stopcodons.count(codon)) for codon in set(first_stopcodons))
-    first_stopcodon_perc = dict((codon, times / nr_operons * 100) for codon, times in first_stopcodon_usage.iteritems())
+    first_stopcodon_perc = dict((codon2, times / nr_operons * 100) for codon2, times in
+                                ((codon, first_stopcodons.count(codon)) for codon in set(first_stopcodons)))
 
     #Now determine the stopcodon usage for the first genes each operon
     last_stopcodons = [operon[-1][2] for operon in genome_operons]
-    last_stopcodon_usage = dict((codon, last_stopcodons.count(codon)) for codon in set(last_stopcodons))
-    last_stopcodon_perc = dict((codon, times / nr_operons * 100) for codon, times in last_stopcodon_usage.iteritems())
+    last_stopcodon_perc = dict((codon2, times / nr_operons * 100) for codon2, times in
+                               ((codon, last_stopcodons.count(codon)) for codon in set(last_stopcodons)))
 
     for codon, perc in stopcodon_perc.iteritems():
         yield (organism,
                codon,
+               nr_operons,
+               nr_genes,
+               nr_genes / nr_operons,
                stopcodon_usage[codon],
                stopcodon_perc[codon],
                first_stopcodon_perc.get(codon, 0) - perc,
                last_stopcodon_perc.get(codon, 0) - perc)
 
 def __main__():
+    """Main method called when run from terminal."""
+    if False:
+        #Select random genomes
+        genomes = _sample_genomes(100)
 
-    #Select random genomes
-    genomes = _sample_genomes(100)
-    #genomes = _parse_genomes_table(require_refseq = True)[202:212]
-
-    #Download genbank files for genomes
-    genome_files = (download_genome_files(genome) for genome in genomes)
-    genbank_files = (pairs[1] for files in genome_files for pairs in files)
-
-    #Read current genbank from cache directory
-    #import glob
-    #genbank_files = list(glob.iglob('/data/dev/workspace-python/lib-divergence/divergence-cache/refseq/*/*.gbk'))[:5]
+        #Download genbank files for genomes in the background
+        from multiprocessing import Pool
+        pool = Pool()
+        ft_genome_files = [pool.apply_async(download_genome_files, (genome,)) for genome in genomes]
+        genome_files = (future.get() for future in ft_genome_files)
+        genbank_files = (pairs[1] for files in genome_files for pairs in files)
+    else:
+        #Read current genbank from cache directory
+        import glob
+        genbank_files = list(glob.iglob('/data/dev/workspace-python/lib-divergence/divergence-cache/refseq/*/*.gbk'))
 
     #Extract coding sequences from genome files
     gbk_records = (SeqIO.read(genbank_file, 'genbank') for genbank_file in genbank_files)
-    cds_per_genome = ((gbk_record.annotations["organism"], _extract_coding_sequences(gbk_record))
+    cds_per_genome = ((gbk_record.annotations['organism'], _extract_coding_sequences(gbk_record))
                                    for gbk_record in gbk_records)
 
     #Group coding sequences from each genome into operons
@@ -157,35 +170,40 @@ def __main__():
     with open('stats.tsv', mode = 'w', buffering = 1) as write_handle:
         header = '\t'.join(('Organism',
                             'Codon',
+                            'Operons',
+                            'Genes',
+                            'Genes per Operon',
                             'Times used overall',
                             'Fraction of stopcodons',
                             'Percentage +/- as first',
-                            'Percentage +/- as last')) + ' \n'
-        write_handle.write(header)
+                            'Percentage +/- as last'))
+        print header
+        write_handle.write(header + ' \n')
 
         taa_tuples = []
         tag_tuples = []
         tga_tuples = []
 
-        usage_tuples = (_get_stopcodon_usage(organism, genome_operons)
-                        for organism, genome_operons in operons_per_genome)
+        usage_tuples = (_get_stopcodon_usage(organism, genm_operons) for organism, genm_operons in operons_per_genome)
+        codongetter = itemgetter(1)
         for usage_tuple in chain.from_iterable(usage_tuples):
-            print usage_tuple
-            if usage_tuple[1] == 'TAA':
+            if codongetter(usage_tuple) == 'TAA':
                 taa_tuples.append(usage_tuple)
-            elif usage_tuple[1] == 'TAG':
+            elif codongetter(usage_tuple) == 'TAG':
                 tag_tuples.append(usage_tuple)
-            elif usage_tuple[1] == 'TGA':
+            elif codongetter(usage_tuple) == 'TGA':
                 tga_tuples.append(usage_tuple)
-            write_handle.write('\t'.join(str(item) for item in usage_tuple) + '\n')
+            line = '\t'.join(str(item) for item in usage_tuple)
+            print line
+            write_handle.write(line + '\n')
 
         #Write out averages
-        write_handle.write(header)
-        taa_averages = (sum(usage_tuple[index] for usage_tuple in taa_tuples) / len(taa_tuples) for index in range(2, 6))
+        write_handle.write(header + ' \n')
+        taa_averages = (sum(usage_tuple[idx] for usage_tuple in taa_tuples) / len(taa_tuples) for idx in range(2, 9))
         write_handle.write('Average\tTAA\t' + '\t'.join(str(average) for average in taa_averages) + ' \n')
-        tag_averages = (sum(usage_tuple[index] for usage_tuple in tag_tuples) / len(tag_tuples) for index in range(2, 6))
+        tag_averages = (sum(usage_tuple[idx] for usage_tuple in tag_tuples) / len(tag_tuples) for idx in range(2, 9))
         write_handle.write('Average\tTAG\t' + '\t'.join(str(average) for average in tag_averages) + ' \n')
-        tga_averages = (sum(usage_tuple[index] for usage_tuple in tga_tuples) / len(tga_tuples) for index in range(2, 6))
+        tga_averages = (sum(usage_tuple[idx] for usage_tuple in tga_tuples) / len(tga_tuples) for idx in range(2, 9))
         write_handle.write('Average\tTGA\t' + '\t'.join(str(average) for average in tga_averages) + ' \n')
 
     print 'Done!'
