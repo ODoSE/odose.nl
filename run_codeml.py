@@ -58,7 +58,6 @@ def run_codeml(sub_dir, alignment_a, alignment_b):
     for index in range(0, len(ab_alignment[0]), 3):
         codon_a = str(ab_alignment[0][index:index + 3].seq)
         codon_b = str(ab_alignment[1][index:index + 3].seq)
-        print codon_b
         if codon_a not in BACTERIAL_CODON_TABLE.stop_codons and codon_b not in BACTERIAL_CODON_TABLE.stop_codons:
             sequence_a += codon_a
             sequence_b += codon_b

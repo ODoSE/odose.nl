@@ -12,7 +12,6 @@ from itertools import product
 from multiprocessing import Pool
 from operator import itemgetter
 from random import choice
-from subprocess import CalledProcessError
 import logging as log
 import os.path
 import re
@@ -56,7 +55,7 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
     dos_list = []
     for comp_values in comp_values_list:
         #Sum the following columns
-        for column in _get_column_headers_in_sequence(sfs_max_nton)[3:-2]:
+        for column in _get_column_headers_in_sequence(sfs_max_nton)[2:-2]:
             if comp_values.get(column) is not None:
                 old_value = sum_comp_values.get(column, 0)
                 sum_comp_values[column] = old_value + comp_values[column]
@@ -153,16 +152,11 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
 
 def _codeml_values_for_alignments(codeml_dir, ali_x, ali_y):
     """Calculate codeml values for sico files for full alignment, and alignments of even and odd codons."""
-    try:
-        #Run codeml to calculate values for dn & ds
-        subdir = tempfile.mkdtemp(dir = codeml_dir)
-        codeml_file = run_codeml(subdir, ali_x, ali_y)
-        codeml_values_dict = parse_codeml_output(codeml_file)
-        return codeml_values_dict
-    except CalledProcessError as cpe:
-        log.warn(cpe)
-        #FIXME This leads to problems with calculating sums / averages etc.. Instead skip orthologs with stopcodons
-        return {'t': None, 'S': None, 'N': None, 'dN/dS': None, 'dN': None, 'dS': None, 'Dn': None, 'Ds': None}
+    #Run codeml to calculate values for dn & ds
+    subdir = tempfile.mkdtemp(dir = codeml_dir)
+    codeml_file = run_codeml(subdir, ali_x, ali_y)
+    codeml_values_dict = parse_codeml_output(codeml_file)
+    return codeml_values_dict
 
 def _tables_for_split_alignments(split_ortholog_alignments):
     """Calculate full tables of values for """
@@ -271,11 +265,12 @@ def _perform_calculations(alignment, codeml_values):
         if 0 < len(''.join(codons).translate(None, 'ACGTactg')):
             continue
 
-        #Stop codons should have already been removed, but lets be sure anyway
-        codons_nonstop = [codon for codon in codons if codon not in BACTERIAL_CODON_TABLE.stop_codons]
+        #Skip codons where any of the alignment codons is a stopcodon, same as in codeml
+        if any(codon in BACTERIAL_CODON_TABLE.stop_codons for codon in codons):
+            continue
 
         #Retrieve translations of codons now that inconclusive & stop-codons have been removed
-        translations = [BACTERIAL_CODON_TABLE.forward_table.get(codon) for codon in codons_nonstop]
+        translations = [BACTERIAL_CODON_TABLE.forward_table.get(codon) for codon in codons]
 
         #Count unique translations across strains
         translation_usage = dict((aa, translations.count(aa)) for aa in set(translations))
@@ -302,7 +297,7 @@ def _perform_calculations(alignment, codeml_values):
         #Continue with next codon if none of the sites is polymorphic
         if not any(polymorphisms):
             #But do increase the number of 4-fold synonymous sites if the pattern matches
-            codon = codons_nonstop[0]
+            codon = codons[0]
             for pattern in FOUR_FOLD_DEGENERATE_PATTERNS:
                 if re.match(pattern, codon):
                     #Increase by one, as this site is for fold degenerate, even if it is not polymorphic
@@ -349,7 +344,7 @@ def _perform_calculations(alignment, codeml_values):
 
             #Codon is four fold degenerate if it matches any pattern in FOUR_FOLD_DEGENERATE_PATTERNS
             if site3_polymorphic:
-                codon = codons_nonstop[0]
+                codon = codons[0]
                 for pattern in FOUR_FOLD_DEGENERATE_PATTERNS:
                     if re.match(pattern, codon):
                         #Update four fold degenerate SFS by adding values from local SFS

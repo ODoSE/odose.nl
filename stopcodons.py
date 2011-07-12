@@ -8,7 +8,7 @@ Hypothesis: There's a bias in the usage of stopcodons within operons.
 
 from __future__ import division
 from Bio import SeqIO
-from Bio.Data.CodonTable import unambiguous_dna_by_id
+from Bio.Data import CodonTable
 from divergence.select_taxa import _parse_genomes_table, download_genome_files
 from itertools import chain
 from operator import itemgetter
@@ -52,7 +52,7 @@ def _read_genbank_file(genbank_file):
     return SeqIO.read(genbank_file, 'genbank')
 
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
-BACTERIAL_CODON_TABLE = unambiguous_dna_by_id.get(11)
+BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
 
 def _extract_coding_sequences(gbk_record):
     """Extract coding sequences from genbank file from positive strand and return start, end and stopcodon."""
