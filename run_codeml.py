@@ -3,6 +3,7 @@
 
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
+from Bio.Data import CodonTable
 from collections import deque
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
 from divergence.versions import CODEML
@@ -38,21 +39,34 @@ def run_codeml_for_sicos(codeml_dir, genome_ids_a, genome_ids_b, sico_files):
 
     return [ft_codeml_file.get() for ft_codeml_file in future_files]
 
+#Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
+BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
+
 def run_codeml(sub_dir, alignment_a, alignment_b):
     """Run codeml from PAML for selected sequence records from sico_file, returning main nexus output file."""
-    #Select sequences from clade representatives in each SICO file
-    seqr_a = alignment_a[0]
-    seqr_b = alignment_b[0]
-
-    #Note on whether or not I should be randomizing the above representative selection:
+    #Note on whether or not I should be randomizing the below representative selection:
     #"both alternatives have their advantages - just selecting one strain for the divergence calculation means that you 
     # know exactly which strains the divergence comes from - but if this strain is anomalous then you might get some 
     # strange results. i think i would stick with a single strain" - AEW
 
+    #Select first sequences from each clade as representatives
+    ab_alignment = MultipleSeqAlignment([alignment_a[0], alignment_b[0]])
+
+    #Codeml chokes when presented with an sequence containing stopcodons: strip those out
+    sequence_a = ''
+    sequence_b = ''
+    for index in range(0, len(ab_alignment[0]), 3):
+        codon_a = str(ab_alignment[0][index:index + 3].seq)
+        codon_b = str(ab_alignment[1][index:index + 3].seq)
+        print codon_b
+        if codon_a not in BACTERIAL_CODON_TABLE.stop_codons and codon_b not in BACTERIAL_CODON_TABLE.stop_codons:
+            sequence_a += codon_a
+            sequence_b += codon_b
+
     #Write the representative sequence records out to file in codeml compatible format
     base_name = os.path.split(sub_dir)[1]
     nexus_file = os.path.join(sub_dir, base_name + '.nexus')
-    _write_nexus_file(seqr_a, seqr_b, nexus_file)
+    _write_nexus_file(sequence_a, sequence_b, nexus_file)
 
     #Generate codeml configuration file
     output_file = os.path.join(sub_dir, base_name + '.codeml')
@@ -66,7 +80,7 @@ def run_codeml(sub_dir, alignment_a, alignment_b):
     assert os.path.isfile(output_file) and os.path.getsize(output_file), 'Expected some content in ' + output_file
     return output_file
 
-def _write_nexus_file(seqr_a, seqr_b, nexus_file):
+def _write_nexus_file(sequence_a, sequence_b, nexus_file):
     """Write representative sequences out to a file in the codeml compatible nexus format."""
     nexus_contents = '''
 #NEXUS
@@ -78,9 +92,8 @@ clade_a  {seqa}
 clade_b  {seqb}
 ;
 end;
-'''.format(ntax = 2, nchar = len(seqr_a), seqa = str(seqr_a.seq), seqb = str(seqr_b.seq))
+'''.format(ntax = 2, nchar = len(sequence_a), seqa = sequence_a, seqb = sequence_b)
     with open(nexus_file, mode = 'w') as write_handle:
-        #SeqIO.write([seqr_a, seqr_b], write_handle, 'nexus')
         write_handle.write(nexus_contents)
 
 def _write_config_file(nexus_file, output_file, config_file):
