@@ -111,54 +111,22 @@ def _group_cds_by_operons(coding_sequences, operon_distance = 300):
             #Start new operon with current cds as first
             operon = [cds]
 
-def _get_stopcodon_usage(organism, genome_operons):
-    """Get stopcodon usage per stopcodon in operon, and show difference between overall usage and as first/last."""
-    #Some initial printed conclusions
-    nr_operons = len(genome_operons)
-    if nr_operons == 0:
-        #Most probably no operons when the genome was a plasmid
-        #print >> sys.stderr, 'No operons found'
-        return
-    nr_genes = sum(len(operon) for operon in genome_operons)
-    if nr_genes == 0:
-        print >> sys.stderr, 'No genes found'
-        return
-
-    #Extract only stopcodons
-    stopcodons = [cds[2] for operon in genome_operons for cds in operon]
-
-    #Get neutral usage statistics
-    stopcodon_usage = dict((codon, stopcodons.count(codon)) for codon in set(stopcodons))
-    assert sum(times for times in stopcodon_usage.values()) == nr_genes
-    #Add percentages of total
-    stopcodon_perc = dict((codon, times / nr_genes * 100) for codon, times in stopcodon_usage.iteritems())
-
-    #Now determine the stopcodon usage for the first genes each operon
-    first_stopcodons = [operon[0][2] for operon in genome_operons]
-    first_stopcodon_perc = dict((codon2, times / nr_operons * 100) for codon2, times in
-                                ((codon, first_stopcodons.count(codon)) for codon in set(first_stopcodons)))
-
-    #Now determine the stopcodon usage for the first genes each operon
-    last_stopcodons = [operon[-1][2] for operon in genome_operons]
-    last_stopcodon_perc = dict((codon2, times / nr_operons * 100) for codon2, times in
-                               ((codon, last_stopcodons.count(codon)) for codon in set(last_stopcodons)))
-
-    for codon, perc in stopcodon_perc.iteritems():
-        yield (organism,
-               codon,
-               nr_operons,
-               nr_genes,
-               nr_genes / nr_operons,
-               stopcodon_usage[codon],
-               stopcodon_perc[codon],
-               first_stopcodon_perc.get(codon, 0) - perc,
-               last_stopcodon_perc.get(codon, 0) - perc)
+def _usage_per_operon_position(operons):
+    """"""
+    #Calculate usage for each of the positions
+    stopcodon_usage_per_operon_position = {}
+    largest_operon = max(len(operon) for operon in operons)
+    for operon_position in range(0, largest_operon):
+        position_stopcodons = [operon[operon_position][2] for operon in operons if operon_position < len(operon)]
+        position_stopcodon_counts = dict((codon, position_stopcodons.count(codon)) for codon in set(position_stopcodons))
+        stopcodon_usage_per_operon_position[operon_position] = position_stopcodon_counts
+    return stopcodon_usage_per_operon_position
 
 def __main__():
     """Main method called when run from terminal."""
     if True:
         #Select random genomes
-        genomes = _sample_genomes(200)
+        genomes = _sample_genomes(100)
 
         #Download genbank files for genomes in the background
         from multiprocessing import Pool
@@ -169,62 +137,39 @@ def __main__():
     else:
         #Read current genbank from cache directory
         import glob
-        genbank_files = list(glob.iglob('/data/dev/workspace-python/lib-divergence/divergence-cache/refseq/*/*.gbk'))
+        genbank_files = list(glob.glob('/data/dev/workspace-python/lib-divergence/divergence-cache/refseq/*/*.gbk'))
 
     #Extract coding sequences from genome files
     gbk_records = (_read_genbank_file(genbank_file) for genbank_file in genbank_files)
-    cds_per_genome = ((gbk_record.annotations['organism'], _extract_coding_sequences(gbk_record))
-                                   for gbk_record in gbk_records)
+    cds_per_genome = (_extract_coding_sequences(gbk_record) for gbk_record in gbk_records)
 
     #Group coding sequences from each genome into operons
-    operons_per_genome = ((organism, list(_group_cds_by_operons(genome_cds)))
-                          for organism, genome_cds in cds_per_genome)
+    operons_per_genome = (tuple(_group_cds_by_operons(genome_cds)) for genome_cds in cds_per_genome)
+
+    #Chain operons from all genomes
+    all_operons = list(chain.from_iterable(operons_per_genome))
 
     #Per genome, calculate overall stopcodon usage
-    with open('stats.tsv', mode = 'w', buffering = 1) as write_handle:
-        #Extract usage tuples per stopcodon 
-        taa_tuples = []
-        tag_tuples = []
-        tga_tuples = []
-
-        #Calculate stopcodon usage
-        usage_tuples = (_get_stopcodon_usage(organism, genm_operons) for organism, genm_operons in operons_per_genome)
-        codongetter = itemgetter(1)
-        for usage_tuple in chain.from_iterable(usage_tuples):
-            if codongetter(usage_tuple) == 'TAA':
-                taa_tuples.append(usage_tuple)
-            elif codongetter(usage_tuple) == 'TAG':
-                tag_tuples.append(usage_tuple)
-            elif codongetter(usage_tuple) == 'TGA':
-                tga_tuples.append(usage_tuple)
-
+    with open('stopcodon-stats.tsv', mode = 'w', buffering = 1) as write_handle:
         #Print header
-        header = '\t'.join(('Organism',
-                            'Codon',
-                            'Operons',
-                            'Genes',
-                            'Genes per Operon',
-                            'Times used overall',
-                            'Fraction of stopcodons',
-                            'Percentage +/- as first',
-                            'Percentage +/- as last'))
+        header = '\t'.join(('Position',
+                            'TAG',
+                            'TAA',
+                            'TGA'))
+        print header
         write_handle.write(header + ' \n')
 
-        #Write out averages
-        tga_averages = (sum(usage_tuple[idx] for usage_tuple in tga_tuples) / len(tga_tuples) for idx in range(2, 9))
-        write_handle.write('Average\tTGA\t' + '\t'.join(str(average) for average in tga_averages) + ' \n')
-        tag_averages = (sum(usage_tuple[idx] for usage_tuple in tag_tuples) / len(tag_tuples) for idx in range(2, 9))
-        write_handle.write('Average\tTAG\t' + '\t'.join(str(average) for average in tag_averages) + ' \n')
-        taa_averages = (sum(usage_tuple[idx] for usage_tuple in taa_tuples) / len(taa_tuples) for idx in range(2, 9))
-        write_handle.write('Average\tTAA\t' + '\t'.join(str(average) for average in taa_averages) + ' \n')
+        #Calculate stopcodon usage
+        stopcodon_usage_per_operon_position = _usage_per_operon_position(all_operons)
 
-        #Print per stopcodon, sorted by relevant columns
-        for usage_tuple in sorted(tga_tuples, key = itemgetter(8)):
-            write_handle.write('\t'.join(str(item) for item in usage_tuple) + '\n')
-        for usage_tuple in sorted(tag_tuples, key = itemgetter(8)):
-            write_handle.write('\t'.join(str(item) for item in usage_tuple) + '\n')
-        for usage_tuple in sorted(taa_tuples, key = itemgetter(8)):
-            write_handle.write('\t'.join(str(item) for item in usage_tuple) + '\n')
+        #Write out usage of each of the three codons at each position of an operon
+        for position in sorted(stopcodon_usage_per_operon_position.keys()):
+            position_stopcodon_counts = stopcodon_usage_per_operon_position[position]
+            tag_count = position_stopcodon_counts.get('TAG', 0)
+            taa_count = position_stopcodon_counts.get('TAA', 0)
+            tga_count = position_stopcodon_counts.get('TGA', 0)
+            print position, taa_count, tag_count, tga_count
+            write_handle.write('{0}\t{1}\t{2}\t{3}\n'.format(position, tag_count, taa_count, tga_count))
 
     print 'Done!'
 
