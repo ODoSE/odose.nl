@@ -4,6 +4,7 @@
 from __future__ import division
 from Bio import SeqIO
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
+from divergence.filter_orthologs import find_cogs_in_sequence_records
 from itertools import chain
 import logging as log
 import os
@@ -11,47 +12,63 @@ import shutil
 import sys
 import tempfile
 
-def _produce_heatmap(genomes, shared_single_copy, shared_multi_copy, accessory_genes):
+def _produce_heatmap(genome_ids, sico_files, muco_files, accessory_files):
+    """Produce heatmap of orthologs, and how many times ortholog ooccurs in genome, with the COGs added as well. """
+    def _occurences_and_cogs(genome_ids, ortholog_files):
+        """Generator that returns how many sequences exist per genome in each ortholog in order and which COGs occur."""
+        for fasta_file in ortholog_files:
+            records = tuple(SeqIO.parse(fasta_file, 'fasta'))
+            ids = [record.id.split('|')[0] for record in records]
+            count_per_id = [ids.count(genome_id) for genome_id in genome_ids]
+            cogs = sorted(find_cogs_in_sequence_records(records))
+            yield count_per_id, cogs
 
-    print shared_single_copy
+    heatmap = tempfile.mkstemp(suffix = '.tsv', prefix = 'genome_ortholog_heatmap_')[1]
+    with open(heatmap, mode = 'w') as write_handle:
+        #Write file header
+        write_handle.write('\t'.join(genome_ids))
+        write_handle.write('\tCOGs\n')
 
-    sico_counts = ((str(len(genome_proteins.get(genome, []))) for genome in genomes) for genome_proteins in shared_single_copy)
-    muco_counts = (tuple(str(len(genome_proteins.get(genome, []))) for genome in genomes) for genome_proteins in shared_multi_copy)
-    accessory_counts = (tuple(str(len(genome_proteins.get(genome, []))) for genome in genomes) for genome_proteins in accessory_genes)
+        #Write out sico
+        for counts_per_id, cogs in sorted(_occurences_and_cogs(genome_ids, sico_files)):
+            write_handle.write('\t'.join(str(occurrences) for occurrences in counts_per_id))
+            write_handle.write('\t' + ','.join(cogs) + '\n')
 
-    print '\t'.join(genomes)
-    for some_count in sico_counts:
-        print '\t'.join(some_count)
-    for some_count in sorted(muco_counts):
-        print '\t'.join(some_count)
-    for some_count in sorted(accessory_counts):
-        print '\t'.join(some_count)
-    pass
+        #Write out muco
+        for counts_per_id, cogs in sorted(_occurences_and_cogs(genome_ids, muco_files)):
+            write_handle.write('\t'.join(str(occurrences) for occurrences in counts_per_id))
+            write_handle.write('\t' + ','.join(cogs) + '\n')
+
+        #Write out accessory
+        for counts_per_id, cogs in sorted(_occurences_and_cogs(genome_ids, accessory_files)):
+            write_handle.write('\t'.join(str(occurrences) for occurrences in counts_per_id))
+            write_handle.write('\t' + ','.join(cogs) + '\n')
+    return heatmap
 
 def extract_orthologs(run_dir, genomes, dna_files, groups_file):
     """Extract DNA sequences for SICO, MUCO & partially shared orthologs to a single file per ortholog."""
     #Subdivide orthologs into groups
-    shared_single_copy, shared_multi_copy, accessory_genes = _extract_shared_orthologs(genomes, groups_file)
-
-    #Produce heatmap
-    _produce_heatmap(genomes, shared_single_copy, shared_multi_copy, accessory_genes)
+    shared_single_copy, shared_multi_copy, accessory = _extract_shared_orthologs(genomes, groups_file)
 
     #Extract fasta files per orthologs
-    sico_files, muco_files, subset_files, nr_of_seqs = \
-        _dna_file_per_sico(run_dir, dna_files, shared_single_copy, shared_multi_copy, accessory_genes)
+    sico_files, muco_files, accessory_files, nr_of_seqs = \
+        _dna_file_per_sico(run_dir, dna_files, shared_single_copy, shared_multi_copy, accessory)
+
+    #Produce heatmap
+    heatmap_file = _produce_heatmap(genomes, sico_files, muco_files, accessory_files)
 
     #Assertions
     if shared_single_copy:
         assert sico_files
     if shared_multi_copy:
         assert muco_files
-    if accessory_genes:
-        assert subset_files
+    if accessory:
+        assert accessory_files
 
     #Write statistics file
-    stats_file = _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, accessory_genes, nr_of_seqs)
+    stats_file = _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, accessory, nr_of_seqs)
 
-    return sico_files, muco_files, subset_files, stats_file
+    return sico_files, muco_files, accessory_files, stats_file, heatmap_file
 
 def _create_ortholog_dictionaries(groups_file):
     """Convert groups file into a list of ortholog dictionaries, which map project_id to their associated proteins."""
@@ -224,9 +241,10 @@ Usage: extract_orthologs.py
 --muco-zip=FILE      destination file path for archive of shared multiple copy orthologous genes
 --subset-zip=FILE    destination file path for archive of variable copy orthologous genes shared for a subset only
 --stats=FILE         destination file path for ortholog statistics file
+--heatmap=FILE       destination file path heatmap of orthologs and occurrences of ortholog per genome
 """
-    options = ['genomes', 'dna-zip', 'groups', 'sico-zip', 'muco-zip', 'subset-zip', 'stats']
-    genome_ids_file, dna_zip, groups_file, target_sico, target_muco, target_subset, target_stats_path = \
+    options = ['genomes', 'dna-zip', 'groups', 'sico-zip', 'muco-zip', 'subset-zip', 'stats', 'heatmap']
+    genome_ids_file, dna_zip, groups_file, target_sico, target_muco, target_subset, target_stats_path, target_heat = \
     parse_options(usage, options, args)
 
     #Parse file extract GenBank Project IDs
@@ -241,19 +259,21 @@ Usage: extract_orthologs.py
     dna_files = extract_archive_of_files(dna_zip, temp_dir)
 
     #Actually run ortholog extraction
-    sico_files, muco_files, subset_files, stats_file = extract_orthologs(run_dir, genomes, dna_files, groups_file)
+    sico_files, muco_files, subset_files, stats_file, heatmap_file = extract_orthologs(run_dir, genomes,
+                                                                                       dna_files, groups_file)
 
     #Move produced files to command line specified output paths
     create_archive_of_files(target_sico, sico_files)
     create_archive_of_files(target_muco, muco_files)
     create_archive_of_files(target_subset, subset_files)
     shutil.move(stats_file, target_stats_path)
+    shutil.move(heatmap_file, target_heat)
 
     #Remove unused files to free disk space 
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s\n%s\n%s\n%s", target_sico, target_muco, target_subset, target_stats_path)
+    log.info("Produced: \n%s\n%s\n%s\n%s\n%s", target_sico, target_muco, target_subset, target_stats_path, target_heat)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
