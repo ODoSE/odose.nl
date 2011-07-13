@@ -192,6 +192,8 @@ def _calculate_for_clade_alignments(alignments_x, ortholog_codeml_values):
     #Return empty file if genome_ids_x contains no or only a single genome
     nr_of_strains = len(alignments_x[0][1])
     if nr_of_strains <= 1:
+        with open(calculations_file, mode = 'w') as write_handle:
+            write_handle.write('#Need at least two genomes to calculate table, but was: {0}\n'.format(nr_of_strains))
         return calculations_file
 
     #Temp dir for calculations

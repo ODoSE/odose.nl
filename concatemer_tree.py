@@ -215,7 +215,8 @@ Usage: concatenate_orthologs.py
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info('Produced: \n%s\n%s\n%s\n%s', target_concat_file, target_taxon_a, target_taxon_b, target_tree)
+    log.info('Produced: \n%s\n%s\n%s\n%s\n%s', target_coding_regions, target_concat_file,
+             target_taxon_a, target_taxon_b, target_tree)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
