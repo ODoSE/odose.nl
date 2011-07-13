@@ -45,10 +45,10 @@ def _produce_heatmap(genome_ids, sico_files, muco_files, accessory_files):
             write_handle.write('\t' + ','.join(cogs) + '\n')
     return heatmap
 
-def extract_orthologs(run_dir, genomes, dna_files, groups_file):
+def extract_orthologs(run_dir, genomes, dna_files, groups_file, require_limiter = False):
     """Extract DNA sequences for SICO, MUCO & partially shared orthologs to a single file per ortholog."""
     #Subdivide orthologs into groups
-    shared_single_copy, shared_multi_copy, accessory = _extract_shared_orthologs(genomes, groups_file)
+    shared_single_copy, shared_multi_copy, accessory = _extract_shared_orthologs(genomes, groups_file, require_limiter)
 
     #Extract fasta files per orthologs
     sico_files, muco_files, accessory_files, nr_of_seqs = \
@@ -88,7 +88,7 @@ def _create_ortholog_dictionaries(groups_file):
             ortholog_proteins_per_genome.append(proteins_per_genome)
     return ortholog_proteins_per_genome
 
-def _extract_shared_orthologs(selected_genome_ids, groups_file):
+def _extract_shared_orthologs(selected_genome_ids, groups_file, require_limiter_presence = False):
     """Filter orthologs to retain shared single and multiple copy orthologs from the collection of genomes."""
     log.info('Extracting shared orthologs for %d genomes from %s', len(selected_genome_ids), groups_file)
     ortholog_proteins_per_genome = _create_ortholog_dictionaries(groups_file)
@@ -100,8 +100,12 @@ def _extract_shared_orthologs(selected_genome_ids, groups_file):
     for prot_per_genomes in ortholog_proteins_per_genome:
         #The ortholog is shared if all selected ids are present in the keys from the prot_per_genomes dictionary
         #While this still allows the selected_genome_ids to be a subset of all genome ids present in these orthologs
-        is_shared_genome = all(selected_id in prot_per_genomes
+        is_shared_ortholog = all(selected_id in prot_per_genomes
                                for selected_id in selected_genome_ids)
+
+        #If limiter presence is required, only mark orthologs as shared if they contain also limiter
+        if require_limiter_presence:
+            is_shared_ortholog = is_shared_ortholog and 'limiter' in prot_per_genomes
 
         #The ortholog is single copy if for all genomes in selected genome ids the number of proteins is exactly one
         #While this still allows for multiple copies in proteins not included in selected_genome_ids   
@@ -110,7 +114,7 @@ def _extract_shared_orthologs(selected_genome_ids, groups_file):
                              if genome_id in selected_genome_ids)
 
         #Based on the now validated above boolean statements, optionally add proteins per genome to shared collections
-        if is_shared_genome:
+        if is_shared_ortholog:
             if is_single_copy:
                 shared_single_copy.append(prot_per_genomes)
             else:
@@ -233,6 +237,7 @@ Usage: extract_orthologs.py
 --genomes=FILE       file with GenBank Project IDs from complete genomes table on each line 
 --dna-zip=FILE       zip archive of extracted DNA files
 --groups=FILE        file listing groups of orthologous proteins
+--require-limiter    flag whether extracted core set of genomes should contain the limiter added in OrthoMCL [OPTIONAL] 
 
 --sico-zip=FILE      destination file path for archive of shared single copy orthologous (SICO) genes
 --muco-zip=FILE      destination file path for archive of shared multiple copy orthologous genes
@@ -240,8 +245,10 @@ Usage: extract_orthologs.py
 --stats=FILE         destination file path for ortholog statistics file
 --heatmap=FILE       destination file path heatmap of orthologs and occurrences of ortholog per genome
 """
-    options = ['genomes', 'dna-zip', 'groups', 'sico-zip', 'muco-zip', 'subset-zip', 'stats', 'heatmap']
-    genome_ids_file, dna_zip, groups_file, target_sico, target_muco, target_subset, target_stats_path, target_heat = \
+    options = ['genomes', 'dna-zip', 'groups', 'require-limiter?',
+               'sico-zip', 'muco-zip', 'subset-zip', 'stats', 'heatmap']
+    genome_ids_file, dna_zip, groups_file, require_limiter, \
+    target_sico, target_muco, target_subset, target_stats_path, target_heat = \
     parse_options(usage, options, args)
 
     #Parse file extract GenBank Project IDs
@@ -256,8 +263,8 @@ Usage: extract_orthologs.py
     dna_files = extract_archive_of_files(dna_zip, temp_dir)
 
     #Actually run ortholog extraction
-    sico_files, muco_files, subset_files, stats_file, heatmap_file = extract_orthologs(run_dir, genomes,
-                                                                                       dna_files, groups_file)
+    sico_files, muco_files, subset_files, stats_file, heatmap_file = extract_orthologs(run_dir, genomes, dna_files,
+                                                                                       groups_file, require_limiter)
 
     #Move produced files to command line specified output paths
     create_archive_of_files(target_sico, sico_files)
