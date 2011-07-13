@@ -11,7 +11,7 @@ import shutil
 import sys
 import tempfile
 
-def orthologous_genes_per_genome(run_dir, trimmed_sicos):
+def coding_regions_per_genome(run_dir, trimmed_sicos):
     """Create a DNA file per genome containing all aligned & trimmed SICO genes als individual genes."""
     concatemer_dir = create_directory('coding_regions_per_genome', inside_dir = run_dir)
     log.info('Creating concatemers from {0} SICOs'.format(len(trimmed_sicos)))
@@ -182,7 +182,7 @@ Usage: concatenate_orthologs.py
     ortholog_files = extract_archive_of_files(orthologs_zip, temp_dir)
 
     #Separate out orthologs per genome to create trimmed coding region files per genome
-    genome_coding_regions_files = orthologous_genes_per_genome(run_dir, ortholog_files)
+    genome_coding_regions_files = coding_regions_per_genome(run_dir, ortholog_files)
     create_archive_of_files(target_coding_regions, genome_coding_regions_files)
 
     #Concatenate coding region files per genome
