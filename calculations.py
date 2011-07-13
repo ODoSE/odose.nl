@@ -475,6 +475,7 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
     seg_sites = sum(polymorpisms_sfs.get(i, 0) for i in range(1, nr_of_strains // 2 + 1))
     harmonic = sum(1 / i for i in range(1, nr_of_strains))#Not +/-1 as range already excludes the stop value
     calc_values['Theta'] = paml_synonymous_sites / (seg_sites * harmonic) if seg_sites != 0 else None
+    #TODO Possibly divide this by the sequence_lengths
 
     #These values will end up contributing to the Neutrality Index through NI = Sum(X) / Sum(Y)
     ps_plus_ds = (synonymous_polymorphisms + paml_synonymous_substitutions)
@@ -492,6 +493,7 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
 def _get_column_headers_in_sequence(max_nton):
     """Return the column headers to the generated statistics files in the correct order, using max_nton for SFS max."""
     #Some initial values
+    #TODO Split COG into first part with numbers and second part with letters
     headers = ['cogs', 'strains', 'codons']
 
     def _write_sfs_column_names(prefix):
