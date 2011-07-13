@@ -4,6 +4,8 @@
 from Bio import SeqIO
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import TranslationError
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 from divergence import create_directory, concatenate, create_archive_of_files, parse_options
 from divergence.select_taxa import download_genome_files, select_genomes_by_ids
 from multiprocessing import Pool
@@ -13,6 +15,34 @@ import os
 import shutil
 import sys
 import tempfile
+
+#Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
+BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
+
+def translate_fasta_coding_regions(label, nucl_fasta_file):
+    """Translate an individual nucleotide fasta file containing coding regions to proteins using NCBI codon table 11."""
+    #Determine output file name
+    filename = os.path.split(nucl_fasta_file)[1]
+    prot_fasta_file = tempfile.mkstemp(suffix = '.fna', prefix = 'translated_' + filename + '.')[1]
+    with open(prot_fasta_file, mode = 'w') as write_handle:
+        for index, nucl_seqrecord in enumerate(SeqIO.parse(nucl_fasta_file, 'fasta')):
+            #Remove gap codons from input nucleotide fasta file
+            nucl_sequence_str = str(nucl_seqrecord.seq).replace('---', '')
+            nucl_sequence = Seq(nucl_sequence_str)
+
+            #Translate nucl_sequence
+            prot_sequence = nucl_sequence.translate(table = BACTERIAL_CODON_TABLE)
+
+            #Write out fasta. Header format as requested: >project_id|genbank_ac|protein_id|cog|source 
+            project_id = label
+            record = filename
+            protein_id = 'protein {0}: {1}...({2})'.format(index, str(nucl_sequence)[:12], len(nucl_sequence))
+            header = '{0}|{1}|{2}|{3}|{4}'.format(project_id, record, protein_id, None, 'upload')
+
+            #Create protein sequence record and write it to file
+            prot_seqrecord = SeqRecord(prot_sequence, id = header, description = '')
+            SeqIO.write(prot_seqrecord, write_handle, 'fasta')
+    return prot_fasta_file
 
 def _build_protein_to_cog_mapping(ptt_file):
     """Build a dictionary mapping PID to COG based on protein table file."""
