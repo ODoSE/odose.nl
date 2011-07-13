@@ -474,8 +474,7 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
     #where L is the number of segregating [polymorphic] sites = Sum(D(i), i from 1 to RoundDown(n/2))
     seg_sites = sum(polymorpisms_sfs.get(i, 0) for i in range(1, nr_of_strains // 2 + 1))
     harmonic = sum(1 / i for i in range(1, nr_of_strains))#Not +/-1 as range already excludes the stop value
-    calc_values['Theta'] = paml_synonymous_sites / (seg_sites * harmonic) if seg_sites != 0 else None
-    #TODO Possibly divide this by the sequence_lengths
+    calc_values['Theta'] = paml_synonymous_sites / (seg_sites * harmonic) / sequence_lengths if seg_sites != 0 else None
 
     #These values will end up contributing to the Neutrality Index through NI = Sum(X) / Sum(Y)
     ps_plus_ds = (synonymous_polymorphisms + paml_synonymous_substitutions)
