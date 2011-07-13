@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Module to create concatemer per genome of orthologs, create a phylogenetic tree and deduce taxa from that tree."""
 from Bio import AlignIO, Phylo, SeqIO
-from divergence import create_directory, parse_options, extract_archive_of_files
+from divergence import create_directory, parse_options, extract_archive_of_files, create_archive_of_files
 from divergence.select_taxa import select_genomes_by_ids
 from divergence.versions import DNADIST, NEIGHBOR
 from subprocess import Popen, PIPE, STDOUT
@@ -11,13 +11,13 @@ import shutil
 import sys
 import tempfile
 
-def concatemer_per_genome(run_dir, trimmed_sicos):
-    """Create a concatemer DNA file per genome containing all aligned & trimmed SICO genes."""
-    concatemer_dir = create_directory('concatemers', inside_dir = run_dir)
+def orthologous_genes_per_genome(run_dir, trimmed_sicos):
+    """Create a DNA file per genome containing all aligned & trimmed SICO genes als individual genes."""
+    concatemer_dir = create_directory('coding_regions_per_genome', inside_dir = run_dir)
     log.info('Creating concatemers from {0} SICOs'.format(len(trimmed_sicos)))
 
-    #Open trimmed concatemer write handles
-    concatemer_files = []
+    #Collections both for output files and their write handles, which will be reused for each SICO
+    coding_region_files = []
     write_handles = {}
 
     #Loop over trimmed sico files to append each sequence to the right concatemer
@@ -31,26 +31,53 @@ def concatemer_per_genome(run_dir, trimmed_sicos):
 
             #If not found, create & store write handle on demand
             if not write_handle:
-                #Build up output file path for trimmed SICO genes concatemer per genome
-                concatemer_file = os.path.join(concatemer_dir, project_id + '.concat.fna')
-                concatemer_files.append(concatemer_file)
+                #Build up output file path for trimmed SICO genes per genome
+                coding_region_file = os.path.join(concatemer_dir, project_id + '.coding-regions.ffn')
+                coding_region_files.append(coding_region_file)
 
                 #Open write handle
-                write_handle = open(concatemer_file, mode = 'w')
+                write_handle = open(coding_region_file, mode = 'w')
                 write_handles[project_id] = write_handle
 
-                #Write initial fasta header
-                write_handle.write('> {0}|trimmed concatemer\n'.format(project_id))
-
-            #Write / Append sequence for ortholog to genome concatemer
-            write_handle.write('{0}\n'.format(str(seqr.seq)))
+            #Write sequence record to coding-regions file
+            SeqIO.write(seqr, write_handle, 'fasta')
 
     #Close genomes trimmed concatemer write handles 
     for write_handle in write_handles.values():
         write_handle.close()
 
-    log.info('Created {0} concatemers from {1} SICOs'.format(len(concatemer_files), len(trimmed_sicos)))
+    log.info('Created %i genome coding regions files', len(coding_region_files))
 
+    return sorted(coding_region_files)
+
+def concatemer_per_genome(run_dir, genome_coding_regions_files):
+    """Create a concatemer DNA file per genome containing all aligned & trimmed SICO genes."""
+    concatemer_dir = create_directory('concatemers', inside_dir = run_dir)
+
+    #Collection of output filenames
+    concatemer_files = []
+
+    #Loop over genome coding regions files to create concatemer of each
+    for coding_region_file in genome_coding_regions_files:
+        #Determine output file name
+        filename = os.path.split(coding_region_file)[1]
+        basename = filename[:filename.find('.')]
+        concatemer_file = os.path.join(concatemer_dir, basename + '.concatemer.fna')
+        concatemer_files.append(concatemer_file)
+
+        #Copy ACTG content from coding regions file to concatemer
+        with open(coding_region_file) as read_handle:
+            with open(concatemer_file, mode = 'w') as write_handle:
+                #Write out single concatemer header 
+                write_handle.write('> {0}|trimmed concatemer\n'.format(basename))
+
+                #Copy over all lines that are not header lines (do not start with '>')
+                for line in read_handle:
+                    #Skip header lines
+                    if not line.startswith('>'):
+                        write_handle.write(line)
+
+    log.info('Created %i genome concatemers', len(concatemer_files))
     return sorted(concatemer_files)
 
 def create_super_concatemer(concatemer_files, destination_path):
@@ -136,14 +163,16 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: concatenate_orthologs.py
---orthologs-zip=FILE    archive of orthologous genes in FASTA format
---concatemer=FILE       destination file path for super-concatemer of all genomes
---taxon-a=FILE          destination file path for genome IDs for taxon A
---taxon-b=FILE          destination file path for genome IDs for taxon B
---tree=FILE             destination file path for tree visualization
+--orthologs-zip=FILE     archive of orthologous genes in FASTA format
+--coding-regions=FILE    destination file path archive of trimmed orthologous coding regions per genomes
+--concatemer=FILE        destination file path for super-concatemer of all genomes
+--taxon-a=FILE           destination file path for genome IDs for taxon A
+--taxon-b=FILE           destination file path for genome IDs for taxon B
+--tree=FILE              destination file path for tree visualization
 """
-    options = ['orthologs-zip', 'concatemer', 'taxon-a', 'taxon-b', 'tree']
-    orthologs_zip, target_concat_file, target_taxon_a, target_taxon_b, target_tree = parse_options(usage, options, args)
+    options = ['orthologs-zip', 'coding-regions', 'concatemer', 'taxon-a', 'taxon-b', 'tree']
+    orthologs_zip, target_coding_regions, target_concat_file, target_taxon_a, target_taxon_b, target_tree = \
+        parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
     run_dir = tempfile.mkdtemp(prefix = 'concatemer_tree_')
@@ -152,8 +181,12 @@ Usage: concatenate_orthologs.py
     temp_dir = create_directory('orthologs', inside_dir = run_dir)
     ortholog_files = extract_archive_of_files(orthologs_zip, temp_dir)
 
-    #Concatenate trimmed_files per genome
-    concatemer_files = concatemer_per_genome(run_dir, ortholog_files)
+    #Separate out orthologs per genome to create trimmed coding region files per genome
+    genome_coding_regions_files = orthologous_genes_per_genome(run_dir, ortholog_files)
+    create_archive_of_files(target_coding_regions, genome_coding_regions_files)
+
+    #Concatenate coding region files per genome
+    concatemer_files = concatemer_per_genome(run_dir, genome_coding_regions_files)
     #Create super concatemer
     create_super_concatemer(concatemer_files, target_concat_file)
 
