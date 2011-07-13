@@ -98,19 +98,16 @@ def _extract_shared_orthologs(selected_genome_ids, groups_file):
     shared_multi_copy = []
     non_shared_orthologs = []
     for prot_per_genomes in ortholog_proteins_per_genome:
-        #Assume both shared and single copy
-        is_shared_genome = True
-        is_single_copy = True
+        #The ortholog is shared if all selected ids are present in the keys from the prot_per_genomes dictionary
+        #While this still allows the selected_genome_ids to be a subset of all genome ids present in these orthologs
+        is_shared_genome = all(selected_id in prot_per_genomes
+                               for selected_id in selected_genome_ids)
 
-        #Test validity of above boolean statements against proteins per genome 
-        for selected_genome in selected_genome_ids:
-            if selected_genome not in prot_per_genomes:
-                #If any selected genome does not have proteins in this ortholog, it is not shared (no need to go on)
-                is_shared_genome = False
-                break
-            elif 1 < len(prot_per_genomes[selected_genome]):
-                #If any selected genome has more than one protein in this ortholog, it is not a single copy ortholog
-                is_single_copy = False
+        #The ortholog is single copy if for all genomes in selected genome ids the number of proteins is exactly one
+        #While this still allows for multiple copies in proteins not included in selected_genome_ids   
+        is_single_copy = all(len(proteins) == 1
+                             for genome_id, proteins in prot_per_genomes.iteritems()
+                             if genome_id in selected_genome_ids)
 
         #Based on the now validated above boolean statements, optionally add proteins per genome to shared collections
         if is_shared_genome:
