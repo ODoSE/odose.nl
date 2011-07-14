@@ -36,7 +36,7 @@ def translate_fasta_coding_regions(label, nucl_fasta_file):
             #Write out fasta. Header format as requested: >project_id|genbank_ac|protein_id|cog|source 
             project_id = label
             record = filename
-            protein_id = 'protein {0}: {1}...({2})'.format(index, str(nucl_sequence)[:12], len(nucl_sequence))
+            protein_id = 'protein_{0}:{1}...({2})'.format(index, str(nucl_sequence)[:12], len(nucl_sequence))
             header = '{0}|{1}|{2}|{3}|{4}'.format(project_id, record, protein_id, None, 'upload')
 
             #Create protein sequence record and write it to file

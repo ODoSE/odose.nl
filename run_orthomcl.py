@@ -5,6 +5,7 @@ from Bio import SeqIO
 from divergence import create_directory, extract_archive_of_files, parse_options
 from divergence.orthomcl_database import create_database, get_configuration_file, delete_database
 from divergence.reciprocal_blast import reciprocal_blast
+from divergence.translate import translate_fasta_coding_regions
 from divergence.versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
     ORTHOMCL_BLAST_PARSER, ORTHOMCL_LOAD_BLAST, ORTHOMCL_PAIRS, ORTHOMCL_DUMP_PAIRS_FILES
 from subprocess import Popen, PIPE, CalledProcessError, check_call, STDOUT
@@ -107,8 +108,9 @@ def _step5_orthomcl_adjust_fasta(run_dir, proteome_files, id_field = 3):
     adjusted_fasta_dir = create_directory('compliant_fasta', inside_dir = run_dir)
     adjusted_fasta_files = []
     for proteome_file in proteome_files:
-        #Use filename without extention as taxon code
-        taxon_code = os.path.splitext(os.path.split(proteome_file)[1])[0]
+        #Use first part of header of first entry as taxon code
+        record_iter = SeqIO.parse(proteome_file, 'fasta')
+        taxon_code = record_iter.next().id.split('|')[0] #pylint: disable=E1101
 
         #Call orhtomclAdjustFasta
         command = [ORTHOMCL_ADJUST_FASTA, taxon_code, proteome_file, str(id_field)]
@@ -379,16 +381,27 @@ def main(args):
     usage = """
 Usage: run_orthomcl.py 
 --protein-zip=FILE           zip archive of translated protein files
+--ortholog-limiter=FILE      nucleotide fasta file containing coding regions in individual records. this file will be 
+                             translated to protein and fed into orthomcl along with files in protein-zip to influence 
+                             the clustering of orthologs, and (optionally) later the extraction of orthologs [OPTIONAL]
 --poor-protein-length=INT    filter poor proteins when smaller than poor-protein-length
 --poor-proteins=FILE         destination file path for filtered poor proteins
 --groups=FILE                destination file path for file listing groups of orthologous proteins
 """
-    options = ['protein-zip', 'poor-protein-length', 'poor-proteins', 'groups']
-    protein_zipfile, poor_protein_length, target_poor_proteins, target_groups_path = parse_options(usage, options, args)
+    options = ['protein-zip', 'ortholog-limiter=?', 'poor-protein-length', 'poor-proteins', 'groups']
+    protein_zipfile, limiter_file, poor_protein_length, target_poor_proteins, target_groups_path = \
+        parse_options(usage, options, args)
 
     #Extract files from zip archive
-    temp_dir = tempfile.mkdtemp()
+    temp_dir = tempfile.mkdtemp(prefix = 'orthomcl_proteins_')
     proteome_files = extract_archive_of_files(protein_zipfile, temp_dir)
+
+    #If limiter file is defined, add it to the set op protein files
+    if limiter_file:
+        #First translate it from nucleotide to protein 
+        translated_limiter = translate_fasta_coding_regions('limiter', limiter_file)
+        #Then append it to the list op proteome files
+        proteome_files.append(translated_limiter)
 
     #Actually run orthomcl
     run_orthomcl(proteome_files, poor_protein_length, target_poor_proteins, target_groups_path)
