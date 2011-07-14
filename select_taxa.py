@@ -311,13 +311,15 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: select_taxa.py 
+--external-genomes=        comma-separated list of label:nucleotide fasta file pairs of externally supplied genomes.
+    label:FILE,...         labels should be unique as genomes will be identified by this label in further output files
 --genomes                  comma-separated list of selected GenBank Project IDs from complete genomes table
 --previous-file=FILE       optional previously or externally created GenBank Project IDs file whose genomes should be reselected
 --require-protein-table    require protein table files to be present for all downloaded genomes
 --genomes-file=FILE        destination path for file with selected GenBank Project IDs followed by Organism Name on each line
 """
-    options = ['genomes=?', 'previous-file=?', 'require-protein-table?', 'genomes-file']
-    genomes_line, previous_file, require_ptt, genomes_file = parse_options(usage, options, args)
+    options = ['external-genomes=?', 'genomes=?', 'previous-file=?', 'require-protein-table?', 'genomes-file']
+    external_genomes = genomes_line, previous_file, require_ptt, genomes_file = parse_options(usage, options, args)
 
     genome_ids = []
 
