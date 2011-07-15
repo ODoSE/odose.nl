@@ -200,13 +200,13 @@ Usage: concatenate_orthologs.py
     id_to_name_map = dict((id, genome['Organism Name'])
                           for id, genome in select_genomes_by_ids(genome_ids_a + genome_ids_b).iteritems())
 
-    #Write Project IDs and Organism Names to files
+    #Write Project IDs and Organism Names to files, with a fallback to genome_id for external genome
     with open(target_taxon_a, mode = 'w') as write_handle:
         for genome_id in genome_ids_a:
-            write_handle.write('{id}\t{name}\n'.format(id = genome_id, name = id_to_name_map[genome_id]))
+            write_handle.write('{id}\t{name}\n'.format(id = genome_id, name = id_to_name_map.get(genome_id, genome_id)))
     with open(target_taxon_b, mode = 'w') as write_handle:
         for genome_id in genome_ids_b:
-            write_handle.write('{id}\t{name}\n'.format(id = genome_id, name = id_to_name_map[genome_id]))
+            write_handle.write('{id}\t{name}\n'.format(id = genome_id, name = id_to_name_map.get(genome_id, genome_id)))
 
     #Visualize tree
     visualize_tree(super_tree_file, id_to_name_map, target_tree)

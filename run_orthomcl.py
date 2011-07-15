@@ -5,6 +5,7 @@ from Bio import SeqIO
 from divergence import create_directory, extract_archive_of_files, parse_options
 from divergence.orthomcl_database import create_database, get_configuration_file, delete_database
 from divergence.reciprocal_blast import reciprocal_blast
+from divergence.select_taxa import format_fasta_genome_headers
 from divergence.translate import translate_fasta_coding_regions
 from divergence.versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
     ORTHOMCL_BLAST_PARSER, ORTHOMCL_LOAD_BLAST, ORTHOMCL_PAIRS, ORTHOMCL_DUMP_PAIRS_FILES
@@ -398,8 +399,10 @@ Usage: run_orthomcl.py
 
     #If limiter file is defined, add it to the set op protein files
     if limiter_file:
-        #First translate it from nucleotide to protein 
-        translated_limiter = translate_fasta_coding_regions('limiter', limiter_file)
+        #First format nucleotide fasta file to contain the correct fasta headers
+        formatted_fasta_file = format_fasta_genome_headers('limiter', limiter_file)
+        #Then translate it from nucleotide to protein 
+        translated_limiter = translate_fasta_coding_regions(formatted_fasta_file)
         #Then append it to the list op proteome files
         proteome_files.append(translated_limiter)
 

@@ -4,9 +4,8 @@
 from Bio import SeqIO
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import TranslationError
-from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from divergence import create_directory, concatenate, create_archive_of_files, parse_options
+from divergence import create_directory, concatenate, create_archive_of_files, parse_options, extract_archive_of_files
 from divergence.select_taxa import download_genome_files, select_genomes_by_ids
 from multiprocessing import Pool
 from operator import itemgetter
@@ -18,31 +17,6 @@ import tempfile
 
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
-
-def translate_fasta_coding_regions(label, nucl_fasta_file):
-    """Translate an individual nucleotide fasta file containing coding regions to proteins using NCBI codon table 11."""
-    #Determine output file name
-    filename = os.path.split(nucl_fasta_file)[1]
-    prot_fasta_file = tempfile.mkstemp(suffix = '.fna', prefix = 'translated_' + filename + '.')[1]
-    with open(prot_fasta_file, mode = 'w') as write_handle:
-        for index, nucl_seqrecord in enumerate(SeqIO.parse(nucl_fasta_file, 'fasta')):
-            #Remove gap codons from input nucleotide fasta file
-            nucl_sequence_str = str(nucl_seqrecord.seq).replace('---', '')
-            nucl_sequence = Seq(nucl_sequence_str)
-
-            #Translate nucl_sequence
-            prot_sequence = nucl_sequence.translate(table = BACTERIAL_CODON_TABLE)
-
-            #Write out fasta. Header format as requested: >project_id|genbank_ac|protein_id|cog|source 
-            project_id = label
-            record = filename
-            protein_id = 'protein_{0}:{1}...({2})'.format(index, str(nucl_sequence)[:12], len(nucl_sequence))
-            header = '{0}|{1}|{2}|{3}|{4}'.format(project_id, record, protein_id, None, 'upload')
-
-            #Create protein sequence record and write it to file
-            prot_seqrecord = SeqRecord(prot_sequence, id = header, description = '')
-            SeqIO.write(prot_seqrecord, write_handle, 'fasta')
-    return prot_fasta_file
 
 def _build_protein_to_cog_mapping(ptt_file):
     """Build a dictionary mapping PID to COG based on protein table file."""
@@ -260,33 +234,77 @@ def _write_fasta(write_handle, headerline, sequence):
     if sequence:
         write_handle.write(sequence + '\n')
 
+def translate_fasta_coding_regions(nucl_fasta_file):
+    """Translate an individual nucleotide fasta file containing coding regions to proteins using NCBI codon table 11."""
+    #Determine output file name
+    filename = os.path.split(nucl_fasta_file)[1]
+    prot_fasta_file = tempfile.mkstemp(suffix = '.fna', prefix = filename + '.translated_')[1]
+    with open(prot_fasta_file, mode = 'w') as write_handle:
+        from Bio.Alphabet.IUPAC import ambiguous_dna
+        for nucl_seqrecord in SeqIO.parse(nucl_fasta_file, 'fasta', alphabet = ambiguous_dna):
+            #Translate nucl_seqrecord.seq
+            try:
+                prot_sequence = nucl_seqrecord.seq.translate(table = BACTERIAL_CODON_TABLE)
+            except TranslationError as trer:
+                log.warn(trer)
+                continue
+
+            #Create protein sequence record and write it to file
+            prot_seqrecord = SeqRecord(prot_sequence, id = nucl_seqrecord.id, description = '')
+            SeqIO.write(prot_seqrecord, write_handle, 'fasta')
+    return prot_fasta_file
+
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: translate.py 
---genomes=FILE        file with genbank id from complete genomes table on each line 
---dna-zip=FILE        destination file path for zip archive of extracted DNA files
---protein-zip=FILE    destination file path for zip archive of translated protein files
+--genomes=FILE         file with genbank id from complete genomes table on each line
+--external-zip=FILE    archive of user provided external genomes containing formatted nucleotide fasta files
+--dna-zip=FILE         destination file path for zip archive of extracted DNA files
+--protein-zip=FILE     destination file path for zip archive of translated protein files
 """
-    options = ['genomes', 'dna-zip', 'protein-zip']
-    genome_ids_file, dna_zipfile, protein_zipfile = parse_options(usage, options, args)
+    options = ['genomes=?', 'external-zip=?', 'dna-zip', 'protein-zip']
+    genome_ids_file, external_zip, dna_zipfile, protein_zipfile = parse_options(usage, options, args)
 
-    #Read GenBank Project IDs from genomes_file, each on their own line
-    with open(genome_ids_file) as read_handle:
-        genome_ids = [line.split()[0] for line in read_handle if not line.startswith('#')]
+    dna_files = []
+    protein_files = []
 
-    #Retrieve associated genome dictionaries from complete genomes table
-    genomes = select_genomes_by_ids(genome_ids).values()
-    genomes = sorted(genomes, key = itemgetter('Organism Name'))
+    if genome_ids_file:
+        #Read GenBank Project IDs from genomes_file, each on their own line
+        with open(genome_ids_file) as read_handle:
+            genome_ids = [line.split()[0] for line in read_handle
+                          if not line.startswith('#')
+                          and not line.contains('external genome')]
 
-    #Actually translate the genomes to produced a set of files for both  dna files & protein files
-    dna_files, protein_files = translate_genomes(genomes)
+        #Retrieve associated genome dictionaries from complete genomes table
+        genomes = select_genomes_by_ids(genome_ids).values()
+        genomes = sorted(genomes, key = itemgetter('Organism Name'))
+
+        #Actually translate the genomes to produced a set of files for both  dna files & protein files
+        dna_files, protein_files = translate_genomes(genomes)
+
+    #Also translate the external genomes
+    if external_zip:
+        #Extract external genomes archive
+        external_dir = tempfile.mkdtemp(prefix = 'external_genomes_')
+        external_dna_files = extract_archive_of_files(external_zip, external_dir)
+
+        #Translate individual files
+        external_protein_files = [translate_fasta_coding_regions(dna_file) for dna_file in external_dna_files]
+
+        #Add the files to the appropriate collections
+        dna_files.extend(external_dna_files)
+        protein_files.extend(external_protein_files)
 
     #Write the produced files to command line argument filenames
     create_archive_of_files(dna_zipfile, dna_files)
     create_archive_of_files(protein_zipfile, protein_files)
 
     #Do not clean up extracted DNA files or Protein translations: Keep them as cache
+
+    #But do clean up external_dir now that the compressed archives are created
+    if external_zip:
+        shutil.rmtree(external_dir)
 
     #Exit after a comforting log message
     log.info("Produced: \n%s &\n%s", dna_zipfile, protein_zipfile)
