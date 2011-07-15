@@ -2,6 +2,7 @@
 """Module to translate between DNA and protein level."""
 
 from Bio import SeqIO
+from Bio.Alphabet.IUPAC import ambiguous_dna
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import TranslationError
 from Bio.SeqRecord import SeqRecord
@@ -237,10 +238,10 @@ def _write_fasta(write_handle, headerline, sequence):
 def translate_fasta_coding_regions(nucl_fasta_file):
     """Translate an individual nucleotide fasta file containing coding regions to proteins using NCBI codon table 11."""
     #Determine output file name
-    filename = os.path.split(nucl_fasta_file)[1]
-    prot_fasta_file = tempfile.mkstemp(suffix = '.fna', prefix = filename + '.translated_')[1]
+    record_iter = SeqIO.parse(nucl_fasta_file, 'fasta')
+    genomeid = record_iter.next().id.split('|')[0] #pylint: disable=E1101
+    prot_fasta_file = tempfile.mkstemp(suffix = '.faa', prefix = genomeid + '.')[1]
     with open(prot_fasta_file, mode = 'w') as write_handle:
-        from Bio.Alphabet.IUPAC import ambiguous_dna
         for nucl_seqrecord in SeqIO.parse(nucl_fasta_file, 'fasta', alphabet = ambiguous_dna):
             #Translate nucl_seqrecord.seq
             try:
@@ -274,7 +275,7 @@ Usage: translate.py
         with open(genome_ids_file) as read_handle:
             genome_ids = [line.split()[0] for line in read_handle
                           if not line.startswith('#')
-                          and not line.contains('external genome')]
+                          and 'external genome' not in line]
 
         #Retrieve associated genome dictionaries from complete genomes table
         genomes = select_genomes_by_ids(genome_ids).values()
