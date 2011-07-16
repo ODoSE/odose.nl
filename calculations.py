@@ -108,7 +108,6 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
 
     #Calculate tables for normal sico alignments
     log.info('Starting calculations for full alignments')
-    #TODO Prepend general information: # orthologs dropped in each step, # cut-off used to trim alignments, # of strains
     table_a, table_b = _tables_for_split_alignments(split_alignments)
 
     if not oddeven:
@@ -129,7 +128,6 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
 
     #Calculate tables for odd codon sico alignments
     log.info('Starting calculations for odd alignments')
-    #TODO Prepend some kind of header indicating this is the odd table
     table_a_odd, table_b_odd = _tables_for_split_alignments(odd_split_alignments)
 
     #Recover even alignments as second from each pair of alignments
@@ -140,7 +138,6 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
 
     #Calculate tables for even codon sico alignments
     log.info('Starting calculations for even alignments')
-    #TODO Prepend some kind of header indicating this is the even table
     table_a_even, table_b_even = _tables_for_split_alignments(even_split_alignments)
 
     #Concatenate tables and return their values
@@ -403,9 +400,6 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
     #Add all values in codeml_values to calc_values
     calc_values.update(codeml_values)
 
-    #2. number of strains (this will typically be the same for all genes)
-    calc_values['strains'] = nr_of_strains
-
     def _add_sfs_values_in_columns(sfs_name, sfs):
         """Add values contained within SFS to named columns for singletons, doubletons, tripletons, etc.."""
         max_nton = nr_of_strains // 2 + 1
@@ -503,7 +497,6 @@ def _get_column_headers_in_sequence(max_nton):
     #Split COG into first part with numbers and second part with letters
     headers = ['cog digits', 'cog letters']
     #Some initial values
-    headers.append('strains')
     headers.append('codons')
 
     def _write_sfs_column_names(prefix):
@@ -558,6 +551,25 @@ def _append_statistics(calculations_file, orthologname, comp_values, max_nton):
                                       if column not in ('Ds*Pn/(Ps+Ds)', 'Dn*Ps/(Ps+Ds)')))
         append_handle.write('\n')
 
+def _prepend_table_header(table_file, genomes_x, common_prefix_x, genomes_y, common_prefix_y, oddeven):
+    """Prepend header to output data table that lists source IDs"""
+    with open(table_file, mode = 'w') as write_handle:
+        #Write out the number of strains for each of the taxa, and the participating IDs
+        write_handle.write('#{0} {1} strains compared with {2} {3} strains\n'.format(len(genomes_x),
+                                                                                   common_prefix_x,
+                                                                                   len(genomes_y),
+                                                                                   common_prefix_y))
+        write_handle.write('#IDs {0}: {1}\n'.format(common_prefix_x, ', '.join(sorted(genomes_x))))
+        write_handle.write('#IDs {0}: {1}\n'.format(common_prefix_y, ', '.join(sorted(genomes_y))))
+
+        #Explain the presence of three tables in one file if we're also calculating odd & even codons
+        if oddeven:
+            write_handle.write('#First table contains calculations for all codon\n')
+            write_handle.write('#Second table contains calculations for odd codons only\n')
+            write_handle.write('#Third table contains calculations for even codons only\n')
+
+        #Possible extension: # orthologs dropped in each step, # cut-off used to trim alignments, # of strains
+
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
@@ -574,12 +586,20 @@ Usage: calculations.py
 
     #Parse file containing GenBank GenBank Project IDs to extract GenBank Project IDs
     with open(genome_a_ids_file) as read_handle:
-        genome_ids_a = [line.split()[0] for line in read_handle]
+        lines = [line.strip() for line in read_handle]
+        genome_ids_a = [line.split()[0] for line in lines]
+        common_prefix_a = os.path.commonprefix([line.split('\t')[1] for line in lines]).strip()
     with open(genome_b_ids_file) as read_handle:
-        genome_ids_b = [line.split()[0] for line in read_handle]
+        lines = [line.strip() for line in read_handle]
+        genome_ids_b = [line.split()[0] for line in lines]
+        common_prefix_b = os.path.commonprefix([line.split('\t')[1] for line in lines]).strip()
+
+    #Prepend headers to each of the output tables
+    _prepend_table_header(table_a, genome_ids_a, common_prefix_a , genome_ids_b, common_prefix_b, oddeven)
+    _prepend_table_header(table_b, genome_ids_b, common_prefix_b , genome_ids_a, common_prefix_a, oddeven)
 
     #Create run_dir to hold files relating to this run
-    run_dir = tempfile.mkdtemp(prefix = 'run_codeml_')
+    run_dir = tempfile.mkdtemp(prefix = 'calculations_')
 
     #Extract files from zip archive
     sico_files = extract_archive_of_files(sico_zip, create_directory('sicos', inside_dir = run_dir))
@@ -588,11 +608,15 @@ Usage: calculations.py
     tmp_table_tuple = calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven)
 
     #Write the produced files to command line argument filenames
-    shutil.move(tmp_table_tuple[0], table_a)
-    shutil.move(tmp_table_tuple[1], table_b)
+    with open(table_a, mode = 'ab') as append_handle:
+        shutil.copyfileobj(open(tmp_table_tuple[0], mode = 'rb'), append_handle)
+    with open(table_b, mode = 'ab') as append_handle:
+        shutil.copyfileobj(open(tmp_table_tuple[1], mode = 'rb'), append_handle)
 
-    #Remove unused files to free disk space 
+    #Remove now unused files to free disk space 
     shutil.rmtree(run_dir)
+    os.remove(tmp_table_tuple[0])
+    os.remove(tmp_table_tuple[1])
 
     #Exit after a comforting log message
     log.info("Produced: \n%s\n%s", table_a, table_b)
