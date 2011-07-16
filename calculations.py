@@ -55,7 +55,7 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
     dos_list = []
     for comp_values in comp_values_list:
         #Sum the following columns
-        for column in _get_column_headers_in_sequence(sfs_max_nton)[2:-2]:
+        for column in _get_column_headers_in_sequence(sfs_max_nton)[3:-2]:
             if comp_values.get(column) is not None:
                 old_value = sum_comp_values.get(column, 0)
                 sum_comp_values[column] = old_value + comp_values[column]
@@ -373,8 +373,17 @@ def _perform_calculations(alignment, codeml_values):
     computed_values['codons'] = sequence_lengths // 3
     computed_values['multiple site polymorphisms'] = multiple_site_polymorphisms
     computed_values['synonymous and non-synonymous polymorphisms mixed'] = mixed_synonymous_polymorphisms
-    #Add COGs to output file
-    computed_values['cogs'] = ','.join(find_cogs_in_sequence_records(alignment))
+
+    #Add COGs to output file in split columns
+    cog_digits = []
+    cog_letters = []
+    for cog in find_cogs_in_sequence_records(alignment):
+        matchobj = re.match('COG([0-9]+)([A-Z]*)', cog)
+        if matchobj:
+            cog_digits.append(matchobj.groups()[0])
+            cog_letters.append(matchobj.groups()[1])
+    computed_values['cog digits'] = ','.join(cog_digits)
+    computed_values['cog letters'] = ','.join(cog_letters)
 
     return computed_values
 
@@ -491,9 +500,11 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
 
 def _get_column_headers_in_sequence(max_nton):
     """Return the column headers to the generated statistics files in the correct order, using max_nton for SFS max."""
+    #Split COG into first part with numbers and second part with letters
+    headers = ['cog digits', 'cog letters']
     #Some initial values
-    #TODO Split COG into first part with numbers and second part with letters
-    headers = ['cogs', 'strains', 'codons']
+    headers.append('strains')
+    headers.append('codons')
 
     def _write_sfs_column_names(prefix):
         """Return named columns for SFS singleton, doubleton, tripleton, etc.. upto max_nton."""
