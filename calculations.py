@@ -529,7 +529,7 @@ def _get_column_headers_in_sequence(max_nton):
     #Measures of nucleotide diversity per SICO
     headers.extend(['Pi', 'Theta'])
 
-    #TODO Hide the following columns in the output, but do calculate & pass their values
+    #Hide the following columns in the output, but do calculate & pass their values
     headers.append('Ds*Pn/(Ps+Ds)')
     headers.append('Dn*Ps/(Ps+Ds)')
 
@@ -543,7 +543,9 @@ def _write_output_file_header(calculations_file, max_nton):
     """Write header line for combined statistics file."""
     with open(calculations_file, mode = 'a') as append_handle:
         append_handle.write('ortholog\t')
-        append_handle.write('\t'.join(_get_column_headers_in_sequence(max_nton)))
+        append_handle.write('\t'.join(column for column in _get_column_headers_in_sequence(max_nton)
+                                      #Hide the following columns in the output, but do calculate & pass their values
+                                      if column not in ('Ds*Pn/(Ps+Ds)', 'Dn*Ps/(Ps+Ds)')))
         append_handle.write('\n')
 
 def _append_statistics(calculations_file, orthologname, comp_values, max_nton):
@@ -551,7 +553,9 @@ def _append_statistics(calculations_file, orthologname, comp_values, max_nton):
     with open(calculations_file, mode = 'a') as append_handle:
         append_handle.write(orthologname + '\t')
         append_handle.write('\t'.join(str(comp_values.get(column, ''))
-                                      for column in _get_column_headers_in_sequence(max_nton)))
+                                      for column in _get_column_headers_in_sequence(max_nton)
+                                      #Hide the following columns in the output, but do calculate & pass their values
+                                      if column not in ('Ds*Pn/(Ps+Ds)', 'Dn*Ps/(Ps+Ds)')))
         append_handle.write('\n')
 
 def main(args):
