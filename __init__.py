@@ -15,16 +15,14 @@ import sys
 LOG_FORMAT = '%(levelname)s\t%(asctime)s %(module)s.%(funcName)s:%(lineno)d\t%(message)s'
 LOG_DATE_FORMAT = '%H:%M:%S'
 
-#Logs INFO messages and anything above to sys.stdout
-logging.basicConfig(level = logging.INFO, stream = sys.stdout, format = LOG_FORMAT, datefmt = LOG_DATE_FORMAT)
+#Logs WARNING messages and anything above to sys.stdout
+logging.basicConfig(level = logging.WARNING, stream = sys.stdout, format = LOG_FORMAT, datefmt = LOG_DATE_FORMAT)
 
-#Log ERROR messages to stderr separately
+#Log ERROR messages to stderr separately; these will fail a tool run in Galaxy
 STDERR_HANDLER = logging.StreamHandler(sys.stderr)
 STDERR_HANDLER.setLevel(logging.ERROR)
 STDERR_HANDLER.setFormatter(logging.Formatter(fmt = LOG_FORMAT, datefmt = LOG_DATE_FORMAT))
 logging.root.addHandler(STDERR_HANDLER)
-
-#TODO This log output is currently used as metadata.info for output files. Find a way around this or raise log level
 
 #Require at least version 1.53 op BioPython
 assert 1.54 <= float(Bio.__version__), 'BioPython version 1.54 or higher is required'

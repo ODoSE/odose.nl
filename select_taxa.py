@@ -188,10 +188,8 @@ def _get_colored_labels(genome):
 def download_genome_files(genome, download_log = None, require_ptt = False):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples of three."""
     #ftp://ftp.ncbi.nih.gov/genbank/genomes/Bacteria/Sulfolobus_islandicus_M_14_25_uid18871/CP001400.ffn
-    host = 'ftp.ncbi.nih.gov'
-
     #Download using FTP
-    ftp = FTP(host)
+    ftp = FTP('ftp.ncbi.nih.gov')
     ftp.login()
 
     #Try to find project directory in RefSeq curated listing
@@ -203,7 +201,7 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
         target_dir = create_directory('refseq/' + projectid)
     else:
         if projectid:
-            log.warn('Genome directory not found under %s%s for %s', host, base_dir, projectid)
+            log.warn('Genome directory not found under %s%s for %s', ftp.host, base_dir, projectid)
 
         #Try instead to find project directory in GenBank originals listing
         projectid = genome['Project ID']
@@ -213,38 +211,37 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
             accessioncodes = genome['List of GenBank accessions']
             target_dir = create_directory('genbank/' + projectid)
         else:
-            log.error('Genome directory not found under %s%s for %s', host, base_dir, projectid)
-
-    #TODO Too new entries can not yet be downloaded. Treat them the same as missing genbank files and write skipped line
-    assert project_dir, 'Failed to find folder for genome {0}: {1}' \
-        .format(genome['Project ID'], genome['Organism Name'])
+            log.warn('Genome directory not found under %s%s for %s', ftp.host, base_dir, projectid)
 
     #Download .gbk & .ptt files for all genome accessioncodes and append them to this list as tuples of gbk + ptt
     genome_files = []
-    for acc in accessioncodes:
-        #Try genbank file, which is always required
-        try:
-            gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir)
-        except error_perm as err:
-            if 'No such file or directory' not in str(err):
-                raise err
-            log.warn(err)
-            log.warn('GenBank file %s missing for %s', acc, projectid)
-            continue
 
-        #Try protein table file, which could be optional
-        try:
-            ptt_file = _download_genome_file(ftp, project_dir, acc + '.ptt', target_dir)
-        except error_perm as err:
-            if 'No such file or directory' not in str(err):
-                raise err
-            log.warn(err)
-            if require_ptt:
-                log.warn('Protein table file %s missing for %s: Probably no coding sequences', acc, projectid)
+    #Occasionally we can not find a folder, meaning we will have to skip this genome as well
+    if project_dir:
+        for acc in accessioncodes:
+            #Try genbank file, which is always required
+            try:
+                gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir)
+            except error_perm as err:
+                if 'No such file or directory' not in str(err):
+                    raise err
+                log.warn(err)
+                log.warn('GenBank file %s missing for %s', acc, projectid)
                 continue
-            else:
-                ptt_file = None
-        genome_files.append((projectid, gbk_file, ptt_file))
+
+            #Try protein table file, which could be optional
+            try:
+                ptt_file = _download_genome_file(ftp, project_dir, acc + '.ptt', target_dir)
+            except error_perm as err:
+                if 'No such file or directory' not in str(err):
+                    raise err
+                log.warn(err)
+                if require_ptt:
+                    log.warn('Protein table file %s missing for %s: Probably no coding sequences', acc, projectid)
+                    continue
+                else:
+                    ptt_file = None
+            genome_files.append((projectid, gbk_file, ptt_file))
 
     #Be nice and close the connection
     ftp.close()
@@ -254,9 +251,12 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
         if download_log:
             with open(download_log, mode = 'a') as append_handle:
                 append_handle.write('#{0}\t{1}\t'.format(projectid, genome['Organism Name']))
-                append_handle.write('#Genome skipped because of missing protein table file\n')
+                append_handle.write('#Genome skipped because of missing files\n')
 
-        #Return nothing when none of the accessioncodes resulted in files 
+        #Return nothing when:
+        #- none of the accessioncodes resulted in files
+        #- there were no protein table files when they were required
+        #- no folder could be found for projectid
         return None
 
     #Write out provenance logfile with sources of retrieved files
@@ -264,7 +264,7 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
     if download_log:
         with open(download_log, mode = 'a') as append_handle:
             append_handle.write('{0}\t{1}\t'.format(projectid, genome['Organism Name']))
-            append_handle.write('{0}{1}\n'.format(host, project_dir))
+            append_handle.write('{0}{1}\n'.format(ftp.host, project_dir))
 
     #Return genome files
     return genome_files

@@ -182,7 +182,7 @@ Usage: filter_orthologs.py
     if filter_cogs:
         ortholog_files, transfered_cogs = _filter_multiple_cog_orthologs(run_dir, ortholog_files)
 
-    #TODO Add option to filter out SICOs when any ortholog has been flagged as 'mobile element', 'phage' or 'IS element'
+    #Possible extension: filter ortholog when any strain has been flagged as 'mobile element', 'phage' or 'IS element'
 
     #Filter orthologs that show recombination when comparing phylogenetic trees if flag was set
     if filter_recombination:

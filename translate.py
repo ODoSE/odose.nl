@@ -125,8 +125,8 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file = None
 
             #If there are no coding features, report this back to the user with a clear message rather than empty file
             if 0 == len(coding_features):
-                log.error('No coding sequences found in genbank file %s', genbank_file)
-                #TODO What are the consequences & how can the user recover from this?
+                log.error('No coding sequences found in GenBank file %s. Require protein table files to prevent this.',
+                          genbank_file)
 
             #Translate all coding sequences
             for cds_featr in coding_features:
