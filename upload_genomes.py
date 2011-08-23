@@ -45,7 +45,7 @@ Usage: select_taxa.py
     label:FILE,...     labels should be unique as genomes will be identified by this label in further output files
 --external-zip=FILE    destination path for archive of user provided external genomes containing formatted nucleotide fasta files
 """
-    options = ['external-genomes=?', 'external-zip=?']
+    options = ['external-genomes', 'external-zip']
     external_genomes, external_zip = parse_options(usage, options, args)
 
     #External genomes are nucleotide fasta files uploaded by the user of which we will reformat the header
