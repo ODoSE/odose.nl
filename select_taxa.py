@@ -316,11 +316,11 @@ def _parse_external_genomes(external_zip, genomes_file):
     for fasta_file in external_fasta_files:
         #Read user supplied species label & originating filename
         with open(fasta_file) as read_handle:
-            #Read first line, which should be header of first record
-            header = read_handle.readline()
+            #Read first line, which should be header of first record, starting with a skipped >
+            header = read_handle.readline()[1:]
 
             #Header format as requested: >project_id|genbank_ac|protein_id|cog|source 
-            label, origin = header.split('|')[0:1]
+            label, origin = header.split('|')[0:2]
 
             with open(genomes_file, mode = 'a') as append_handle:
                 #We'll use this 'external genome' source to skip externally derived files when downloading & translating
