@@ -12,6 +12,8 @@ import tempfile
 
 def format_fasta_genome_headers(label, nucl_fasta_file):
     """Format an individual nucleotide fasta file containing coding regions so the headers match expected patterns."""
+    label = label.replace(' ', '_')
+
     #Determine output file name
     filename = os.path.split(nucl_fasta_file)[1]
     formatted_fasta_file = tempfile.mkstemp(suffix = '.ffn', prefix = '{0}.{1}.formatted_'.format(label, filename))[1]
