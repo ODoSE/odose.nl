@@ -5,7 +5,7 @@ from Bio import SeqIO
 from divergence import create_directory, extract_archive_of_files, parse_options
 from divergence.orthomcl_database import create_database, get_configuration_file, delete_database
 from divergence.reciprocal_blast import reciprocal_blast
-from divergence.select_taxa import format_fasta_genome_headers
+from divergence.upload_genomes import format_fasta_genome_headers
 from divergence.translate import translate_fasta_coding_regions
 from divergence.versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
     ORTHOMCL_BLAST_PARSER, ORTHOMCL_LOAD_BLAST, ORTHOMCL_PAIRS, ORTHOMCL_DUMP_PAIRS_FILES
