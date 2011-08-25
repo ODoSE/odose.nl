@@ -259,8 +259,8 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: translate.py 
---genomes=FILE         file with genbank id from complete genomes table on each line
---external-zip=FILE    archive of user provided external genomes containing formatted nucleotide fasta files
+--genomes=FILE         optional file with selected genome IDs followed by Organism Name on each line
+--external-zip=FILE    optional archive of user provided external genomes containing formatted nucleotide fasta files
 --dna-zip=FILE         destination file path for zip archive of extracted DNA files
 --protein-zip=FILE     destination file path for zip archive of translated protein files
 """
