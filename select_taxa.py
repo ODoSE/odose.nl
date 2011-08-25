@@ -91,11 +91,21 @@ def _parse_genomes_table(complete_genome_table = _download_genomes_table(), requ
         for column, value in genome.iteritems():
             if column in splitable_columns:
                 genome[column] = [] if len(value) in (0, 1) else value.split(splitable_columns[column])
+
+        #Convert date columns to actual dates
+        #Released date 01/27/2009
+        if genome['Released date']:
+            genome['Released date'] = datetime.strptime(genome['Released date'], '%m/%d/%Y')
+        #Modified date 02/10/2011 17:38:40
+        if genome['Modified date']:
+            genome['Modified date'] = datetime.strptime(genome['Modified date'].split()[0], '%m/%d/%Y')
+
+        #Append genome to list of genomes
         genomes.append(genome)
 
-        #Filter out record not containing a refseq entry
-        if require_refseq:
-            genomes = [genome for genome in genomes if genome['RefSeq project ID']]
+    #Filter out records not containing a refseq entry
+    if require_refseq:
+        genomes = [genome for genome in genomes if genome['RefSeq project ID']]
 
     #Return the genome dictionaries
     return tuple(genomes)
@@ -158,19 +168,18 @@ def _get_colored_labels(genome):
     labels = ''
 
     #Add New! & Updated! labels by looking at release and updated dates in the genome dictionary
-    date_format = '%m/%d/%Y'
     day_limit = datetime.today() - timedelta(days = 30)
 
     #Released date 01/27/2009
     released_date = genome['Released date']
-    if released_date and day_limit < datetime.strptime(released_date, date_format):
-        title = 'title="Since {0}"'.format(released_date)
+    if released_date and day_limit < released_date:
+        title = 'title="Since {0}"'.format(released_date.date())
         labels += ' <span {0} style="background-color: lightgreen">New!</span>'.format(title)
 
     #Modified date 02/10/2011 17:38:40
     modified_date = genome['Modified date']
-    if modified_date and day_limit < datetime.strptime(modified_date.split()[0], date_format):
-        title = 'title="Since {0}"'.format(modified_date)
+    if modified_date and day_limit < modified_date:
+        title = 'title="Since {0}"'.format(modified_date.date())
         labels += ' <span {0} style="background-color: yellow">Updated!</span>'.format(title)
 
     #Warn when genomes contain less than 0.5 MegaBase: unlikely to result in any orthologs
@@ -210,6 +219,9 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
         else:
             log.warn('Genome directory not found under %s%s for %s', ftp.host, base_dir, projectid)
 
+    #Determine ast modified date to see if we should redownload the file following changes
+    last_change_date = genome['Modified date'] if genome['Modified date'] else genome['Released date']
+
     #Download .gbk & .ptt files for all genome accessioncodes and append them to this list as tuples of gbk + ptt
     genome_files = []
 
@@ -218,7 +230,7 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
         for acc in accessioncodes:
             #Try genbank file, which is always required
             try:
-                gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir)
+                gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir, last_change_date)
             except error_perm as err:
                 if 'No such file or directory' not in str(err):
                     raise err
@@ -228,7 +240,7 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
 
             #Try protein table file, which could be optional
             try:
-                ptt_file = _download_genome_file(ftp, project_dir, acc + '.ptt', target_dir)
+                ptt_file = _download_genome_file(ftp, project_dir, acc + '.ptt', target_dir, last_change_date)
             except error_perm as err:
                 if 'No such file or directory' not in str(err):
                     raise err
@@ -277,14 +289,18 @@ def _find_project_dir(ftp, base_dir, projectid):
             return ftp_file
     return None
 
-def _download_genome_file(ftp, remote_dir, filename, target_dir):
+def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_date):
     """Download a single file from remote folder to target folder, only if it does not already exist."""
     #Move completed tmp_file to actual output path when done
     out_file = os.path.join(target_dir, filename)
 
-    #Do not retrieve existing files if they exist and have content and are less than a month old
-    min_file_age = time.time() - 30 * 24 * 60 * 60
-    if not os.path.exists(out_file) or 0 == os.path.getsize(out_file) or os.path.getmtime(out_file) < min_file_age:
+    #We know when genomes were last updated. Use this information to determine when to download again, or every 60 days
+    last_changed_stamp = time.mktime(last_change_date.timetuple())
+    sixty_day_stamp = time.mktime((datetime.now() - timedelta(days = 60)).timetuple())
+    file_age_limit = max(last_changed_stamp, sixty_day_stamp)
+
+    #Do not retrieve existing files if they exist and have content and are newer than the file_age_limit
+    if not os.path.exists(out_file) or 0 == os.path.getsize(out_file) or os.path.getmtime(out_file) < file_age_limit:
         #Use a temporary file as write handle here, so we can not pollute cache when download is interrupted
         tmp_file = tempfile.mkstemp(prefix = filename + '_')[1]
 
