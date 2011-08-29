@@ -70,7 +70,8 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
         append_handle.write('#' + msg + '\n')
 
         filtered = len(misaligned)
-        msg = '{0:6} orthologs filtered as they retained less than {1}%'.format(filtered, str(retained_threshold))
+        msg = '{0:6} orthologs filtered as one or more sequences retained less than {1}%'.format(filtered,
+                                                                                                str(retained_threshold))
         log.info(msg)
         append_handle.write('#' + msg + '\n')
 
