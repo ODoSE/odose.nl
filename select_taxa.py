@@ -398,8 +398,6 @@ Usage: select_taxa.py
 
     #Exit after a comforting log message
     log.info("Produced: \n%s", genomes_file)
-    if external_zip:
-        log.info("Produced: \n%s", genomes_file)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
