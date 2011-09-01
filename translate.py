@@ -19,6 +19,21 @@ import tempfile
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
 
+def _append_external_genomes(external_fasta_files, genomes_file):
+    """Read out user provided labels and original filenames for uploaded genomes and append them to genome IDs file."""
+    for fasta_file in external_fasta_files:
+        #Read user supplied species label & originating filename
+        with open(fasta_file) as read_handle:
+            #Read first line, which should be header of first record, starting with a skipped >
+            header = read_handle.readline()[1:]
+
+            #Header format as requested: >project_id|genbank_ac|protein_id|cog|source 
+            label, origin = header.split('|')[0:2]
+
+            with open(genomes_file, mode = 'a') as append_handle:
+                #We'll use this 'external genome' source to skip externally derived files when downloading & translating
+                append_handle.write('{0}\t{1}\texternal genome\n'.format(label, origin))
+
 def _build_protein_to_cog_mapping(ptt_file):
     """Build a dictionary mapping PID to COG based on protein table file."""
     mapping = {}
@@ -289,6 +304,9 @@ Usage: translate.py
         #Extract external genomes archive
         external_dir = tempfile.mkdtemp(prefix = 'external_genomes_')
         external_dna_files = extract_archive_of_files(external_zip, external_dir)
+
+        #Append IDs of external fasta files to genome IDs file
+        _append_external_genomes(external_dna_files, genome_ids_file)
 
         #Translate individual files
         external_protein_files = [translate_fasta_coding_regions(dna_file) for dna_file in external_dna_files]

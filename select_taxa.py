@@ -2,7 +2,7 @@
 """Module for the select taxa step."""
 
 from datetime import datetime, timedelta
-from divergence import create_directory, HTTP_CACHE, parse_options, extract_archive_of_files
+from divergence import create_directory, HTTP_CACHE, parse_options
 from ftplib import FTP, error_perm
 from operator import itemgetter
 import logging as log
@@ -323,47 +323,17 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_dat
 
     return out_file
 
-def _parse_external_genomes(external_zip, genomes_file):
-    """Read out user provided labels and original filenames for uploaded genomes and append them to genome IDs file."""
-    external_dir = tempfile.mkdtemp(prefix = 'external_genomes_')
-    #External genomes are nucleotide fasta files uploaded by the user of which we have formatted the header
-    external_fasta_files = extract_archive_of_files(external_zip, external_dir)
-
-    for fasta_file in external_fasta_files:
-        #Read user supplied species label & originating filename
-        with open(fasta_file) as read_handle:
-            #Read first line, which should be header of first record, starting with a skipped >
-            header = read_handle.readline()[1:]
-
-            #Header format as requested: >project_id|genbank_ac|protein_id|cog|source 
-            label, origin = header.split('|')[0:2]
-
-            with open(genomes_file, mode = 'a') as append_handle:
-                #We'll use this 'external genome' source to skip externally derived files when downloading & translating
-                append_handle.write('{0}\t{1}\texternal genome\n'.format(label, origin))
-
-    #Remove temporarily extracted files
-    shutil.rmtree(external_dir)
-
-    return len(external_fasta_files)
-
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: select_taxa.py
 --genomes=ID,...           optional comma-separated list of selected GenBank Project IDs from complete genomes table
 --previous-file=FILE       optional previously or externally created GenBank Project IDs file whose genomes should be reselected
---external-zip=FILE        optional archive of user provided external genomes containing formatted nucleotide fasta files
 --require-protein-table    require protein table files to be present for all downloaded genomes
 --genomes-file=FILE        destination path for file with selected genome IDs followed by Organism Name on each line
 """
-    options = ['genomes=?', 'previous-file=?', 'external-zip=?', 'require-protein-table?', 'genomes-file']
-    genomes_line, previous_file, external_zip, require_ptt, genomes_file = parse_options(usage, options, args)
-
-    #Handle externally uploaded genomes
-    nr_of_external_genomes = 0
-    if external_zip:
-        nr_of_external_genomes = _parse_external_genomes(external_zip, genomes_file)
+    options = ['genomes=?', 'previous-file=?', 'require-protein-table?', 'genomes-file']
+    genomes_line, previous_file, require_ptt, genomes_file = parse_options(usage, options, args)
 
     #Genome IDs selected by the user that refer to GenBank or RefSeq entries
     genome_ids = []
@@ -381,10 +351,9 @@ Usage: select_taxa.py
                               if 'external genome' not in line)
 
     #Assert each clade contains enough IDs
-    minimum = 2
     maximum = 100
-    if not minimum <= len(genome_ids) + nr_of_external_genomes <= maximum:
-        log.error('Expected no less than {0} and no more than {1} selected genomes'.format(minimum, maximum))
+    if len(genome_ids) <= maximum:
+        log.error('Expected between two and {0} selected genomes, but was {1}'.format(maximum, len(genome_ids)))
         sys.exit(1)
 
     #Retrieve genome dictionaries to get to Organism Name
