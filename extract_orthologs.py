@@ -188,44 +188,27 @@ def _write_record_to_ortholog_file(directory, ortholog_dictionaries, record):
 def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, partially_shared, nr_of_seqs):
     """Write out file with some basic statistics about the genomes, orthologs and size of shared core genome."""
     #Some easy statistics about genomes and orthologs
-    nr_shared_sico = len(shared_single_copy)
-    nr_shared_muco = len(shared_multi_copy)
-    nr_part_shared = len(partially_shared)
-    nr_orthologs = nr_shared_sico + nr_shared_muco + nr_part_shared
-
-    #Count the number of partially shared orthologs per number of genomes shared among
-    orthologs_per_nr_of_genomes = {}
-    for ortholog in partially_shared:
-        nr_of_genomes = len(ortholog)
-        orthologs_per_nr_of_genomes[nr_of_genomes] = orthologs_per_nr_of_genomes.get(nr_of_genomes, 0) + 1
+    nr_shared_sico_orth = len(shared_single_copy)
+    nr_non_sico_orth = len(shared_multi_copy) + len(partially_shared)
 
     #Determine number of ORFans by deducting unique proteins identified as orthologs from total number of genes
     proteins = set(chain.from_iterable(prot for per_genome in shared_single_copy for prot in per_genome.values()))
+    nr_sico_genes = len(proteins)
     proteins.update(chain.from_iterable(prot for per_genome in shared_multi_copy for prot in per_genome.values()))
     proteins.update(chain.from_iterable(prot for per_genome in partially_shared for prot in per_genome.values()))
+    nr_non_sico_genes = len(proteins) - nr_sico_genes
     nr_orfans = nr_of_seqs - len(proteins)
 
     stats_file = os.path.join(run_dir, 'extract-stats.txt')
     with open(stats_file, mode = 'w') as writer:
         #Write Genome & gene count statistics to file        
-        writer.write('#{0:7}\tGenomes\n'.format(len(genomes)))
-        writer.write('#{0:7}\tGenes\n'.format(nr_of_seqs))
-        writer.write('#{0:7}\tORFan genes (no orthologs)\n\n'.format(nr_orfans))
-
-        #Write Ortholog count statistics to file
-        def perc(number):
-            """Calculate a number as percentage of the number of the number of orthologs"""
-            return number / nr_orthologs
-        writer.write('# Distribution of orthologs over identified groups:\n')
-        writer.write('{0:8}\t{1:8.2%}\tSingle-copy orthologs shared across all genomes\n'
-                     .format(nr_shared_sico, perc(nr_shared_sico)))
-        writer.write('{0:8}\t{1:8.2%}\tMultiple-copy orthologs shared across all genomes\n'
-                     .format(nr_shared_muco, perc(nr_shared_muco)))
-        #Print the number of orthologs found per nr of genomes
-        for nr_of_genomes, nr_of_orthologs in orthologs_per_nr_of_genomes.iteritems():
-            writer.write('{0:8}\t{1:8.2%}\t{2}-genome orthologs with single or multiple copies.\n'
-                     .format(nr_of_orthologs, perc(nr_of_orthologs), nr_of_genomes))
-        writer.write('{0:8}\t{1:8.2%}\tTotal number of orthologs\n'.format(nr_orthologs, perc(nr_orthologs)))
+        writer.write('#{0:6}\tGenomes\n'.format(len(genomes)))
+        writer.write('{0:7}\tGenes\n'.format(nr_of_seqs))
+        writer.write('{0:7}\tORFan genes (no orthologs)\n'.format(nr_orfans))
+        writer.write('{0:7}\tShared single-copy orthologous genes in {1} orthologs\n'.format(nr_sico_genes,
+                                                                                               nr_shared_sico_orth))
+        writer.write('{0:7}\tOtherwise orthologous genes in {1} orthologs\n'.format(nr_non_sico_genes,
+                                                                                      nr_non_sico_orth))
 
     assert os.path.isfile(stats_file) and 0 < os.path.getsize(stats_file), stats_file + ' should exist with content.'
     return stats_file
