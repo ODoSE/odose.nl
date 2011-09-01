@@ -79,6 +79,7 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
     _append_statistics(calculations_file, 'NI 95% upper limit', {'neutrality index': upper_95perc_limit}, sfs_max_nton)
 
 def _every_other_codon_alignments(alignment):
+    """Separate alignment into separate alignments per codon, to get independent axis when graphing data."""
     #Calculate sequence_length to use when splitting MSA into codons 
     sequence_lengths = len(alignment[0]) - len(alignment[0]) % 3
     alignment_codons = [alignment[:, index:index + 3] for index in range(0, sequence_lengths, 3)]
@@ -375,7 +376,7 @@ def _perform_calculations(alignment, codeml_values):
     cog_digits = []
     cog_letters = []
     for cog in find_cogs_in_sequence_records(alignment):
-        matchobj = re.match('COG([0-9]+)([A-Z]*)', cog)
+        matchobj = re.match('(COG[0-9]+)([A-Z]*)', cog)
         if matchobj:
             cog_digits.append(matchobj.groups()[0])
             cog_letters.append(matchobj.groups()[1])

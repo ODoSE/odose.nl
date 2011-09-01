@@ -158,17 +158,15 @@ Usage: filter_orthologs.py
     sico_files = extract_archive_of_files(orthologs_zip, temp_dir)
 
     #Align SICOs so all sequences become equal length sequences
-    trim_stats_file = os.path.join(run_dir, 'trim-stats.txt')
     aligned_files = _align_sicos(run_dir, sico_files)
 
     #Filter orthologs that retain less than PERC % of sequence after trimming alignment    
-    trimmed_files, misaligned_files = _trim_alignments(run_dir, aligned_files, retained_threshold, trim_stats_file)
+    trimmed_files, misaligned_files = _trim_alignments(run_dir, aligned_files, retained_threshold, target_stats_path)
 
-    #Create archives of files on command line specified output paths & move trim_stats_file
+    #Create archives of files on command line specified output paths
     create_archive_of_files(aligned_zip, aligned_files)
     create_archive_of_files(misaligned_zip, misaligned_files)
     create_archive_of_files(trimmed_zip, trimmed_files)
-    shutil.move(trim_stats_file, target_stats_path)
 
     #Remove unused files to free disk space 
     shutil.rmtree(run_dir)
