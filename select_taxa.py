@@ -352,7 +352,7 @@ Usage: select_taxa.py
 
     #Assert each clade contains enough IDs
     maximum = 100
-    if len(genome_ids) <= maximum:
+    if  maximum < len(genome_ids):
         log.error('Expected between two and {0} selected genomes, but was {1}'.format(maximum, len(genome_ids)))
         sys.exit(1)
 

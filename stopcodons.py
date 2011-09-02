@@ -137,6 +137,7 @@ def __main__():
     else:
         #Read current genbank from cache directory
         import glob
+        #TODO Fix path
         genbank_files = list(glob.glob('/data/dev/workspace-python/lib-divergence/divergence-cache/refseq/*/*.gbk'))
 
     #Extract coding sequences from genome files
