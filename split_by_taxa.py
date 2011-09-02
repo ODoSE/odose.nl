@@ -66,11 +66,11 @@ Usage: split_by_taxa.py
 
     #Parse file containing RefSeq project IDs to extract RefSeq project IDs
     with open(genome_a_ids_file) as read_handle:
-        lines = [line.split() for line in read_handle]
+        lines = [line.split('\t') for line in read_handle]
         genome_ids_a = [line[0] for line in lines]
         common_prefix_a = _common_prefix([line[1] for line in lines], 'taxon_a')
     with open(genome_b_ids_file) as read_handle:
-        lines = [line.split() for line in read_handle]
+        lines = [line.split('\t') for line in read_handle]
         genome_ids_b = [line[0] for line in lines]
         common_prefix_b = _common_prefix([line[1] for line in lines], 'taxon_b')
 
