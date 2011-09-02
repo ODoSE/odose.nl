@@ -274,12 +274,12 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: translate.py 
---genomes=FILE         optional file with selected genome IDs followed by Organism Name on each line
+--genomes=FILE         file with selected genome IDs followed by Organism Name on each line
 --external-zip=FILE    optional archive of user provided external genomes containing formatted nucleotide fasta files
 --dna-zip=FILE         destination file path for zip archive of extracted DNA files
 --protein-zip=FILE     destination file path for zip archive of translated protein files
 """
-    options = ['genomes=?', 'external-zip=?', 'dna-zip', 'protein-zip']
+    options = ['genomes', 'external-zip=?', 'dna-zip', 'protein-zip']
     genome_ids_file, external_zip, dna_zipfile, protein_zipfile = parse_options(usage, options, args)
 
     dna_files = []

@@ -352,6 +352,7 @@ Usage: select_taxa.py
 
     #Assert each clade contains enough IDs
     maximum = 100
+    #TODO Move this test to translate, where we can see how many translations succeeded + how many externals there are 
     if  maximum < len(genome_ids):
         log.error('Expected between two and {0} selected genomes, but was {1}'.format(maximum, len(genome_ids)))
         sys.exit(1)
@@ -359,6 +360,9 @@ Usage: select_taxa.py
     #Retrieve genome dictionaries to get to Organism Name
     genomes = select_genomes_by_ids(genome_ids).values()
     genomes = sorted(genomes, key = itemgetter('Organism Name'))
+
+    #Semi-touch genomes file in case no genomes were selected, for instance when uploading external genomes
+    open(genomes_file, mode = 'a').close()
 
     #Write IDs to file, with organism name as second column to make the project ID files more self explanatory.
     for genome in genomes:
