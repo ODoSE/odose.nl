@@ -28,8 +28,8 @@ def split_alignment_by_taxa(run_dir, ortholog_files, (genome_ids_a, prefix_a), (
         alignment_b = MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_b)
 
         #Build up target output files
-        taxon_a_file = os.path.join(run_dir, '{0}.{1}.{2}'. format(base_name, prefix_a, extension))
-        taxon_b_file = os.path.join(run_dir, '{0}.{1}.{2}'. format(base_name, prefix_b, extension))
+        taxon_a_file = os.path.join(run_dir, '{0}.{1}{2}'. format(base_name, prefix_a, extension))
+        taxon_b_file = os.path.join(run_dir, '{0}.{1}{2}'. format(base_name, prefix_b, extension))
 
         #Actually write out sub alignments
         AlignIO.write(alignment_a, taxon_a_file, 'fasta')
@@ -70,7 +70,7 @@ Usage: split_by_taxa.py
         genome_ids_a = [line[0] for line in lines]
         common_prefix_a = _common_prefix([line[1] for line in lines], 'taxon_a')
     with open(genome_b_ids_file) as read_handle:
-        lines = [line for line in read_handle]
+        lines = [line.split() for line in read_handle]
         genome_ids_b = [line[0] for line in lines]
         common_prefix_b = _common_prefix([line[1] for line in lines], 'taxon_b')
 
