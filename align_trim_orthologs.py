@@ -3,7 +3,8 @@
 
 from __future__ import division
 from Bio import AlignIO
-from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
+from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
+    CODON_TABLE_ID
 from divergence.versions import TRANSLATORX
 from multiprocessing import Pool
 from operator import itemgetter
@@ -21,7 +22,7 @@ def _align_sicos(run_dir, sico_files):
     tuples = [(run_dir, sico_file) for sico_file in sico_files]
     return Pool().map(_run_translatorx, tuples)
 
-def _run_translatorx((run_dir, sico_file), translation_table = '11'):
+def _run_translatorx((run_dir, sico_file), translation_table = CODON_TABLE_ID):
     """Run TranslatorX to create DNA level alignment file of protein level aligned DNA sequences within sico_file."""
     assert os.path.exists(TRANSLATORX) and os.access(TRANSLATORX, os.X_OK), 'Could not find or run ' + TRANSLATORX
 
@@ -36,7 +37,7 @@ def _run_translatorx((run_dir, sico_file), translation_table = '11'):
     #Actually run the TranslatorX program
     command = [TRANSLATORX,
                '-i', sico_file,
-               '-c', translation_table,
+               '-c', str(translation_table),
                '-o', file_base]
     check_call(command, stdout = open('/dev/null', 'w'), stderr = STDOUT)
 

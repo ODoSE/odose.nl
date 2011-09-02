@@ -27,6 +27,9 @@ logging.root.addHandler(STDERR_HANDLER)
 #Require at least version 1.53 op BioPython
 assert 1.54 <= float(Bio.__version__), 'BioPython version 1.54 or higher is required'
 
+#Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11)
+CODON_TABLE_ID = 11
+
 #Base output dir
 BASE_OUTPUT_PATH = '../divergence-cache/'
 

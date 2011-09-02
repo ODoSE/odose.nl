@@ -6,7 +6,8 @@ from Bio.Alphabet.IUPAC import ambiguous_dna
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import TranslationError
 from Bio.SeqRecord import SeqRecord
-from divergence import create_directory, concatenate, create_archive_of_files, parse_options, extract_archive_of_files
+from divergence import create_directory, concatenate, create_archive_of_files, parse_options, \
+    extract_archive_of_files, CODON_TABLE_ID
 from divergence.select_taxa import download_genome_files, select_genomes_by_ids
 from multiprocessing import Pool
 from operator import itemgetter
@@ -17,7 +18,7 @@ import sys
 import tempfile
 
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
-BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
+BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(CODON_TABLE_ID)
 
 def _append_external_genomes(external_fasta_files, genomes_file):
     """Read out user provided labels and original filenames for uploaded genomes and append them to genome IDs file."""

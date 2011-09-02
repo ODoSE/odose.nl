@@ -5,7 +5,7 @@ from __future__ import division
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
-from divergence import parse_options, create_directory, extract_archive_of_files, concatenate
+from divergence import parse_options, create_directory, extract_archive_of_files, concatenate, CODON_TABLE_ID
 from divergence.filter_orthologs import find_cogs_in_sequence_records
 from divergence.run_codeml import run_codeml, parse_codeml_output
 from itertools import product
@@ -224,8 +224,8 @@ def _calculate_for_clade_alignments(alignments_x, ortholog_codeml_values):
 
     return calculations_file
 
-#Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
-BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
+#Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11)
+BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(CODON_TABLE_ID)
 
 def _four_fold_degenerate_patterns():
     """Find patterns of 4-fold degenerate codons, wherein all third site substitutions code for the same amino acid."""

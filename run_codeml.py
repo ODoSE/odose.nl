@@ -5,7 +5,8 @@ from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 from collections import deque
-from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
+from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
+    CODON_TABLE_ID
 from divergence.versions import CODEML
 from multiprocessing import Pool
 from subprocess import check_call, STDOUT
@@ -40,7 +41,7 @@ def run_codeml_for_sicos(codeml_dir, genome_ids_a, genome_ids_b, sico_files):
     return [ft_codeml_file.get() for ft_codeml_file in future_files]
 
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
-BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(11)
+BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(CODON_TABLE_ID)
 
 def run_codeml(sub_dir, alignment_a, alignment_b):
     """Run codeml from PAML for selected sequence records from sico_file, returning main nexus output file."""
