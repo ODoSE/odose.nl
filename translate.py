@@ -285,19 +285,18 @@ Usage: translate.py
     dna_files = []
     protein_files = []
 
-    if genome_ids_file:
-        #Read GenBank Project IDs from genomes_file, each on their own line
-        with open(genome_ids_file) as read_handle:
-            genome_ids = [line.split()[0] for line in read_handle
-                          if not line.startswith('#')
-                          and 'external genome' not in line]
+    #Read GenBank Project IDs from genomes_file, each on their own line
+    with open(genome_ids_file) as read_handle:
+        genome_ids = [line.split()[0] for line in read_handle
+                      if not line.startswith('#') and 'external genome' not in line]
 
-        #Retrieve associated genome dictionaries from complete genomes table
-        genomes = select_genomes_by_ids(genome_ids).values()
-        genomes = sorted(genomes, key = itemgetter('Organism Name'))
+        if len(genome_ids):
+            #Retrieve associated genome dictionaries from complete genomes table
+            genomes = select_genomes_by_ids(genome_ids).values()
+            genomes = sorted(genomes, key = itemgetter('Organism Name'))
 
-        #Actually translate the genomes to produced a set of files for both  dna files & protein files
-        dna_files, protein_files = translate_genomes(genomes)
+            #Actually translate the genomes to produced a set of files for both  dna files & protein files
+            dna_files, protein_files = translate_genomes(genomes)
 
     #Also translate the external genomes
     if external_zip:
