@@ -1,4 +1,21 @@
 #!/usr/bin/env python
+###
+# Part of the Adaptive Divergence through Direction of Selection workflow.
+# Copyright (C) 2011  Tim te Beek <tim.te.beek@nbic.nl>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+###
 """Module to translate between DNA and protein level."""
 
 from Bio import SeqIO
@@ -35,9 +52,10 @@ def _append_external_genomes(external_fasta_files, genomes_file):
                 #We'll use this 'external genome' source to skip externally derived files when downloading & translating
                 append_handle.write('{0}\t{1}\texternal genome\n'.format(label, origin))
 
-def _build_protein_to_cog_mapping(ptt_file):
-    """Build a dictionary mapping PID to COG based on protein table file."""
-    mapping = {}
+def _map_protein_cog_and_gene(ptt_file):
+    """Build a dictionary cog_mapping PID to COG based on protein table file."""
+    cog_mapping = {}
+    product_mapping = {}
     with open(ptt_file) as read_handle:
         #Line 1: Escherichia coli 536, complete genome - 1..4938920
         read_handle.readline().strip() #Intentionally ignored
@@ -54,11 +72,13 @@ def _build_protein_to_cog_mapping(ptt_file):
             assert len(values) == 9
             #Make format match format in genbank db_xref records
             pid = 'GI:' + values[3]
-            assert pid not in mapping, 'Protein identifier was already assigned value: ' + mapping[pid]
+            assert pid not in cog_mapping, 'Protein identifier was already assigned value: ' + cog_mapping[pid]
+            assert pid not in product_mapping, 'Protein identifier was already assigned value: ' + product_mapping[pid]
             #Assign None if value of COG does not start with COG (such as when it's '-')
             cog = values[7]
-            mapping[pid] = cog if cog.startswith('COG') else None
-    return mapping
+            cog_mapping[pid] = cog if cog.startswith('COG') else None
+            product_mapping[pid] = values[8]
+    return cog_mapping, product_mapping
 
 def translate_genomes(genomes):
     """Download genome files, extract genes and translate those to proteins, returning DNA and protein fasta files."""
@@ -118,7 +138,7 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file = None
         cog_dict = {}
     else:
         #Retrieve PID to COG mapping from ptt file
-        cog_dict = _build_protein_to_cog_mapping(ptt_file)
+        cog_dict, product_dict = _map_protein_cog_and_gene(ptt_file)
 
     #Open genbank_file & convert it using BioPython
     log.info('Translating %s', genbank_file)

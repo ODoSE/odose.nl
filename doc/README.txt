@@ -5,6 +5,7 @@
 		python-setuptools \
 		python-httplib2 \
 		python-mysqldb \
+		python-networkx \
 		python-nose \
 		pylint \
 		sloccount \
@@ -21,7 +22,6 @@
 	NCBIBlast+
 	TranslatorX
 	PAML
-	DoFE
 	PHYLIP
 	Galaxy
 	
