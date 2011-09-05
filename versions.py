@@ -18,6 +18,11 @@
 ###
 """Module to keep track of paths and versions of other software used within the workflow at various intervals."""
 
+import Bio
+import logging
+import sys
+logging.basicConfig(level = logging.INFO, stream = sys.stdout, format = '%(message)s')
+
 SOFTWARE_DIR = '/projects/divergence/software/'
 
 #Blast
@@ -42,11 +47,47 @@ MCL = SOFTWARE_DIR + 'mcl-10-201/src/shmcl/mcl'
 TRANSLATORX = SOFTWARE_DIR + 'translatorx/translatorx_v1.1.pl'
 
 #Concatemer tree
-DNADIST = SOFTWARE_DIR + 'phylip-3.69/exe/dnadist'
-NEIGHBOR = SOFTWARE_DIR + 'phylip-3.69/exe/neighbor'
+PHYLIP_DIR = SOFTWARE_DIR + 'phylip-3.69/'
+DNADIST = PHYLIP_DIR + 'exe/dnadist'
+NEIGHBOR = PHYLIP_DIR + 'exe/neighbor'
 
 #Calculation
-CODEML = SOFTWARE_DIR + 'paml44/bin/codeml'
+PAML_DIR = SOFTWARE_DIR + 'paml44/'
+CODEML = PAML_DIR + 'bin/codeml'
+
+from subprocess import Popen, PIPE
+
+def _call_program(*command):
+    """Execute command and return the standard output returned by the program. Standard error is caught and ignored."""
+    process = Popen(command, stdout = PIPE, stderr = PIPE)
+    process.wait()
+    return process.communicate()[0]
+
+def _grep_version(path, pattern = 'version'):
+    """Grep for the pattern `version` case insensitively in files specified on path and return the first line."""
+    stdout = _call_program('grep', '-ri', pattern, path)
+    return stdout.split('\n')[0]
 
 if __name__ == '__main__':
-    pass
+    #BioPython
+    logging.info('BioPython: ' + Bio.__version__ + '\n')
+
+    #Blast
+    logging.info(_call_program(MAKEBLASTDB, '-version'))
+    logging.info(_call_program(BLASTP, '-version'))
+    logging.info(_call_program(BLASTN, '-version'))
+
+    #OrthoMCL & mcl
+    logging.info('OrthoMCL: ' + _grep_version(ORTHOMCL_DIR + '../doc/OrthoMCLEngine/Main/UserGuide.txt') + '\n')
+    logging.info(_call_program(MCL, '--version'))
+
+    #PAML codeml
+    logging.info('PAML codeml: ' + _grep_version(PAML_DIR + 'doc/pamlHistory.txt') + '\n')
+
+    #PHYLIP dnadist & neighbor
+    logging.info('PHYLIP dnadist: ' + _grep_version(PHYLIP_DIR + 'src/dnadist.c')[3:] + '\n')
+    logging.info('PHYLIP neighbor: ' + _grep_version(PHYLIP_DIR + 'src/neighbor.c')[3:] + '\n')
+
+    #TranslatorX calls muscle internally
+    logging.info('translatorx: ' + _grep_version(TRANSLATORX, pattern = 'TranslatorX v')[28:-6] + '\n')
+    logging.info(_call_program('muscle', '-version'))
