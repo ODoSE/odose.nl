@@ -24,7 +24,7 @@ import logging
 SOFTWARE_DIR = '/projects/divergence/software/'
 
 #Blast
-NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.24+/bin/'
+NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.25+/bin/'
 MAKEBLASTDB = NCBI_BLAST_DIR + 'makeblastdb'
 BLASTP = NCBI_BLAST_DIR + 'blastp'
 BLASTN = NCBI_BLAST_DIR + 'blastn'
