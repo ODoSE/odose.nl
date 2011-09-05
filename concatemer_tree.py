@@ -145,7 +145,7 @@ def _read_taxa_from_tree(tree_file):
     clade_two = sorted(str(int(leaf.confidence)) for leaf in clades[1].get_terminals())
     return clade_one, clade_two
 
-def visualize_tree(super_tree_file, id_to_name_map, ascii_tree):
+def visualize_tree(super_tree_file, id_to_name_map, tree_output):
     """Visualize the phylogenetic tree encoded in the Newick format super_tree_file, and write graphic to ascii_tree."""
     #Draw phylogenetic tree
     tree = Phylo.read(super_tree_file, 'newick')
@@ -153,11 +153,19 @@ def visualize_tree(super_tree_file, id_to_name_map, ascii_tree):
     #BioPython misinterprets numerical leaf names as confidence scores: Fix this here
     for leaf in tree.get_terminals():
         project_id = str(int(leaf.confidence))
-        leaf.name = '{0}\t{1}'.format(project_id, id_to_name_map[project_id])
+        leaf.confidence = None
+        organism_name = id_to_name_map.get(project_id, '').replace(' ', '\n', 1)
+        leaf.name = '{0} {1}'.format(project_id, organism_name)
 
-    #Print ascii tree, as we can't get visualization to work properly using draw_graphviz
-    with open(ascii_tree, mode = 'w') as write_handle:
-        Phylo.draw_ascii(tree, file = write_handle, column_width = 120)
+    #The below code works when installing python-networkx on ubuntu
+    import pylab
+    Phylo.draw(tree, do_show = False)
+    #Phylo.draw_graphviz(tree, prog = 'neato')
+    pylab.savefig(tree_output, format = 'svg')
+
+    #Print ascii tree, when you can't get visualization to work properly using draw_graphviz
+    #with open(tree_output, mode = 'w') as write_handle:
+    #    Phylo.draw_ascii(tree, file = write_handle, column_width = 120)
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""

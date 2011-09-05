@@ -113,8 +113,7 @@ def _group_cds_by_operons(coding_sequences, operon_distance = 300):
             operon = [cds]
 
 def _usage_per_operon_position(operons):
-    """"""
-    #Calculate usage for each of the positions
+    """Calculate usage for each of the positions"""
     stopcodon_usage_per_operon_position = {}
     largest_operon = max(len(operon) for operon in operons)
     for operon_position in range(0, largest_operon):
