@@ -158,6 +158,8 @@ def visualize_tree(super_tree_file, id_to_name_map, tree_output):
         leaf.name = '{0} {1}'.format(project_id, organism_name)
 
     #The below code works when installing python-networkx on ubuntu
+    import matplotlib
+    matplotlib.use('Agg')
     import pylab
     Phylo.draw(tree, do_show = False)
     #Phylo.draw_graphviz(tree, prog = 'neato')
