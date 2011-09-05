@@ -20,8 +20,6 @@
 
 import Bio
 import logging
-import sys
-logging.basicConfig(level = logging.INFO, stream = sys.stdout, format = '%(message)s')
 
 SOFTWARE_DIR = '/projects/divergence/software/'
 
@@ -68,7 +66,8 @@ def _grep_version(path, pattern = 'version'):
     stdout = _call_program('grep', '-ri', pattern, path)
     return stdout.split('\n')[0]
 
-if __name__ == '__main__':
+def main():
+    """Method intended to be run when __name-- == '__main__'."""
     #BioPython
     logging.info('BioPython: ' + Bio.__version__ + '\n')
 
@@ -91,3 +90,6 @@ if __name__ == '__main__':
     #TranslatorX calls muscle internally
     logging.info('translatorx: ' + _grep_version(TRANSLATORX, pattern = 'TranslatorX v')[28:-6] + '\n')
     logging.info(_call_program('muscle', '-version'))
+
+if __name__ == '__main__':
+    main()
