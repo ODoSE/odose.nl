@@ -13,7 +13,6 @@ Biopython:
 	PMCID: PMC2682512
 	PMID: 19304878 [PubMed - indexed for MEDLINE]
 
-
 MCL:
 	Stijn van Dongen, Graph Clustering by Flow Simulation.
 	PhD thesis, University of Utrecht, May 2000.
@@ -28,14 +27,47 @@ MCL:
 	An efficient algorithm for large-scale detection of protein families,
 	Nucleic Acids Research 30(7):1575-1584 (2002).
 
-
 ORTHOMCL:
 	Chen F, Mackey AJ, Vermunt JK, Roos DS, 2007 
 	Assessing Performance of Orthology Detection Strategies Applied to Eukaryotic Genomes. 
 	PLoS ONE 2(4): e383. doi:10.1371/journal.pone.0000383
 
-
 TRANSLATORX:
 	Abascal F, Zardoya R, Telford MJ (2010) 
 	TranslatorX: multiple alignment of nucleotide sequences guided by amino acid translations 
 	Nucleic Acids Res. doi:10.1093/nar/gkq291
+	
+PAML:
+	Yang, Z.  1997.  PAML: a program package for phylogenetic analysis by maximum likelihood 
+	Computer Applications in BioSciences 13:555-556.
+
+	Yang, Z.  2007.  PAML 4: a program package for phylogenetic analysis by maximum likelihood.  
+	Molecular Biology and Evolution 24: 1586-1591 
+	(http://abacus.gene.ucl.ac.uk/software/paml.html)
+
+PHYLIP:
+	Felsenstein, J. 2005. 
+	PHYLIP (Phylogeny Inference Package) version 3.6. Distributed by the author. 
+	Department of Genome Sciences, University of Washington, Seattle.
+
+MUSCLE:
+	Edgar, R.C. (2004) MUSCLE: multiple sequence alignment with high accuracy and high throughput.Nucleic Acids Res. 32(5):1792-1797.
+	doi:10.1093/nar/gkh340
+
+	Edgar, R.C. (2004) MUSCLE: a multiple sequence alignment method with reduced time and space complexity BMC Bioinformatics, (5) 113.
+	doi:10.1186/1471-2105-5-113
+
+NCBIBlast+:
+
+Galaxy:
+	Goecks, J, Nekrutenko, A, Taylor, J and The Galaxy Team. 
+	Galaxy: a comprehensive approach for supporting accessible, reproducible, and transparent computational research in the life sciences. 
+	Genome Biol. 2010 Aug 25;11(8):R86.
+
+	Blankenberg D, Von Kuster G, Coraor N, Ananda G, Lazarus R, Mangan M, Nekrutenko A, Taylor J. 
+	"Galaxy: a web-based genome analysis tool for experimentalists".
+	Current Protocols in Molecular Biology. 2010 Jan; Chapter 19:Unit 19.10.1-21.
+
+	Giardine B, Riemer C, Hardison RC, Burhans R, Elnitski L, Shah P, Zhang Y, Blankenberg D, Albert I, Taylor J, Miller W, Kent WJ, Nekrutenko A. 
+	"Galaxy: a platform for interactive large-scale genome analysis."
+	Genome Research. 2005 Oct; 15(10):1451-5.
