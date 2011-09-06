@@ -25,6 +25,7 @@ from Bio.Data import CodonTable
 from divergence import parse_options, create_directory, extract_archive_of_files, concatenate, CODON_TABLE_ID
 from divergence.filter_orthologs import find_cogs_in_sequence_records
 from divergence.run_codeml import run_codeml, parse_codeml_output
+from divergence.select_taxa import select_genomes_by_ids
 from itertools import product
 from multiprocessing import Pool
 from operator import itemgetter
@@ -72,7 +73,7 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
     dos_list = []
     for comp_values in comp_values_list:
         #Sum the following columns
-        for column in _get_column_headers_in_sequence(sfs_max_nton)[3:-2]:
+        for column in _get_column_headers_in_sequence(sfs_max_nton)[4:-2]:
             if comp_values.get(column) is not None:
                 old_value = sum_comp_values.get(column, 0)
                 sum_comp_values[column] = old_value + comp_values[column]
@@ -95,6 +96,36 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
     _append_statistics(calculations_file, 'NI 95% lower limit', {'neutrality index': lower_95perc_limit}, sfs_max_nton)
     _append_statistics(calculations_file, 'NI 95% upper limit', {'neutrality index': upper_95perc_limit}, sfs_max_nton)
 
+def _get_most_recent_gene_name(genomes, sequence_records):
+    """Return gene name annotation for most recently updated genome from sequence records in ortholog."""
+    ortholog_products = {}
+    for record in sequence_records:
+        #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|some gene name
+        values = record.id.split('|')
+        genome = values[0]
+        gene_name = values[4]
+        ortholog_products[genome] = gene_name
+
+    #If there's only a single gene name, look no further
+    if len(set(ortholog_products.values())) == 1:
+        return ortholog_products.values()[0]
+
+    #When no genomes are found, for instance when all genomes are external genomes, just return the first annotation
+    if not genomes:
+        return ortholog_products.values()[0]
+
+    #Determine which genome is the most recent by looking at the modification & release dates of published genomes
+    #Starting at the newest genomes, return the first gene name annotation we find
+    for genome in sorted(genomes, key = lambda x: x['Modified date'] or x['Released date'], reverse = True):
+        if genome['RefSeq project ID'] in ortholog_products:
+            return ortholog_products[genome['RefSeq project ID']]
+        if genome['Project ID'] in ortholog_products:
+            return ortholog_products[genome['Project ID']]
+
+    #Shouldn't really happen, but write this clause anyhow
+    log.warn('Could not retrieve gene name annotation for newest genome; returning first gene name annotation instead')
+    return ortholog_products.values()[0]
+
 def _every_other_codon_alignments(alignment):
     """Separate alignment into separate alignments per codon, to get independent axis when graphing data."""
     #Calculate sequence_length to use when splitting MSA into codons 
@@ -116,17 +147,29 @@ def _every_other_codon_alignments(alignment):
 
 def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
     """Compute a spreadsheet of data points each for A and B based the SICO files, without duplicating computations."""
+    #Convert list of sico files into ortholog name mapped to BioPython Alignment object
+    sico_alignments = [(os.path.split(sico_file)[1].split('.')[0], AlignIO.read(sico_file, 'fasta'))
+                       for sico_file in sico_files]
+
+    #Only retrieve genomes once which we'll use to link gene names to orthologs
+    all_genome_ids = list(genome_ids_a)
+    all_genome_ids.extend(genome_ids_b)
+    genomes = select_genomes_by_ids(all_genome_ids).values()
+
+    #For each ortholog, determine the newest gene name across taxa so unannotated taxa also get gene names
+    ortholog_gene_names = dict((ortholog, _get_most_recent_gene_name(genomes, alignment))
+                               for ortholog, alignment in sico_alignments)
+
     #Split individual sico alignments into separate alignments for each of the clades per ortholog
     #These split alignments can later be reversed and/or subselections can be made to calculate for alternate alignments
-    sico_alignments = ((sico_file, AlignIO.read(sico_file, 'fasta')) for sico_file in sico_files)
-    split_alignments = [(os.path.split(sico_file)[1].split('.')[0],
+    split_alignments = [(ortholog,
                          MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_a),
                          MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_b))
-                        for sico_file, alignment in sico_alignments]
+                        for ortholog, alignment in sico_alignments]
 
     #Calculate tables for normal sico alignments
     log.info('Starting calculations for full alignments')
-    table_a, table_b = _tables_for_split_alignments(split_alignments)
+    table_a, table_b = _tables_for_split_alignments(split_alignments, ortholog_gene_names)
 
     if not oddeven:
         return table_a, table_b
@@ -146,7 +189,7 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
 
     #Calculate tables for odd codon sico alignments
     log.info('Starting calculations for odd alignments')
-    table_a_odd, table_b_odd = _tables_for_split_alignments(odd_split_alignments)
+    table_a_odd, table_b_odd = _tables_for_split_alignments(odd_split_alignments, ortholog_gene_names)
 
     #Recover even alignments as second from each pair of alignments
     even_split_alignments = [(orthologname,
@@ -156,7 +199,7 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
 
     #Calculate tables for even codon sico alignments
     log.info('Starting calculations for even alignments')
-    table_a_even, table_b_even = _tables_for_split_alignments(even_split_alignments)
+    table_a_even, table_b_even = _tables_for_split_alignments(even_split_alignments, ortholog_gene_names)
 
     #Concatenate tables and return their values
     table_a_full = tempfile.mkstemp(suffix = '.tsv', prefix = 'table_a_full_')[1]
@@ -173,7 +216,7 @@ def _codeml_values_for_alignments(codeml_dir, ali_x, ali_y):
     codeml_values_dict = parse_codeml_output(codeml_file)
     return codeml_values_dict
 
-def _tables_for_split_alignments(split_ortholog_alignments):
+def _tables_for_split_alignments(split_ortholog_alignments, ortholog_gene_names):
     """Calculate full tables of values for """
     #Create temporary folder for codeml files
     codeml_dir = tempfile.mkdtemp(prefix = 'codeml_')
@@ -194,12 +237,12 @@ def _tables_for_split_alignments(split_ortholog_alignments):
 
     #Create separate data table for genome_ids_a and genome_ids_b
     log.info('About to start calculations of %i clade A genomes vs %i clade B', len(alignments_a), len(alignments_b))
-    calculations_a = _calculate_for_clade_alignments(alignments_a, ortholog_codeml_values)
+    calculations_a = _calculate_for_clade_alignments(alignments_a, ortholog_codeml_values, ortholog_gene_names)
     log.info('About to start calculations of %i clade B genomes vs %i clade A', len(alignments_b), len(alignments_a))
-    calculations_b = _calculate_for_clade_alignments(alignments_b, ortholog_codeml_values)
+    calculations_b = _calculate_for_clade_alignments(alignments_b, ortholog_codeml_values, ortholog_gene_names)
     return calculations_a, calculations_b
 
-def _calculate_for_clade_alignments(alignments_x, ortholog_codeml_values):
+def _calculate_for_clade_alignments(alignments_x, ortholog_codeml_values, ortholog_gene_names):
     """Calculate spreadsheet of data for genomes in genome_ids_x using the provided sico files and codeml values."""
     #Create the output file here
     calculations_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_')[1]
@@ -227,6 +270,9 @@ def _calculate_for_clade_alignments(alignments_x, ortholog_codeml_values):
     for orthologname, alignment_x in alignments_x:
         #Retrieve ortholog codeml values from dictionary based on orthologname key
         codeml_values_dict = ortholog_codeml_values[orthologname]
+
+        #Append gene name
+        codeml_values_dict['product'] = ortholog_gene_names[orthologname]
 
         #Perform calculations for subaligments of each clade, if clade has more than one sequence; skipping outliers
         comp_values = _perform_calculations(alignment_x, codeml_values_dict)
@@ -273,7 +319,7 @@ def _perform_calculations(alignment, codeml_values):
     #Calculate sequence_lengths here so we can handle alignments that are not multiples of three
     sequence_lengths = len(alignment[0]) - len(alignment[0]) % 3
     #Split into codon_alignments
-    codon_alignments = [alignment[:, index:index + 3] for index in range(0, sequence_lengths, 3)]
+    codon_alignments = (alignment[:, index:index + 3] for index in range(0, sequence_lengths, 3))
     for codon_alignment in codon_alignments:
         #Get string representations of codons for simplicity 
         codons = [str(seqr.seq) for seqr in codon_alignment]
@@ -512,8 +558,11 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
 
 def _get_column_headers_in_sequence(max_nton):
     """Return the column headers to the generated statistics files in the correct order, using max_nton for SFS max."""
+    #Gene name is captured as product of the orthologous DNA sequence
+    headers = ['product']
+
     #Split COG into first part with numbers and second part with letters
-    headers = ['cog digits', 'cog letters']
+    headers.extend(['cog digits', 'cog letters'])
     #Some initial values
     headers.append('codons')
 
