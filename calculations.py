@@ -300,7 +300,7 @@ def _four_fold_degenerate_patterns():
             #Add regular expression pattern to the set of patterns
             yield '{0}[{1}]'.format(site12, letters)
 
-FOUR_FOLD_DEGENERATE_PATTERNS = set(_four_fold_degenerate_patterns())
+FOUR_FOLD_DEGENERATE_PATTERN = '|'.join(_four_fold_degenerate_patterns())
 
 def _get_nton_name(nton, prefix = ''):
     """Given the number of strains in which a polymorphism/substitution is found, give the appropriate SFS name."""
@@ -361,10 +361,9 @@ def _perform_calculations(alignment, codeml_values):
         if not any(polymorphisms):
             #But do increase the number of 4-fold synonymous sites if the pattern matches
             codon = codons[0]
-            for pattern in FOUR_FOLD_DEGENERATE_PATTERNS:
-                if re.match(pattern, codon):
-                    #Increase by one, as this site is for fold degenerate, even if it is not polymorphic
-                    four_fold_synonymous_sites += 1
+            if re.match(FOUR_FOLD_DEGENERATE_PATTERN, codon):
+                #Increase by one, as this site is for fold degenerate, even if it is not polymorphic
+                four_fold_synonymous_sites += 1
             continue
 
         #Determine if only one site is polymorphic by using boolean xor and not all
@@ -405,15 +404,14 @@ def _perform_calculations(alignment, codeml_values):
             #Update synonymous SFS by adding values from local SFS
             _update_sfs_with_local_sfs(synonymous_sfs, local_sfs)
 
-            #Codon is four fold degenerate if it matches any pattern in FOUR_FOLD_DEGENERATE_PATTERNS
+            #Codon is four fold degenerate if it matches FOUR_FOLD_DEGENERATE_PATTERN
             if site3_polymorphic:
                 codon = codons[0]
-                for pattern in FOUR_FOLD_DEGENERATE_PATTERNS:
-                    if re.match(pattern, codon):
-                        #Update four fold degenerate SFS by adding values from local SFS
-                        _update_sfs_with_local_sfs(four_fold_syn_sfs, local_sfs)
-                        #Increase the number of four_fold synonymous sites here as well
-                        four_fold_synonymous_sites += 1
+                if re.match(FOUR_FOLD_DEGENERATE_PATTERN, codon):
+                    #Update four fold degenerate SFS by adding values from local SFS
+                    _update_sfs_with_local_sfs(four_fold_syn_sfs, local_sfs)
+                    #Increase the number of four_fold synonymous sites here as well
+                    four_fold_synonymous_sites += 1
         else: #not synonymous
             if len(polymorph_site_usage) == len(translation_usage):
                 #If all polymorphisms encode for different AA, we have multiple non-synonymous polymorphisms, where:
