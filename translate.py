@@ -68,15 +68,14 @@ def _map_protein_cog_and_gene(ptt_file):
         assert columns == ['Location', 'Strand', 'Length', 'PID', 'Gene', 'Synonym', 'Code', 'COG', 'Product']
 
         for line in read_handle:
-            values = line.split('\t')
+            values = line.strip().split('\t')
             assert len(values) == 9
             #Make format match format in genbank db_xref records
-            pid = 'GI:' + values[3]
+            pid = values[3]
             assert pid not in cog_mapping, 'Protein identifier was already assigned value: ' + cog_mapping[pid]
             assert pid not in product_mapping, 'Protein identifier was already assigned value: ' + product_mapping[pid]
             #Assign None if value of COG does not start with COG (such as when it's '-')
-            cog = values[7]
-            cog_mapping[pid] = cog if cog.startswith('COG') else None
+            cog_mapping[pid] = values[7] if values[7].startswith('COG') else None
             product_mapping[pid] = values[8]
     return cog_mapping, product_mapping
 
@@ -148,11 +147,11 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file = None
             gb_recrd = SeqIO.read(genbank_file, 'genbank')
 
             #Determine whether the source of this genbank file is core genome or plasmid
-            plasmid = False
-            for gb_featr in gb_recrd.features:#Bio.SeqFeature
-                if gb_featr.type == 'source' and 'plasmid' in gb_featr.qualifiers:
-                    plasmid = True
-                    break
+            #plasmid = False
+            #for gb_featr in gb_recrd.features:#Bio.SeqFeature
+            #    if gb_featr.type == 'source' and 'plasmid' in gb_featr.qualifiers:
+            #        plasmid = True
+            #        break
 
             #Select only the coding sequences from all feature records
             coding_features = [gb_featr for gb_featr in gb_recrd.features
@@ -166,7 +165,7 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file = None
 
             #Translate all coding sequences
             for cds_featr in coding_features:
-                _extract_and_translate_cds(cog_dict, aa_wrtr, dna_wrtr, project_id, gb_recrd, cds_featr, plasmid)
+                _extract_and_translate_cds(cog_dict, product_dict, aa_wrtr, dna_wrtr, project_id, gb_recrd, cds_featr)
 
     assert os.path.isfile(dna_tmp) and 0 < os.path.getsize(dna_tmp), dna_tmp + ' should exist and have some content'
     assert os.path.isfile(aa_tmp) and 0 < os.path.getsize(aa_tmp), aa_tmp + ' should exist and have some content'
@@ -177,7 +176,7 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file = None
 
     return dna_file_dest, aa_file_dest
 
-def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, project_id, gb_record, gb_feature, plasmid):
+def _extract_and_translate_cds(cog_mapping, product_mapping, aa_writer, dna_writer, project_id, gb_record, gb_feature):
     """Extract DNA for Coding sequences, translate using GBK translation table and return dna & protein fasta files."""
 
     #Protein identifier is a property of the genbank feature
@@ -244,18 +243,19 @@ def _extract_and_translate_cds(cog_mapping, aa_writer, dna_writer, project_id, g
 
     #Determine COG by looking it up based on protein identifier
     cog = None
-    for xref in gb_feature.qualifiers['db_xref']:
-        if xref in cog_mapping:
-            cog = cog_mapping[xref]
-            break
+    product = None
+    idlist = [xref[3:] for xref in gb_feature.qualifiers['db_xref'] if xref.startswith('GI:')]
+    if idlist:
+        pid = idlist[0]
+        cog = cog_mapping.get(pid, None)
+        product = product_mapping.get(pid, None)
 
     #Strip stopcodon from DNA sequence here, so it's removed by the time we align & trim the sequences
     if cds_has_stopcodon:
         extracted_seq = extracted_seq[:-3]
 
-    #Write out fasta. Header format as requested: >project_id|genbank_ac|protein_id|cog|source (either core or plasmid)
-    source = 'plasmid' if plasmid else 'core'
-    header = '{0}|{1}|{2}|{3}|{4}'.format(project_id, gb_record.id, protein_id, cog, source)
+    #Write out fasta. Header format as requested: >project_id|genbank_ac|protein_id|cog|gene name
+    header = '{0}|{1}|{2}|{3}|{4}'.format(project_id, gb_record.id, protein_id, cog, product)
     _write_fasta(aa_writer, header, str(protein_seq))
     _write_fasta(dna_writer, header, str(extracted_seq))
 
