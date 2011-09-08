@@ -87,7 +87,7 @@ def _extract_coding_sequences(gbk_record):
         last_codon = str(cds_feature.extract(gbk_record.seq)[-3:])
         #Yield start position, end position and last codon if stopcodon
         if last_codon in BACTERIAL_CODON_TABLE.stop_codons:
-            yield cds_start, cds_end, last_codon
+            yield cds_start, cds_end, last_codon, cds_feature.qualifiers['product']
 
 def _group_cds_by_operons(coding_sequences, operon_distance = 300):
     """Group coding sequences into operons based on how close the start of a gene is to the end of the previous gene."""
@@ -124,7 +124,7 @@ def _usage_per_operon_position(operons):
 def __main__():
     """Main method called when run from terminal."""
     #Select random genomes
-    genomes = _sample_genomes(100)
+    genomes = _sample_genomes(3)
 
     #Download genbank files for genomes in the background
     from multiprocessing import Pool
