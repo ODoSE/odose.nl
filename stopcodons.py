@@ -2,8 +2,6 @@
 Created on Jul 7, 2011
 
 @author: tbeek
-
-Hypothesis: There's a bias in the usage of stopcodons within operons. 
 '''
 
 from __future__ import division
@@ -11,7 +9,6 @@ from Bio import SeqIO
 from Bio.Data import CodonTable
 from divergence import CODON_TABLE_ID
 from divergence.select_taxa import _parse_genomes_table, download_genome_files
-from itertools import chain
 from operator import itemgetter
 from random import choice
 import logging
@@ -33,7 +30,7 @@ def _sample_genomes(sample_size = 100):
 
         #Skip some known troublesome cases
         if genome['RefSeq project ID'] in ('57665', '57721', '57727', '57755', '57757', '57853', '58069', '58599', \
-                                           '58901', '58941', '59133', '62947', '68249', '59189', '58407'):
+                                           '58901', '58941', '59133', '62947', '68249', '59189', '58407', '58709'):
             continue
 
         firstname = genome['Organism Name'].split()[0]
@@ -117,60 +114,54 @@ def _usage_per_operon_position(operons):
     stopcodon_usage_per_operon_position = {}
     largest_operon = max(len(operon) for operon in operons)
     for operon_position in range(0, largest_operon):
-        position_stopcodons = [operon[operon_position][2] for operon in operons if operon_position < len(operon)]
-        position_stopcodon_counts = dict((codon, position_stopcodons.count(codon)) for codon in set(position_stopcodons))
+        position_stopcodons = [operon[operon_position][2]
+                               for operon in operons if operon_position < len(operon)]
+        position_stopcodon_counts = dict((codon, position_stopcodons.count(codon))
+                                         for codon in set(position_stopcodons))
         stopcodon_usage_per_operon_position[operon_position] = position_stopcodon_counts
     return stopcodon_usage_per_operon_position
 
 def __main__():
     """Main method called when run from terminal."""
-    if True:
-        #Select random genomes
-        genomes = _sample_genomes(100)
+    #Select random genomes
+    genomes = _sample_genomes(100)
 
-        #Download genbank files for genomes in the background
-        from multiprocessing import Pool
-        pool = Pool()
-        ft_genome_files = [pool.apply_async(download_genome_files, (genome,)) for genome in genomes]
-        genome_files = (future.get() for future in ft_genome_files)
-        genbank_files = (pairs[1] for files in genome_files for pairs in files)
-    else:
-        #Read current genbank from cache directory
-        import glob
-        #TODO Fix path
-        genbank_files = list(glob.glob('/data/dev/workspace-python/lib-divergence/divergence-cache/refseq/*/*.gbk'))
+    #Download genbank files for genomes in the background
+    from multiprocessing import Pool
+    pool = Pool()
+    ft_genome_files = [(genome['Organism Name'], pool.apply_async(download_genome_files, (genome,)))
+                       for genome in genomes]
+    genome_files = ((name, (pairs[1]
+                            for pairs in future.get()))
+                    for name, future in ft_genome_files)
 
     #Extract coding sequences from genome files
-    gbk_records = (_read_genbank_file(genbank_file) for genbank_file in genbank_files)
-    cds_per_genome = (_extract_coding_sequences(gbk_record) for gbk_record in gbk_records)
+    genome_gbk_records = ((name, (_read_genbank_file(genbank_file)
+                                  for genbank_file in genbank_files))
+                          for name, genbank_files in genome_files)
+    genome_stopcodons = ((name, [cds_tuple[2]
+                                 for gbk_record in gbk_records
+                                 for cds_tuple in _extract_coding_sequences(gbk_record)])
+                         for name, gbk_records in genome_gbk_records)
 
-    #Group coding sequences from each genome into operons
-    operons_per_genome = (tuple(_group_cds_by_operons(genome_cds)) for genome_cds in cds_per_genome)
+    #Stopcodons per genome
+    usages = ((name, dict((codon, stopcodons.count(codon))
+                   for codon in set(stopcodons)))
+              for name, stopcodons in genome_stopcodons
+              if stopcodons)
 
-    #Chain operons from all genomes
-    all_operons = list(chain.from_iterable(operons_per_genome))
-
-    #Per genome, calculate overall stopcodon usage
-    with open('stopcodon-stats.tsv', mode = 'w', buffering = 1) as write_handle:
-        #Print header
-        header = '\t'.join(('Position',
-                            'TAG',
-                            'TAA',
-                            'TGA'))
-        print header
-        write_handle.write(header + ' \n')
-
-        #Calculate stopcodon usage
-        stopcodon_usage_per_operon_position = _usage_per_operon_position(all_operons)
-
-        #Write out usage of each of the three codons at each position of an operon
-        for position in sorted(stopcodon_usage_per_operon_position.keys()):
-            position_stopcodon_counts = stopcodon_usage_per_operon_position[position]
-            tag_count = position_stopcodon_counts.get('TAG', 0)
-            taa_count = position_stopcodon_counts.get('TAA', 0)
-            tga_count = position_stopcodon_counts.get('TGA', 0)
-            print position, taa_count, tag_count, tga_count
-            write_handle.write('{0}\t{1}\t{2}\t{3}\n'.format(position, tag_count, taa_count, tga_count))
+    #Write out usages
+    with open('stopcodon-usage-across-species.tsv', mode = 'w') as write_handle:
+        write_handle.write('name\tTAA\t%\tTAG\t%\tTGA\t%\t\n')
+        for name, usage in usages:
+            total = sum(usage.values())
+            taa = usage.get('TAA', 0)
+            tag = usage.get('TAG', 0)
+            tga = usage.get('TGA', 0)
+            write_handle.write('\t'.join(str(item) for item in (name,
+                                                                taa, taa / total * 100,
+                                                                tag, tag / total * 100,
+                                                                tga, tga / total * 100)) + '\n')
 
     print 'Done!'
 
