@@ -87,7 +87,7 @@ def _extract_coding_sequences(gbk_record):
         last_codon = str(cds_feature.extract(gbk_record.seq)[-3:])
         #Yield start position, end position and last codon if stopcodon
         if last_codon in BACTERIAL_CODON_TABLE.stop_codons:
-            yield cds_start, cds_end, last_codon, cds_feature.qualifiers['product']
+            yield cds_start, cds_end, last_codon, cds_feature.qualifiers['product'][0]
 
 def _group_cds_by_operons(coding_sequences, operon_distance = 300):
     """Group coding sequences into operons based on how close the start of a gene is to the end of the previous gene."""
@@ -124,7 +124,7 @@ def _usage_per_operon_position(operons):
 def __main__():
     """Main method called when run from terminal."""
     #Select random genomes
-    genomes = _sample_genomes(3)
+    genomes = _sample_genomes(150)
 
     #Download genbank files for genomes in the background
     from multiprocessing import Pool
@@ -139,29 +139,58 @@ def __main__():
     genome_gbk_records = ((name, (_read_genbank_file(genbank_file)
                                   for genbank_file in genbank_files))
                           for name, genbank_files in genome_files)
-    genome_stopcodons = ((name, [cds_tuple[2]
-                                 for gbk_record in gbk_records
-                                 for cds_tuple in _extract_coding_sequences(gbk_record)])
-                         for name, gbk_records in genome_gbk_records)
-
-    #Stopcodons per genome
-    usages = ((name, dict((codon, stopcodons.count(codon))
-                   for codon in set(stopcodons)))
-              for name, stopcodons in genome_stopcodons
-              if stopcodons)
+    genome_codons_and_products = ((name, [(cds_tuple[2], cds_tuple[3])
+                                          for gbk_record in gbk_records
+                                          for cds_tuple in _extract_coding_sequences(gbk_record)])
+                                  for name, gbk_records in genome_gbk_records)
 
     #Write out usages
     with open('stopcodon-usage-across-species.tsv', mode = 'w') as write_handle:
-        write_handle.write('name\tTAA\t%\tTAG\t%\tTGA\t%\t\n')
-        for name, usage in usages:
-            total = sum(usage.values())
-            taa = usage.get('TAA', 0)
-            tag = usage.get('TAG', 0)
-            tga = usage.get('TGA', 0)
-            write_handle.write('\t'.join(str(item) for item in (name,
-                                                                taa, taa / total * 100,
+        #Header
+        write_handle.write('name\tTAA\t%\tTAG\t%\tTGA\t%\t')
+        write_handle.write('ribosomal TAA\t%\tribosomal TAG\t%\tribosomal TGA\t%\t')
+        write_handle.write('TAA % +/-\tTAG % +/-\tTGA % +/-\n')
+
+        for name, codons_products in genome_codons_and_products:
+            #Split ribosomal codons from the non ribosomal
+            ribosomal_stopcodons = [codon for codon, product in codons_products if 'ribosomal protein' in product]
+            nonriboso_stopcodons = [codon for codon, product in codons_products if 'ribosomal protein' not in product]
+
+            #Determine usage of the separate stopcodon sets
+            ribo_usage = dict((codon, ribosomal_stopcodons.count(codon))
+                              for codon in set(ribosomal_stopcodons) if ribosomal_stopcodons)
+            nonr_usage = dict((codon, nonriboso_stopcodons.count(codon))
+                              for codon in set(nonriboso_stopcodons) if nonriboso_stopcodons)
+
+            #Organism name            
+            write_handle.write(name + '\t')
+            print name
+
+            #Print non ribosomal usage
+            total = sum(nonr_usage.values())
+            taa = nonr_usage.get('TAA', 0)
+            tag = nonr_usage.get('TAG', 0)
+            tga = nonr_usage.get('TGA', 0)
+            write_handle.write('\t'.join(str(item) for item in (taa, taa / total * 100,
                                                                 tag, tag / total * 100,
-                                                                tga, tga / total * 100)) + '\n')
+                                                                tga, tga / total * 100)) + '\t')
+            #Print ribosomal usage
+            rtotal = sum(ribo_usage.values())
+            if rtotal:
+                rtaa = ribo_usage.get('TAA', 0)
+                rtag = ribo_usage.get('TAG', 0)
+                rtga = ribo_usage.get('TGA', 0)
+                write_handle.write('\t'.join(str(item) for item in (rtaa, rtaa / rtotal * 100,
+                                                                    rtag, rtag / rtotal * 100,
+                                                                    rtga, rtga / rtotal * 100)) + '\t')
+
+                #Relative difference                
+                write_handle.write('\t'.join(str(item) for item in (rtaa / rtotal * 100 - taa / total * 100,
+                                                                    rtag / rtotal * 100 - tag / total * 100,
+                                                                    rtga / rtotal * 100 - tga / total * 100)))
+
+            #New line
+            write_handle.write('\n')
 
     print 'Done!'
 
