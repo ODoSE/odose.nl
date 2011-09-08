@@ -124,7 +124,10 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file = None
     #Check if destination output files already exist and have content, and if so return them
     if (os.path.isfile(aa_file_dest) and 0 < os.path.getsize(aa_file_dest) and
         os.path.isfile(dna_file_dest) and 0 < os.path.getsize(dna_file_dest)):
-        return dna_file_dest, aa_file_dest
+        #But only if the output files are newer than the genbank file, otherwise translate the newer file & overwrite
+        if (os.path.getmtime(genbank_file) < os.path.getmtime(aa_file_dest) and
+            os.path.getmtime(genbank_file) < os.path.getmtime(dna_file_dest)):
+            return dna_file_dest, aa_file_dest
 
     #Use temporary files as write handles when translating, so we can not pollute cache with incomplete files
     dna_tmp = tempfile.mkstemp(suffix = '.ffn', prefix = 'translate_')[1]
