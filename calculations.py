@@ -85,16 +85,18 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
 
     #Calculate DoS average
     mean_values = dict((key, value / len(comp_values_list)) for key, value in sum_comp_values.iteritems())
-    mean_values['direction of selection'] = sum(dos_list) / len(dos_list)
+    if dos_list:
+        mean_values['direction of selection'] = sum(dos_list) / len(dos_list)
     _append_statistics(calculations_file, 'mean', mean_values, sfs_max_nton)
 
     #Neutrality Index = Sum(X = Ds*Pn/(Ps+Ds)) / Sum(Y = Dn*Ps/(Ps+Ds))
-    neutrality_values = {'neutrality index': sum_comp_values['Ds*Pn/(Ps+Ds)'] / sum_comp_values['Dn*Ps/(Ps+Ds)']}
-    _append_statistics(calculations_file, 'NI', neutrality_values, sfs_max_nton)
-    #Find lower and upper limits within which 95% of values fall, by using bootstrapping statistics
-    lower_95perc_limit, upper_95perc_limit = _bootstrap(comp_values_list)
-    _append_statistics(calculations_file, 'NI 95% lower limit', {'neutrality index': lower_95perc_limit}, sfs_max_nton)
-    _append_statistics(calculations_file, 'NI 95% upper limit', {'neutrality index': upper_95perc_limit}, sfs_max_nton)
+    if sum_comp_values['Dn*Ps/(Ps+Ds)']:
+        neutrality_values = {'neutrality index': sum_comp_values['Ds*Pn/(Ps+Ds)'] / sum_comp_values['Dn*Ps/(Ps+Ds)']}
+        _append_statistics(calculations_file, 'NI', neutrality_values, sfs_max_nton)
+        #Find lower and upper limits within which 95% of values fall, by using bootstrapping statistics
+        lower_95perc_limit, upper_95perc_limit = _bootstrap(comp_values_list)
+        _append_statistics(calculations_file, 'NI 95% lower limit', {'neutrality index': lower_95perc_limit}, sfs_max_nton)
+        _append_statistics(calculations_file, 'NI 95% upper limit', {'neutrality index': upper_95perc_limit}, sfs_max_nton)
 
 def _get_most_recent_gene_name(genomes, sequence_records):
     """Return gene name annotation for most recently updated genome from sequence records in ortholog."""
