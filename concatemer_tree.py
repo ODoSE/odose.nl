@@ -24,6 +24,7 @@ from divergence.versions import DNADIST, NEIGHBOR
 from subprocess import Popen, PIPE, STDOUT
 import logging as log
 import os.path
+import pylab
 import shutil
 import sys
 import tempfile
@@ -171,15 +172,18 @@ def visualize_tree(super_tree_file, id_to_name_map, tree_output):
     for leaf in tree.get_terminals():
         project_id = str(int(leaf.confidence))
         leaf.confidence = None
+        #Wrapped long genome names overlap when displayed. Maybe fix this by truncating first word to first letter + '.' 
         organism_name = id_to_name_map.get(project_id, '').replace(' ', '\n', 1)
         leaf.name = '{0} {1}'.format(project_id, organism_name)
 
+    #Set figure size here to large values, to see if this would solve the problem of truncated genome names
+    pylab.figure(figsize = (12, 8))
+
     #The below code works when installing python-networkx on ubuntu
-    import matplotlib
-    matplotlib.use('Agg')
-    import pylab
     Phylo.draw(tree, do_show = False)
     #Phylo.draw_graphviz(tree, prog = 'neato')
+
+    #Save as file
     pylab.savefig(tree_output, format = 'svg')
 
     #Print ascii tree, when you can't get visualization to work properly using draw_graphviz
