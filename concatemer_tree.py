@@ -25,7 +25,6 @@ from subprocess import Popen, PIPE, STDOUT
 import logging as log
 import matplotlib
 import os.path
-import pylab
 import shutil
 import sys
 import tempfile
@@ -177,9 +176,12 @@ def visualize_tree(super_tree_file, id_to_name_map, tree_output):
         organism_name = id_to_name_map.get(project_id, '').replace(' ', '\n', 1)
         leaf.name = '{0} {1}'.format(project_id, organism_name)
 
+    #Ascertain we're using the correct display configuration
+    matplotlib.use('Agg')
+
     #Set figure size here to large values, to see if this would solve the problem of truncated genome names
-    fig = matplotlib.pyplot.gcf()
-    fig.set_size_inches(12, 8)
+    import pylab
+    pylab.figure(figsize = (12, 8))
 
     #The below code works when installing python-networkx on ubuntu
     Phylo.draw(tree, do_show = False)
