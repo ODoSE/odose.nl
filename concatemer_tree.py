@@ -23,6 +23,7 @@ from divergence.select_taxa import select_genomes_by_ids
 from divergence.versions import DNADIST, NEIGHBOR
 from subprocess import Popen, PIPE, STDOUT
 import logging as log
+import matplotlib
 import os.path
 import pylab
 import shutil
@@ -177,16 +178,17 @@ def visualize_tree(super_tree_file, id_to_name_map, tree_output):
         leaf.name = '{0} {1}'.format(project_id, organism_name)
 
     #Set figure size here to large values, to see if this would solve the problem of truncated genome names
-    pylab.figure(figsize = (12, 8))
+    fig = matplotlib.pyplot.gcf()
+    fig.set_size_inches(12, 8)
 
     #The below code works when installing python-networkx on ubuntu
     Phylo.draw(tree, do_show = False)
-    #Phylo.draw_graphviz(tree, prog = 'neato')
 
     #Save as file
     pylab.savefig(tree_output, format = 'svg')
 
     #Print ascii tree, when you can't get visualization to work properly using draw_graphviz
+    #Phylo.draw_graphviz(tree, prog = 'neato')
     #with open(tree_output, mode = 'w') as write_handle:
     #    Phylo.draw_ascii(tree, file = write_handle, column_width = 120)
 
