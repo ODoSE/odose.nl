@@ -187,7 +187,7 @@ def visualize_tree(super_tree_file, id_to_name_map, tree_output):
     Phylo.draw(tree, do_show = False)
 
     #Save as file
-    pylab.savefig(tree_output, format = 'svg')
+    pylab.savefig(tree_output, format = 'pdf')
 
     #Print ascii tree, when you can't get visualization to work properly using draw_graphviz
     #Phylo.draw_graphviz(tree, prog = 'neato')
