@@ -76,7 +76,7 @@ def _map_protein_cog_and_gene(ptt_file):
             assert pid not in product_mapping, 'Protein identifier was already assigned value: ' + product_mapping[pid]
             #Assign None if value of COG does not start with COG (such as when it's '-')
             cog_mapping[pid] = values[7] if values[7].startswith('COG') else None
-            product_mapping[pid] = values[8]
+            product_mapping[pid] = values[8].replace('<', '_').replace('>', '_').replace('|', '_')
     return cog_mapping, product_mapping
 
 def translate_genomes(genomes):
