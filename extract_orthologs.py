@@ -21,7 +21,9 @@
 from __future__ import division
 from Bio import SeqIO
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
+from divergence.calculations import get_most_recent_gene_name
 from divergence.filter_orthologs import find_cogs_in_sequence_records
+from divergence.select_taxa import select_genomes_by_ids
 from itertools import chain
 import logging as log
 import os
@@ -33,33 +35,45 @@ def _produce_heatmap(genome_ids, sico_files, muco_files, accessory_files):
     """Produce heatmap of orthologs, and how many times ortholog ooccurs in genome, with the COGs added as well. """
     def _occurences_and_cogs(genome_ids, ortholog_files):
         """Generator that returns how many sequences exist per genome in each ortholog in order and which COGs occur."""
+        genomes = select_genomes_by_ids(genome_ids).values()
         for fasta_file in ortholog_files:
             records = tuple(SeqIO.parse(fasta_file, 'fasta'))
             ids = [record.id.split('|')[0] for record in records]
             count_per_id = [ids.count(genome_id) for genome_id in genome_ids]
             cogs = sorted(find_cogs_in_sequence_records(records))
-            yield count_per_id, cogs
+            ortholog_nr = os.path.splitext(os.path.split(fasta_file)[1])[0]
+            for record in records:
+                #SeqIO mucks up ids containing spaces, so we have to assign description as value for id
+                record.id = record.description
+            product = get_most_recent_gene_name(genomes, records)
+            yield count_per_id, ortholog_nr, cogs, product
 
     heatmap = tempfile.mkstemp(suffix = '.tsv', prefix = 'genome_ortholog_heatmap_')[1]
     with open(heatmap, mode = 'w') as write_handle:
         #Write file header
         write_handle.write('\t'.join(genome_ids))
-        write_handle.write('\tCOGs\n')
+        write_handle.write('\tOrtholog\tCOGs\tProduct\n')
 
         #Write out sico
-        for counts_per_id, cogs in sorted(_occurences_and_cogs(genome_ids, sico_files)):
+        for counts_per_id, ortholog, cogs, product in sorted(_occurences_and_cogs(genome_ids, sico_files)):
             write_handle.write('\t'.join(str(occurrences) for occurrences in counts_per_id))
-            write_handle.write('\t' + ','.join(cogs) + '\n')
+            write_handle.write('\t{0}'.format(ortholog))
+            write_handle.write('\t' + ','.join(cogs))
+            write_handle.write('\t{0}\n'.format(product))
 
         #Write out muco
-        for counts_per_id, cogs in sorted(_occurences_and_cogs(genome_ids, muco_files)):
+        for counts_per_id, ortholog, cogs, product in sorted(_occurences_and_cogs(genome_ids, muco_files)):
             write_handle.write('\t'.join(str(occurrences) for occurrences in counts_per_id))
-            write_handle.write('\t' + ','.join(cogs) + '\n')
+            write_handle.write('\t{0}'.format(ortholog))
+            write_handle.write('\t' + ','.join(cogs))
+            write_handle.write('\t{0}\n'.format(product))
 
         #Write out accessory
-        for counts_per_id, cogs in sorted(_occurences_and_cogs(genome_ids, accessory_files)):
+        for counts_per_id, ortholog, cogs, product in sorted(_occurences_and_cogs(genome_ids, accessory_files)):
             write_handle.write('\t'.join(str(occurrences) for occurrences in counts_per_id))
-            write_handle.write('\t' + ','.join(cogs) + '\n')
+            write_handle.write('\t{0}'.format(ortholog))
+            write_handle.write('\t' + ','.join(cogs))
+            write_handle.write('\t{0}\n'.format(product))
     return heatmap
 
 def extract_orthologs(run_dir, genomes, dna_files, groups_file, require_limiter = False):

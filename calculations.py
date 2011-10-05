@@ -98,7 +98,7 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
         _append_statistics(calculations_file, 'NI 95% lower limit', {'neutrality index': lower_95perc_limit}, sfs_max_nton)
         _append_statistics(calculations_file, 'NI 95% upper limit', {'neutrality index': upper_95perc_limit}, sfs_max_nton)
 
-def _get_most_recent_gene_name(genomes, sequence_records):
+def get_most_recent_gene_name(genomes, sequence_records):
     """Return gene name annotation for most recently updated genome from sequence records in ortholog."""
     ortholog_products = {}
     for record in sequence_records:
@@ -159,7 +159,7 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
     genomes = select_genomes_by_ids(all_genome_ids).values()
 
     #For each ortholog, determine the newest gene name across taxa so unannotated taxa also get gene names
-    ortholog_gene_names = dict((ortholog, _get_most_recent_gene_name(genomes, alignment))
+    ortholog_gene_names = dict((ortholog, get_most_recent_gene_name(genomes, alignment))
                                for ortholog, alignment in sico_alignments)
 
     #Split individual sico alignments into separate alignments for each of the clades per ortholog
