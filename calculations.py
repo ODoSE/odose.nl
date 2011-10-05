@@ -524,11 +524,11 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
     polymorpisms_sfs = synonymous_sfs.copy()
     for key, value in non_synonymous_sfs.iteritems():
         #Merge values such that their values are added up when a conflicting key is found
-        polymorpisms_sfs[key] = polymorpisms_sfs[key] + value if key in polymorpisms_sfs else value
+        polymorpisms_sfs[key] = polymorpisms_sfs.get(key, 0) + value
 
     #Pi: n/(n-1) * Sum[ D(i) * 2 i/n (1-i/n), i from 1 to RoundDown(n/2)]
     #where n is number of strains
-    #and D(i) is the number of polymorphisms present in i of n strains    
+    #and D(i) is the number of polymorphisms present in i of n strains
     #finally divide everything by the number of sites
     calc_values['Pi'] = (nr_of_strains
                          / (nr_of_strains - 1)

@@ -18,6 +18,7 @@
 ###
 """Module for the select taxa step."""
 
+from Bio import SeqIO
 from datetime import datetime, timedelta
 from divergence import create_directory, HTTP_CACHE, parse_options
 from ftplib import FTP, error_perm
@@ -248,6 +249,11 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
             #Try genbank file, which is always required
             try:
                 gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir, last_change_date)
+
+                #Try to parse Bio.GenBank.Record to see if it contains more than five (arbitrary) feature records
+                if len(SeqIO.read(gbk_file, 'genbank').features) == 1:
+                    #Skip when genbank file does not contain any features
+                    continue
             except error_perm as err:
                 if 'No such file or directory' not in str(err):
                     raise err
