@@ -251,7 +251,7 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
                 gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir, last_change_date)
 
                 #Try to parse Bio.GenBank.Record to see if it contains more than five (arbitrary) feature records
-                if len(SeqIO.read(gbk_file, 'genbank').features) <= 1:
+                if len([feature for feature in SeqIO.read(gbk_file, 'genbank').features if feature.type == 'CDS']):
                     #Skip when genbank file does not contain any features
                     continue
             except error_perm as err:
@@ -259,6 +259,11 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
                     raise err
                 log.warn(err)
                 log.warn('GenBank file %s missing for %s', acc, projectid)
+                continue
+            except IOError as err:
+                if 'Target file was empty after download' not in str(err):
+                    raise err
+                log.warn(err)
                 continue
 
             #Try protein table file, which could be optional
@@ -273,6 +278,11 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
                     continue
                 else:
                     ptt_file = None
+            except IOError as err:
+                if 'Target file was empty after download' not in str(err):
+                    raise err
+                log.warn(err)
+                continue
             genome_files.append((projectid, gbk_file, ptt_file))
 
     #Be nice and close the connection
@@ -339,7 +349,8 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_dat
             ftp.retrbinary('RETR {0}/{1}'.format(remote_dir, filename), download_callback)
 
         #Assert file was actually written to
-        assert os.path.isfile(tmp_file) and 0 < os.path.getsize(tmp_file), 'File should have content now: ' + tmp_file
+        if not os.path.isfile(tmp_file) or 0 == os.path.getsize(tmp_file):
+            raise IOError('Target file was empty after download: Did source have content?\n' + tmp_file)
 
         #Actually move now that we've finished downloading files
         shutil.move(tmp_file, out_file)
