@@ -56,8 +56,8 @@ def _bootstrap(comp_values_list):
     ni_values = []
     while len(ni_values) < len(comp_values_list):
         samples = _sample_with_replacement(comp_values_list)
-        sum_dspn = sum(comp_values['Ds*Pn/(Ps+Ds)'] for comp_values in samples)
-        sum_dnps = sum(comp_values['Dn*Ps/(Ps+Ds)'] for comp_values in samples)
+        sum_dspn = sum(comp_values['Ds*Pn/(Ps+Ds)'] for comp_values in samples if comp_values['Ds*Pn/(Ps+Ds)'])
+        sum_dnps = sum(comp_values['Dn*Ps/(Ps+Ds)'] for comp_values in samples if comp_values['Dn*Ps/(Ps+Ds)'])
         neutrality_index = sum_dspn / sum_dnps
         ni_values.append(neutrality_index)
 
