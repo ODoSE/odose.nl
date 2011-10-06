@@ -128,7 +128,7 @@ def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_id
     recombined = []
 
     #Assign ortholog files to the correct collection based on whether they show recombination
-    log.info('Recombination found in the following orthologs:')
+    #log.info('Recombination found in the following orthologs:')
     for ortholog_file in aligned_files:
         #Determine input file base name to create an ortholog run specific directory
         base_name = os.path.split(os.path.splitext(ortholog_file)[0])[1]
@@ -143,11 +143,12 @@ def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_id
         #Parse tree file to ensure all genome_ids_a & genome_ids_b group together in the tree
         if _find_recombination(genome_ids_a, genome_ids_b, tree_file):
             recombined.append(ortholog_file)
-            log.info('%s\t%s', base_name, '\t'.join(find_cogs_in_sequence_records(SeqIO.parse(ortholog_file, 'fasta'))))
+            #log.info('%s\t%s', base_name, '\t'.join(find_cogs_in_sequence_records(SeqIO.parse(ortholog_file,'fasta'))))
         else:
             non_recomb.append(ortholog_file)
 
-    log.info('%i\tOrthologs out of %i were filtered out due to recombination', len(recombined), len(aligned_files))
+    log.info('%i Orthologs out of %i were filtered out due to recombination, leaving %i non recombined orthologs',
+             len(recombined), len(aligned_files), len(non_recomb))
 
     return non_recomb, recombined
 
