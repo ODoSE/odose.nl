@@ -286,6 +286,7 @@ def translate_fasta_coding_regions(nucl_fasta_file):
             try:
                 prot_sequence = nucl_seqrecord.seq.translate(table = BACTERIAL_CODON_TABLE)
             except TranslationError as trer:
+                log.warn('Skipping sequence because of translation error:\n%s', nucl_seqrecord)
                 log.warn(trer)
                 continue
 
