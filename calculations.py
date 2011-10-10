@@ -95,8 +95,10 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
         _append_statistics(calculations_file, 'NI', neutrality_values, sfs_max_nton)
         #Find lower and upper limits within which 95% of values fall, by using bootstrapping statistics
         lower_95perc_limit, upper_95perc_limit = _bootstrap(comp_values_list)
-        _append_statistics(calculations_file, 'NI 95% lower limit', {'neutrality index': lower_95perc_limit}, sfs_max_nton)
-        _append_statistics(calculations_file, 'NI 95% upper limit', {'neutrality index': upper_95perc_limit}, sfs_max_nton)
+        _append_statistics(calculations_file, 'NI 95% lower limit',
+                           {'neutrality index': lower_95perc_limit}, sfs_max_nton)
+        _append_statistics(calculations_file, 'NI 95% upper limit',
+                           {'neutrality index': upper_95perc_limit}, sfs_max_nton)
 
 def get_most_recent_gene_name(genomes, sequence_records):
     """Return gene name annotation for most recently updated genome from sequence records in ortholog."""
