@@ -34,7 +34,7 @@ import shutil
 import sys
 import tempfile
 
-def run_orthomcl(proteome_files, poor_protein_length, target_poor_proteins_file, target_groups_file):
+def run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_poor_proteins_file, target_groups_file):
     """Run all the steps in the orthomcl pipeline, starting with a set of proteomes and ending up with groups.txt."""
     #Delete orthomcl directory to prevent lingering files from previous runs to influence new runs
     run_dir = tempfile.mkdtemp(prefix = 'orthomcl_run_')
@@ -47,7 +47,7 @@ def run_orthomcl(proteome_files, poor_protein_length, target_poor_proteins_file,
 
     #Create new database and install database schema in it, so individual runs do not interfere with each other
     dbname = create_database()
-    config_file = get_configuration_file(run_dir, dbname)
+    config_file = get_configuration_file(run_dir, dbname, evalue_exponent)
     _step4_orthomcl_install_schema(run_dir, config_file)
 
     #Steps that occur in database, and thus do little to produce output files
@@ -403,11 +403,12 @@ Usage: run_orthomcl.py
                              translated to protein and fed into orthomcl along with files in protein-zip to influence 
                              the clustering of orthologs, and (optionally) later the extraction of orthologs [OPTIONAL]
 --poor-protein-length=INT    filter poor proteins when smaller than poor-protein-length
+--evalue-exponent=INT        filter OrthoMCL BLAST similarities with Expect value exponents greater than this value
 --poor-proteins=FILE         destination file path for filtered poor proteins
 --groups=FILE                destination file path for file listing groups of orthologous proteins
 """
-    options = ['protein-zip', 'ortholog-limiter=?', 'poor-protein-length', 'poor-proteins', 'groups']
-    protein_zipfile, limiter_file, poor_protein_length, target_poor_proteins, target_groups_path = \
+    options = ['protein-zip', 'ortholog-limiter=?', 'poor-protein-length', 'evalue-exponent', 'poor-proteins', 'groups']
+    protein_zipfile, limiter_file, poor_protein_length, evalue_exponent, target_poor_proteins, target_groups_path = \
         parse_options(usage, options, args)
 
     #Extract files from zip archive
@@ -424,7 +425,7 @@ Usage: run_orthomcl.py
         proteome_files.append(translated_limiter)
 
     #Actually run orthomcl
-    run_orthomcl(proteome_files, poor_protein_length, target_poor_proteins, target_groups_path)
+    run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_poor_proteins, target_groups_path)
 
     #Remove unused files to free disk space 
     shutil.rmtree(temp_dir)

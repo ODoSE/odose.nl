@@ -51,8 +51,10 @@ def create_database():
     log.info('Created database %s as %s on %s', dbname, user, host)
     return dbname
 
-def get_configuration_file(run_dir, dbname):
-    """Get OrthoMCL configuration file for generated database."""
+def get_configuration_file(run_dir, dbname, evalue_exponent):
+    """Return OrthoMCL configuration file for generated database and evalue_exponent.
+    dbname - unique unused database name
+    evalue_exponent - BLAST similarities with Expect value exponents greater than this value are ignored"""
     host, port = _get_root_credentials()[:2]
     config = """# OrthoMCL configuration file for generated database 
 dbVendor=mysql 
@@ -65,8 +67,8 @@ inParalogTable=InParalog
 coOrthologTable=CoOrtholog
 interTaxonMatchView=InterTaxonMatch
 percentMatchCutoff=50
-evalueExponentCutoff=-5
-oracleIndexTblSpc=NONE""".format(dbname = dbname, host = host, port = port)
+evalueExponentCutoff={evalue_exponent}
+oracleIndexTblSpc=NONE""".format(dbname = dbname, host = host, port = port, evalue_exponent = evalue_exponent)
 
     #Write to file & return file
     config_file = os.path.join(run_dir, 'orthomcl_{0}.cfg'.format(dbname))
