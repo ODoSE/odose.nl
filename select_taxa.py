@@ -251,8 +251,10 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
                 gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir, last_change_date)
 
                 #Try to parse Bio.GenBank.Record to see if it contains more than five (arbitrary) feature records
-                if not len([feature for feature in SeqIO.read(gbk_file, 'genbank').features if feature.type == 'CDS']):
-                    #Skip when genbank file does not contain any features
+                features = SeqIO.read(gbk_file, 'genbank').features
+                if not any(feature.type == 'CDS' for feature in features):
+                    #Skip when genbank file does not contain any coding sequence features
+                    log.warn('GenBank file %s did not contain any coding sequence features', acc)
                     continue
             except error_perm as err:
                 if 'No such file or directory' not in str(err):
