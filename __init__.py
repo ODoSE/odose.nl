@@ -125,6 +125,7 @@ def parse_options(usage, options, args):
         tuples, remainder = getopt.getopt(args, '', long_options)
         #If there's a remainder, not all arguments were recognized
         if remainder:
+            print '\n'.join(args)
             raise getopt.GetoptError('Unrecognized argument(s) passed: ' + str(remainder), remainder)
         arguments = dict((opt[2:], value) for opt, value in tuples)
     except getopt.GetoptError as err:
