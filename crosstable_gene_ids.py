@@ -35,15 +35,33 @@ def create_crosstable(sico_files, target_crosstable):
                          for fasta_record in SeqIO.parse(sico_file, 'fasta')))
                     for sico_file in sico_files]
 
-        #Retreve unique genomes across all sico files, just to be safe 
+        #Retrieve unique genomes across all sico files, just to be safe 
         genomes = sorted(set(key for row in row_data for key in row[1].keys()))
+        from divergence.select_taxa import select_genomes_by_ids
+        genome_dicts = select_genomes_by_ids(genomes).values()
 
         #Write out values to file
-        write_handle.write('\t' + '\t'.join(genomes) + '\n')
+        write_handle.write('\t' + '\t'.join(genomes))
+        write_handle.write('\tCOGs\tProduct\n')
         for sico_file, row in row_data:
             ortholog = os.path.split(sico_file)[1].split('.')[0]
             write_handle.write(ortholog + '\t')
             write_handle.write('\t'.join(row.get(genome, '') for genome in genomes))
+
+            #Parse sequence records again, but now to retrieve cogs and products
+            seq_records = list(SeqIO.parse(sico_file, 'fasta'))
+
+            #COGs
+            from filter_orthologs import find_cogs_in_sequence_records
+            cogs = find_cogs_in_sequence_records(seq_records)
+            write_handle.write('\t' + ','.join(cogs))
+
+            #Product
+            from calculations import get_most_recent_gene_name
+            product = get_most_recent_gene_name(genome_dicts, seq_records)
+            write_handle.write('\t' + product)
+
+            #New line
             write_handle.write('\n')
 
 def main(args):
