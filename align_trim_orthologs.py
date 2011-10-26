@@ -62,7 +62,7 @@ def _run_translatorx((run_dir, sico_file), translation_table = CODON_TABLE_ID):
         'Alignment file should exist and have some content now: {0}'.format(dna_alignment)
     return dna_alignment
 
-def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
+def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_length, stats_file):
     """Trim all DNA alignments using _trim_alignment (singular), and calculate some statistics about the trimming."""
     log.info('Trimming {0} DNA alignments from first non-gap codon to last non-gap codon'.format(len(dna_alignments)))
 
@@ -70,7 +70,8 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
     trimmed_dir = create_directory('trimmed', inside_dir = run_dir)
 
     #Use Pool().map again to scale trimming out over multiple cores. This requires tuple'd arguments however
-    trim_tpls = Pool().map(_trim_alignment, ((trimmed_dir, dna_alignment) for dna_alignment in dna_alignments))
+    trim_tpls = Pool().map(_trim_alignment, ((trimmed_dir, dna_alignment, max_indel_length)
+                                             for dna_alignment in dna_alignments))
 
     remaining_percts = [tpl[3] for tpl in trim_tpls]
     trimmed_alignments = [tpl[0] for tpl in trim_tpls if retained_threshold <= tpl[3]]
@@ -88,8 +89,8 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
         append_handle.write('#' + msg + '\n')
 
         filtered = len(misaligned)
-        msg = '{0:6} orthologs filtered as one or more sequences retained less than {1}%'.format(filtered,
-                                                                                                str(retained_threshold))
+        msg = '{0:6} orthologs filtered because less than {1}% sequence retained or because of indel longer than {2} '\
+            .format(filtered, str(retained_threshold), max_indel_length)
         log.info(msg)
         append_handle.write('#' + msg + '\n')
 
@@ -102,7 +103,7 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, stats_file):
 
     return sorted(trimmed_alignments), sorted(misaligned)
 
-def _trim_alignment((trimmed_dir, dna_alignment)):
+def _trim_alignment((trimmed_dir, dna_alignment, max_indel_length)):
     """Trim alignment to retain first & last non-gapped codons across alignment, and everything in between (+gaps!).
     
     Return trimmed file, original length, trimmed length and percentage retained as tuple"""
@@ -110,7 +111,7 @@ def _trim_alignment((trimmed_dir, dna_alignment)):
     alignment = AlignIO.read(dna_alignment, 'fasta')
     #print '\n'.join([str(seqr.seq) for seqr in alignment])
 
-    #Total alignment should be just as long as first sequence of alignment
+    #Total alignment should be just as long as first seqr of alignment
     alignment_length = len (alignment[0])
 
     #After using protein alignment only for CDS, all alignment lengths should be multiples of three 
@@ -148,6 +149,10 @@ def _trim_alignment((trimmed_dir, dna_alignment)):
     assert os.path.isfile(trimmed_file) and os.path.getsize(trimmed_file), \
         'Expected trimmed alignment file to exist with some content now: {0}'.format(trimmed_file)
 
+    #Filter out those alignment that contain an indel longer than N
+    if any('-' * max_indel_length in str(seqr.seq) for seqr in trimmed):
+        return trimmed_file, alignment_length, 0, 0
+
     return trimmed_file, alignment_length, trimmed_length, trimmed_length / alignment_length * 100
 
 def main(args):
@@ -155,18 +160,21 @@ def main(args):
     usage = """
 Usage: filter_orthologs.py
 --orthologs-zip=FILE           archive of orthologous genes in FASTA format
---retained-threshold=PERC      filter orthologs that retain less than PERC % of sequence after trimming alignment 
+--retained-threshold=PERC      filter orthologs that retain less than PERC % of sequence after trimming alignment
+--max-indel-length=NUMBER      filter orthologs that contain insertions / deletions longer than N in middle of alignment
 --aligned-zip=FILE             destination file path for archive of aligned orthologous genes
---misaligned-zip=FILE          destination file path for archive of misaligned orthologous genes per retained-threshold
+--misaligned-zip=FILE          destination file path for archive of misaligned orthologous genes
 --trimmed-zip=FILE             destination file path for archive of aligned & trimmed orthologous genes
 --stats=FILE                   destination file path for ortholog trimming statistics file
 """
-    options = ['orthologs-zip', 'retained-threshold', 'aligned-zip', 'misaligned-zip', 'trimmed-zip', 'stats']
-    orthologs_zip, retained_threshold, aligned_zip, misaligned_zip, trimmed_zip, target_stats_path = \
+    options = ['orthologs-zip', 'retained-threshold', 'max-indel-length',
+               'aligned-zip', 'misaligned-zip', 'trimmed-zip', 'stats']
+    orthologs_zip, retained_threshold, max_indel_length, aligned_zip, misaligned_zip, trimmed_zip, target_stats_path = \
         parse_options(usage, options, args)
 
     #Convert retained threshold to integer, so we can fail fast if argument value format was wrong
     retained_threshold = int(retained_threshold)
+    max_indel_length = int(max_indel_length)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
     run_dir = tempfile.mkdtemp(prefix = 'align_trim_')
@@ -179,7 +187,8 @@ Usage: filter_orthologs.py
     aligned_files = _align_sicos(run_dir, sico_files)
 
     #Filter orthologs that retain less than PERC % of sequence after trimming alignment    
-    trimmed_files, misaligned_files = _trim_alignments(run_dir, aligned_files, retained_threshold, target_stats_path)
+    trimmed_files, misaligned_files = _trim_alignments(run_dir, aligned_files, retained_threshold, max_indel_length,
+                                                       target_stats_path)
 
     #Create archives of files on command line specified output paths
     create_archive_of_files(aligned_zip, aligned_files)
