@@ -260,7 +260,7 @@ Usage: extract_orthologs.py
 --heatmap=FILE       destination file path heatmap of orthologs and occurrences of ortholog per genome
 """
     options = ['genomes', 'dna-zip', 'groups', 'require-limiter?',
-               'sico-zip', 'muco-zip', 'subset-zip', 'stats', 'heatmap']
+               'sico-zip', 'muco-zip?', 'subset-zip?', 'stats', 'heatmap']
     genome_ids_file, dna_zip, groups_file, require_limiter, \
     target_sico, target_muco, target_subset, target_stats_path, target_heat = \
     parse_options(usage, options, args)
@@ -282,8 +282,10 @@ Usage: extract_orthologs.py
 
     #Move produced files to command line specified output paths
     create_archive_of_files(target_sico, sico_files)
-    create_archive_of_files(target_muco, muco_files)
-    create_archive_of_files(target_subset, subset_files)
+    if target_muco:
+        create_archive_of_files(target_muco, muco_files)
+    if target_subset:
+        create_archive_of_files(target_subset, subset_files)
     shutil.move(stats_file, target_stats_path)
     shutil.move(heatmap_file, target_heat)
 
@@ -291,7 +293,14 @@ Usage: extract_orthologs.py
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s\n%s\n%s\n%s\n%s", target_sico, target_muco, target_subset, target_stats_path, target_heat)
+    log.info("Produced:")
+    log.info("%s", target_sico)
+    if target_muco:
+        log.info("%s", target_muco)
+    if target_subset:
+        log.info("%s", target_subset)
+    log.info("%s", target_stats_path)
+    log.info("%s", target_heat)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
