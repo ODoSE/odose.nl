@@ -49,6 +49,9 @@ PHYLIP_DIR = SOFTWARE_DIR + 'phylip-3.69/'
 DNADIST = PHYLIP_DIR + 'exe/dnadist'
 NEIGHBOR = PHYLIP_DIR + 'exe/neighbor'
 
+#Recombination
+PHIPACK = SOFTWARE_DIR + 'PhiPack/Phi'
+
 #Calculation
 PAML_DIR = SOFTWARE_DIR + 'paml44/'
 CODEML = PAML_DIR + 'bin/codeml'

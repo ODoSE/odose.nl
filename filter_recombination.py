@@ -126,8 +126,8 @@ def main(args):
 Usage: filter_recombination.py
 --orthologs-zip=FILE     archive of orthologous genes in FASTA format
 --stats-file=FILE        destination file path for values found through PhiPack for each ortholog
---retained-zip=FILE      destination file path for archive of orthologs without recombination
 --recombined-zip=FILE    destination file path for archive of orthologs with recombination
+--retained-zip=FILE      destination file path for archive of orthologs without recombination
 """
     options = ('orthologs-zip', 'stats-file', 'recombined-zip', 'retained-zip')
     orthologs_zip, stats_file, recombined_zip, retained_zip = parse_options(usage, options, args)
