@@ -24,7 +24,7 @@ from calculations import get_most_recent_gene_name
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
 from divergence.select_taxa import select_genomes_by_ids
 from filter_orthologs import find_cogs_in_sequence_records
-from subprocess import check_call
+from subprocess import check_call, CalledProcessError
 from versions import PHIPACK
 import logging as log
 import os.path
@@ -62,7 +62,6 @@ def _filter_recombined_orthologs(run_dir, aligned_files, stats_file):
 
         #Assign ortholog files to the correct collection based on whether they show recombination
         for ortholog_file in aligned_files:
-            #TODO Take advantage of multiple processors to run these in parallel
             #Parse tree file to ensure all genome_ids_a & genome_ids_b group together in the tree
             orth_name, sites, phi, chi, nss = _run_phipack(phipack_dir, ortholog_file)
 
@@ -102,7 +101,11 @@ def _run_phipack(phipack_dir, dna_file):
     command = [PHIPACK,
                '-f', dna_file,
                '-o'] #Output NSS & Max Chi^2
-    check_call(command, cwd = rundir, stdout = open('/dev/null', mode = 'w'))
+    try:
+        check_call(command, cwd = rundir, stdout = open('/dev/null', mode = 'w'))
+    except CalledProcessError as err:
+        log.warn(err)
+        return orth_name, None, None, None, None
 
     #Retrieve output log file contents
     logfile = os.path.join(rundir, 'Phi.log')
@@ -115,7 +118,8 @@ def _run_phipack(phipack_dir, dna_file):
     #Max Chi^2:           6.60e-01  (1000 permutations)
     #NSS:                 6.31e-01  (1000 permutations)
     sites = int(re.search('Found ([0-9]+) informative sites.', contents).group(1))
-    phi = float(re.search('PHI \(Normal\):\s+(.*)', contents).group(1))
+    raw_phi = re.search('PHI \(Normal\):\s+(.*)', contents).group(1)
+    phi = float(raw_phi) if raw_phi != '--' else None
     chi = float(re.search('Max Chi\^2:\s+(.*)\s+\(1000 permutations\)', contents).group(1))
     nss = float(re.search('NSS:\s+(.*)\s+\(1000 permutations\)', contents).group(1))
     return orth_name, sites, phi, chi, nss
