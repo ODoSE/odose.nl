@@ -260,7 +260,7 @@ Usage: extract_orthologs.py
 --heatmap=FILE       destination file path heatmap of orthologs and occurrences of ortholog per genome
 """
     options = ['genomes', 'dna-zip', 'groups', 'require-limiter?',
-               'sico-zip', 'muco-zip?', 'subset-zip?', 'stats', 'heatmap']
+               'sico-zip', 'muco-zip=?', 'subset-zip=?', 'stats', 'heatmap']
     genome_ids_file, dna_zip, groups_file, require_limiter, \
     target_sico, target_muco, target_subset, target_stats_path, target_heat = \
     parse_options(usage, options, args)
