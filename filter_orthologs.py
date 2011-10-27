@@ -128,7 +128,6 @@ def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_id
     recombined = []
 
     #Assign ortholog files to the correct collection based on whether they show recombination
-    #log.info('Recombination found in the following orthologs:')
     for ortholog_file in aligned_files:
         #Determine input file base name to create an ortholog run specific directory
         base_name = os.path.split(os.path.splitext(ortholog_file)[0])[1]
@@ -141,9 +140,8 @@ def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_id
         tree_file = _run_neighbor(ortholog_dir, distance_file)
 
         #Parse tree file to ensure all genome_ids_a & genome_ids_b group together in the tree
-        if _find_recombination(genome_ids_a, genome_ids_b, tree_file):
+        if _find_recombination_through_tree(genome_ids_a, genome_ids_b, tree_file):
             recombined.append(ortholog_file)
-            #log.info('%s\t%s', base_name, '\t'.join(find_cogs_in_sequence_records(SeqIO.parse(ortholog_file,'fasta'))))
         else:
             non_recomb.append(ortholog_file)
 
@@ -152,7 +150,7 @@ def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_id
 
     return non_recomb, recombined
 
-def _find_recombination(genome_ids_a, genome_ids_b, tree_file):
+def _find_recombination_through_tree(genome_ids_a, genome_ids_b, tree_file):
     """Look for evidence of recombination by seeing if all genomes of the separate taxa group together in the tree."""
 
     #Sample tree: (((((59245:0.00000,58803:0.00000):0.00000,59391:0.00000):0.01222,
