@@ -21,7 +21,7 @@
 from __future__ import division
 from Bio import SeqIO
 from calculations import get_most_recent_gene_name
-from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
+from divergence import create_directory, extract_archive_of_files, parse_options
 from divergence.select_taxa import select_genomes_by_ids
 from filter_orthologs import find_cogs_in_sequence_records
 from subprocess import check_call, CalledProcessError
@@ -37,15 +37,10 @@ def _filter_recombined_orthologs(run_dir, aligned_files, stats_file):
     """Filter aligned fasta files where there is evidence of recombination when inspecting PhiPack values. 
     Return two collections of aligned files, the first without recombination, the second with recombination."""
 
-    log.info('Filtering orthologs where PhiPack shows evidence of recombination')
-
-    #Collections to hold both non recombination files & files showing recombination 
-    recombined = []
-    non_recomb = []
+    log.info('Running PhiPack for %i orthologs to find recombination', len(aligned_files))
 
     #Create separate directory for phipack related values
     phipack_dir = create_directory('phipack', inside_dir = run_dir)
-
 
     with open(stats_file, mode = 'w') as write_handle:
         write_handle.write('\t'.join(['Ortholog',
@@ -80,16 +75,7 @@ def _filter_recombined_orthologs(run_dir, aligned_files, stats_file):
             #End line
             write_handle.write('\n')
 
-            #TODO Implement an actual condition based on values returned from PhiPack
-            if False:
-                recombined.append(ortholog_file)
-            else:
-                non_recomb.append(ortholog_file)
-
-        log.info('%i Orthologs out of %i were filtered out due to recombination, leaving %i non recombined orthologs',
-                 len(recombined), len(aligned_files), len(non_recomb))
-
-    return recombined, non_recomb
+    #Nothing to return, the stats_file is the product
 
 def _run_phipack(phipack_dir, dna_file):
     """Run PhiPack and return ortholog name, the number of informative sites, PHI, Max Chi^2 and NSS."""
@@ -98,13 +84,11 @@ def _run_phipack(phipack_dir, dna_file):
     rundir = create_directory(orth_name, inside_dir = phipack_dir)
 
     #Build up list of commands
-    command = [PHIPACK,
-               '-f', dna_file,
-               '-o'] #Output NSS & Max Chi^2
+    command = PHIPACK, '-f', dna_file, '-o' #Output NSS & Max Chi^2
     try:
         check_call(command, cwd = rundir, stdout = open('/dev/null', mode = 'w'))
     except CalledProcessError as err:
-        log.warn(err)
+        log.warn('Error running PhiPack for %s:\n%s', orth_name, err)
         return orth_name, None, None, None, None
 
     #Retrieve output log file contents
@@ -130,11 +114,9 @@ def main(args):
 Usage: filter_recombination.py
 --orthologs-zip=FILE     archive of orthologous genes in FASTA format
 --stats-file=FILE        destination file path for values found through PhiPack for each ortholog
---recombined-zip=FILE    destination file path for archive of orthologs with recombination
---retained-zip=FILE      destination file path for archive of orthologs without recombination
 """
-    options = ('orthologs-zip', 'stats-file', 'recombined-zip', 'retained-zip')
-    orthologs_zip, stats_file, recombined_zip, retained_zip = parse_options(usage, options, args)
+    options = ('orthologs-zip', 'stats-file')
+    orthologs_zip, stats_file = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
     run_dir = tempfile.mkdtemp(prefix = 'filter_recombined_')
@@ -144,17 +126,13 @@ Usage: filter_recombination.py
     ortholog_files = extract_archive_of_files(orthologs_zip, extraction_dir)
 
     #Find recombination in all ortholog_files
-    recombined_files, non_recombined = _filter_recombined_orthologs(run_dir, ortholog_files, stats_file)
-
-    #Create archives of files on command line specified output paths
-    create_archive_of_files(recombined_zip, recombined_files)
-    create_archive_of_files(retained_zip, non_recombined)
+    _filter_recombined_orthologs(run_dir, ortholog_files, stats_file)
 
     #Remove unused files to free disk space 
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info('Produced:\n%s\n%s', recombined_zip, retained_zip)
+    log.info('Produced:\n%s', stats_file)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
