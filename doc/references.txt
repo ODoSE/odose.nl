@@ -71,3 +71,8 @@ Galaxy:
 	Giardine B, Riemer C, Hardison RC, Burhans R, Elnitski L, Shah P, Zhang Y, Blankenberg D, Albert I, Taylor J, Miller W, Kent WJ, Nekrutenko A. 
 	"Galaxy: a platform for interactive large-scale genome analysis."
 	Genome Research. 2005 Oct; 15(10):1451-5.
+	
+PhiPack:
+	Trevor C. Bruen, Hervé Philippe and David Bryant
+	"A Simple and Robust Statistical Test for Detecting the Presence of Recombination"
+	http://www.genetics.org/content/172/4/2665.abstract?ijkey=0c3b139e5a27a4488c746b5f26f7052c2f567211&keytype2=tf_ipsecsha
