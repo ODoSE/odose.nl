@@ -29,6 +29,11 @@ def format_fasta_genome_headers(label, nucl_fasta_file):
             #But do throw in a little counter to make sure the generated IDs are actually unique
             protein_id = '{0:06}_{1}'.format(index, nucl_seqrecord.id.replace('|', '_'))
 
+            #OrthoMCL has the nasty habit of truncating label|protein_id to 60 characters, which leads to mismatches
+            #when we try to map OrthoMCL groups.txt IDs back to the original DNA sequences. Therefore pretruncate here:
+            if len(label) + 1 + len(protein_id) > 60:
+                protein_id = protein_id[:60 - len(label) - 1]
+
             #Alternatively create a new unique protein id using the enumerated number, first twelve bases and length
             #protein_id = 'protein_{0}:{1}...({2})'.format(index, str(nucl_sequence)[:12], len(nucl_sequence))
 
