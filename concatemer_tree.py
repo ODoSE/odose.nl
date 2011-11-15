@@ -1,22 +1,6 @@
 #!/usr/bin/env python
-###
-# Part of the Adaptive Divergence through Direction of Selection workflow.
-# Copyright (C) 2011  Tim te Beek <tim.te.beek@nbic.nl>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-###
 """Module to create concatemer per genome of orthologs, create a phylogenetic tree and deduce taxa from that tree."""
+
 from Bio import AlignIO, Phylo, SeqIO
 from divergence import create_directory, parse_options, extract_archive_of_files, create_archive_of_files
 from divergence.select_taxa import select_genomes_by_ids
@@ -28,6 +12,11 @@ import os.path
 import shutil
 import sys
 import tempfile
+
+__author__ = "Tim te Beek"
+__contact__ = "brs@nbic.nl"
+__copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
+__license__ = "MIT"
 
 def coding_regions_per_genome(run_dir, trimmed_sicos):
     """Create a DNA file per genome containing all aligned & trimmed SICO genes als individual genes."""
@@ -172,7 +161,7 @@ def visualize_tree(super_tree_file, id_to_name_map, tree_output):
     for leaf in tree.get_terminals():
         project_id = str(int(leaf.confidence))
         leaf.confidence = None
-        #Wrapped long genome names overlap when displayed. Maybe fix this by truncating first word to first letter + '.' 
+        #Wrapped long genome names overlap when displayed. Maybe fix this by truncating first word to first letter+'.'
         organism_name = id_to_name_map.get(project_id, '').replace(' ', '\n', 1)
         leaf.name = '{0} {1}'.format(project_id, organism_name)
 

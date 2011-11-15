@@ -1,21 +1,4 @@
 #!/usr/bin/env python
-###
-# Part of the Adaptive Divergence through Direction of Selection workflow.
-# Copyright (C) 2011  Tim te Beek <tim.te.beek@nbic.nl>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-###
 """Module to filter orthologs either with multiple COG annotations or when recombination is found."""
 
 from __future__ import division
@@ -28,6 +11,11 @@ import os.path
 import shutil
 import sys
 import tempfile
+
+__author__ = "Tim te Beek"
+__contact__ = "brs@nbic.nl"
+__copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
+__license__ = "MIT"
 
 def _filter_multiple_cog_orthologs(run_dir, ortholog_files):
     """Filter orthologs where multiple different COG annotations are found, and in addition transfer COGs."""
@@ -140,7 +128,7 @@ def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_id
         tree_file = _run_neighbor(ortholog_dir, distance_file)
 
         #Parse tree file to ensure all genome_ids_a & genome_ids_b group together in the tree
-        if _find_recombination_through_tree(genome_ids_a, genome_ids_b, tree_file):
+        if _tree_shows_recombination(genome_ids_a, genome_ids_b, tree_file):
             recombined.append(ortholog_file)
         else:
             non_recomb.append(ortholog_file)
@@ -150,7 +138,7 @@ def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_id
 
     return non_recomb, recombined
 
-def _find_recombination_through_tree(genome_ids_a, genome_ids_b, tree_file):
+def _tree_shows_recombination(genome_ids_a, genome_ids_b, tree_file):
     """Look for evidence of recombination by seeing if all genomes of the separate taxa group together in the tree."""
 
     #Sample tree: (((((59245:0.00000,58803:0.00000):0.00000,59391:0.00000):0.01222,
