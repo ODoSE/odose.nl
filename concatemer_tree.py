@@ -138,32 +138,38 @@ def _run_neighbor(run_dir, distance_file):
     assert os.path.exists(treefile) and 0 < os.path.getsize(treefile), treefile + ' should exist with some content now'
     return treefile
 
+def _fix_misinterpreted_names(tree):
+    """Bio.Phylo.read(file, 'newick') misinterprets numerical names as confidence scores. Fix that here in place."""
+    for leaf in tree.get_terminals():
+        if leaf.name == None and leaf.confidence != None:
+            leaf.name = str(int(leaf.confidence))
+            leaf.confidence = None
+
 def _read_taxa_from_tree(tree_file):
     """Read tree_file in Newick format to identify the first two clades that split up this tree and their leafs."""
     #Parse tree using BioPython, which interprets the GenBank Project IDs as confidence scores, but that'll do for now.
     phylo_tree = Phylo.read(tree_file, 'newick')
+    _fix_misinterpreted_names(phylo_tree)
 
     #Of the full tree retrieve the clades from the root clade, expecting exactly two distinct clades after UPGMA
     clades = phylo_tree.clade.clades
     assert len(clades) == 2, 'Expected two clades as child of tree\'s first clade, but was {0}'.format(len(clades))
 
     #Get all the leafs for the above two clades in a similar format to the genome_ids
-    clade_one = sorted(str(int(leaf.confidence)) for leaf in clades[0].get_terminals())
-    clade_two = sorted(str(int(leaf.confidence)) for leaf in clades[1].get_terminals())
+    clade_one = sorted(leaf.name for leaf in clades[0].get_terminals())
+    clade_two = sorted(leaf.name for leaf in clades[1].get_terminals())
     return clade_one, clade_two
 
 def visualize_tree(super_tree_file, id_to_name_map, tree_output):
     """Visualize the phylogenetic tree encoded in the Newick format super_tree_file, and write graphic to ascii_tree."""
     #Draw phylogenetic tree
     tree = Phylo.read(super_tree_file, 'newick')
+    _fix_misinterpreted_names(tree)
 
-    #BioPython misinterprets numerical leaf names as confidence scores: Fix this here
     for leaf in tree.get_terminals():
-        project_id = str(int(leaf.confidence))
-        leaf.confidence = None
         #Wrapped long genome names overlap when displayed. Maybe fix this by truncating first word to first letter+'.'
-        organism_name = id_to_name_map.get(project_id, '').replace(' ', '\n', 1)
-        leaf.name = '{0} {1}'.format(project_id, organism_name)
+        organism_name = id_to_name_map.get(leaf.name, '').replace(' ', '\n', 1)
+        leaf.name = '{0} {1}'.format(leaf.name, organism_name)
 
     #Ascertain we're using the correct display configuration
     matplotlib.use('Agg')
