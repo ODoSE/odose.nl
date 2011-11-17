@@ -66,6 +66,9 @@ Usage: select_taxa.py
     #Handle externally uploaded genomes
     #Sample line: label1:file1,label2:file2, #Note trailing the trailing , that's a Galaxy artifact we'll ignore
     for label, filename in (label_file.split(':') for label_file in external_genomes.split(',') if label_file):
+        if len(label) == 0:
+            log.error('Empty label provided for upload genome %s. Please provide a label and try again.', filename)
+            break
         log.info('Formatting external genome labeled %s at %s', label, filename)
         formatted_file = format_fasta_genome_headers(label, filename)
         external_fasta_files[label] = formatted_file
