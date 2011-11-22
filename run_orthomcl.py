@@ -172,7 +172,7 @@ def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length = 10, max_percen
 
     #Ensure neither of the proteomes is suspicious according to min_length & max_percent_stop
     with open(report) as report_file:
-        if 'Proteomes with > {0}% poor proteins:'.format(min_length) in report_file.read():
+        if 'Proteomes with > 10% poor proteins:' in report_file.read(): #OrthoMCL does _NOT_ add actual min_length value
             msg = 'OrthomclFilterFasta found suspicious proteomes based on values for length'
             log.error(msg)
             assert False, msg
