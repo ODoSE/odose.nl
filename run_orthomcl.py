@@ -52,7 +52,6 @@ def run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_po
     #Move poor proteins file & groups file outside run_dir ahead of removing run_dir
     shutil.move(poor, target_poor_proteins_file)
     shutil.move(groups, target_groups_file)
-
     #Remove run_dir to free disk space
     shutil.rmtree(run_dir)
 
@@ -173,9 +172,10 @@ def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length = 10, max_percen
 
     #Ensure neither of the proteomes is suspicious according to min_length & max_percent_stop
     with open(report) as report_file:
-        for line in report_file:
-            msg = 'OrthomclFilterFasta found suspicious proteomes based on values for length & percentage stop codons'
-            assert 'Proteomes with > 10% poor proteins:' not in line, msg
+        if 'Proteomes with > {0}% poor proteins:'.format(min_length) in report_file.read():
+            msg = 'OrthomclFilterFasta found suspicious proteomes based on values for length'
+            log.error(msg)
+            assert False, msg
 
     #Warn the user about the poor proteins found here, if they were found at all
     poor_records = list(SeqIO.parse(poor, 'fasta'))
