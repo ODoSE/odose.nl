@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Module to run orthoMCL."""
+"""Module to run orthoMCL. Steps in this module reflect the steps in the UserGuide.txt bundled with OrthoMCL."""
 
 from Bio import SeqIO
 from divergence import create_directory, extract_archive_of_files, parse_options
