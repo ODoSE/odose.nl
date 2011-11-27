@@ -63,7 +63,7 @@ HTTP_CACHE = httplib2.Http(create_directory('.cache'))
 def concatenate(target_path, source_files):
     """Concatenate arbitrary number of files into target_path by reading and writing in binary mode.
     
-    WARNING: The binary mode implies new \n characters will NOT be added in between files!"""
+    WARNING: The binary mode implies new line characters will NOT be added in between files!"""
     with open(target_path, mode = 'wb') as write_handle:
         for source_file in source_files:
             shutil.copyfileobj(open(source_file, mode = 'rb'), write_handle)
