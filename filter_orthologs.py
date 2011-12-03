@@ -6,6 +6,7 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
 from divergence.concatemer_tree import _run_dna_dist, _run_neighbor, _read_taxa_from_tree
+from divergence.crosstable_gene_ids import create_crosstable
 import logging as log
 import os.path
 import shutil
@@ -162,18 +163,19 @@ def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: filter_orthologs.py
---orthologs-zip=FILE           archive of orthologous genes in FASTA format
---filter-multiple-cogs         filter orthologs with multiple COG annotations among genes [OPTIONAL]
---filter-recombination=FILE    filter orthologs that show recombination when comparing phylogenetic trees [OPTIONAL]
-                               destination file path for archive of recombination orthologs
---taxon-a=FILE                 file with genome IDs for taxon A to use in recombination filtering
---taxon-b=FILE                 file with genome IDs for taxon B to use in recombination filtering
---retained-zip=FILE            destination file path for archive of retained orthologs after filtering
+--orthologs-zip=FILE            archive of orthologous genes in FASTA format
+--filter-multiple-cogs          filter orthologs with multiple COG annotations among genes [OPTIONAL]
+--filter-recombination=FILE     filter orthologs that show recombination when comparing phylogenetic trees [OPTIONAL]
+                                destination file path for archive of recombination orthologs
+--recombined-crosstable=FILE    destination file path for recombined crosstable of GeneIDs, COGs and Products [OPTIONAL]
+--taxon-a=FILE                  file with genome IDs for taxon A to use in recombination filtering
+--taxon-b=FILE                  file with genome IDs for taxon B to use in recombination filtering
+--retained-zip=FILE             destination file path for archive of retained orthologs after filtering
 """
-    options = ('orthologs-zip', 'filter-multiple-cogs=?', 'filter-recombination=?', 'taxon-a=?', 'taxon-b=?',
-               'retained-zip')
-    orthologs_zip, filter_cogs, \
-    filter_recombination, taxona, taxonb, retained_zip = parse_options(usage, options, args)
+    options = ('orthologs-zip', 'filter-multiple-cogs=?', 'filter-recombination=?', 'recombined-crosstable=?',
+               'taxon-a=?', 'taxon-b=?', 'retained-zip')
+    orthologs_zip, filter_cogs, filter_recombination, recombined_crosstable, \
+    taxona, taxonb, retained_zip = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
     run_dir = tempfile.mkdtemp(prefix = 'filter_orthologs_')
@@ -197,6 +199,9 @@ Usage: filter_orthologs.py
             genome_ids_b = [line.split()[0] for line in read_handle]
         ortholog_files, recombined_files = _filter_recombined_orthologs(run_dir, ortholog_files,
                                                                        genome_ids_a, genome_ids_b)
+        #Create crosstable
+        create_crosstable(recombined_files, recombined_crosstable)
+
 
     #Create archives of files on command line specified output paths
     if filter_cogs:
