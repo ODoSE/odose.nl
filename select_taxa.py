@@ -202,7 +202,7 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
     #ftp://ftp.ncbi.nih.gov/genbank/genomes/Bacteria/Sulfolobus_islandicus_M_14_25_uid18871/CP001400.ffn
     #Download using FTP
     ftp = FTP('ftp.ncbi.nih.gov')
-    ftp.login()
+    ftp.login(passwd = 'brs@nbic.nl')
 
     #Try to find project directory in RefSeq curated listing
     projectid = genome['RefSeq project ID']
@@ -328,7 +328,7 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_dat
         tmp_file = tempfile.mkstemp(prefix = filename + '_')[1]
 
         #Retrieve genbank & protein table files from FTP
-        log.info('Retrieving genome file %s from %s%s to %s', filename, ftp.host, remote_dir, target_dir)
+        log.info('Retrieving genome file %s%s/%s to %s', ftp.host, remote_dir, filename, target_dir)
 
         #Write retrieved contents to file
         with open(tmp_file, mode = 'wb') as write_file:
