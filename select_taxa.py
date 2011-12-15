@@ -55,7 +55,7 @@ def _download_genomes_table():
             content = read_handle.read().decode('utf-8')
     return content
 
-def _parse_genomes_table(complete_genome_table = _download_genomes_table(), require_refseq = False):
+def _parse_genomes_table(require_refseq = False):
     """Parse table of genomes and return list of dictionaries with values per genome."""
     #Empty lists to hold column names and genome dictionaries
     columns = []
@@ -65,7 +65,7 @@ def _parse_genomes_table(complete_genome_table = _download_genomes_table(), requ
     splitable_columns = {}
 
     #Loop over lines in complete genome table downloaded from url or read from cache
-    for line in complete_genome_table.split('\n'):
+    for line in _parse_genomes_table.complete_genome_table.split('\n'):
         #Ignore empty lines
         if len(line) == 0:
             continue
@@ -115,6 +115,10 @@ def _parse_genomes_table(complete_genome_table = _download_genomes_table(), requ
 
     #Return the genome dictionaries
     return tuple(genomes)
+
+#Assign content returned from _download_genomes_table as default value for complete_genome_table, such that we can 
+#override this value in tests
+_parse_genomes_table.complete_genome_table = _download_genomes_table()
 
 def _bin_using_keyfunctions(genomes, keyfunctions):
     """Bin genomes recursively according to keyfunctions, returning nested dictionaries mapping keys to collections."""
