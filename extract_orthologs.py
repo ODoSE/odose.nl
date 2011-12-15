@@ -208,26 +208,29 @@ def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_co
     """Write out file with some basic statistics about the genomes, orthologs and size of shared core genome."""
     #Some easy statistics about genomes and orthologs
     nr_shared_sico_orth = len(shared_single_copy)
-    nr_non_sico_orth = len(shared_multi_copy) + len(partially_shared)
 
     #Determine number of ORFans by deducting unique proteins identified as orthologs from total number of genes
     proteins = set(chain.from_iterable(prot for per_genome in shared_single_copy for prot in per_genome.values()))
-    nr_sico_genes = len(proteins)
     proteins.update(chain.from_iterable(prot for per_genome in shared_multi_copy for prot in per_genome.values()))
     proteins.update(chain.from_iterable(prot for per_genome in partially_shared for prot in per_genome.values()))
-    nr_non_sico_genes = len(proteins) - nr_sico_genes
     nr_orfans = nr_of_seqs - len(proteins)
+
+    #Now unused statistics
+    #nr_non_sico_orth = len(shared_multi_copy) + len(partially_shared)
+    #nr_sico_genes = len(proteins)
+    #nr_non_sico_genes = len(proteins) - nr_sico_genes
 
     stats_file = os.path.join(run_dir, 'extract-stats.txt')
     with open(stats_file, mode = 'w') as writer:
         #Write Genome & gene count statistics to file        
-        writer.write('#{0:6}\tGenomes\n'.format(len(genomes)))
+        writer.write('{0:7}\tGenomes\n'.format(len(genomes)))
         writer.write('{0:7}\tGenes\n'.format(nr_of_seqs))
         writer.write('{0:7}\tORFan genes (no orthologs)\n'.format(nr_orfans))
-        writer.write('{0:7}\tShared single-copy orthologous genes in {1} orthologs\n'.format(nr_sico_genes,
-                                                                                               nr_shared_sico_orth))
-        writer.write('{0:7}\tOtherwise orthologous genes in {1} orthologs\n'.format(nr_non_sico_genes,
-                                                                                      nr_non_sico_orth))
+        writer.write('{0:7}\tSingle-copy orthologous genes\n'.format(nr_shared_sico_orth))
+        #writer.write('{0:7}\tShared single-copy orthologous genes in {1} orthologs\n'.format(nr_sico_genes,
+        #                                                                                     nr_shared_sico_orth))
+        #writer.write('{0:7}\tOtherwise orthologous genes in {1} orthologs\n'.format(nr_non_sico_genes,
+        #                                                                            nr_non_sico_orth))
 
     assert os.path.isfile(stats_file) and 0 < os.path.getsize(stats_file), stats_file + ' should exist with content.'
     return stats_file
