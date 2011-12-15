@@ -66,15 +66,15 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
                 old_value = sum_comp_values.get(column, 0)
                 sum_comp_values[column] = old_value + comp_values[column]
         #Append value for DoS to list, so we can calculate the mean afterwards
-        if comp_values['direction of selection'] is not None:
-            dos_list.append(comp_values['direction of selection'])
+        if comp_values['DoS'] is not None:
+            dos_list.append(comp_values['DoS'])
 
     _append_statistics(calculations_file, 'sum', sum_comp_values, sfs_max_nton)
 
     #Calculate DoS average
     mean_values = dict((key, value / len(comp_values_list)) for key, value in sum_comp_values.iteritems())
     if dos_list:
-        mean_values['direction of selection'] = sum(dos_list) / len(dos_list)
+        mean_values['DoS'] = sum(dos_list) / len(dos_list)
     _append_statistics(calculations_file, 'mean', mean_values, sfs_max_nton)
 
     #Neutrality Index = Sum(X = Ds*Pn/(Ps+Ds)) / Sum(Y = Dn*Ps/(Ps+Ds))
@@ -504,11 +504,11 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
     total_polymorphisms = non_synonymous_polymorphisms + synonymous_polymorphisms
     #Prevent divide by zero by checking both values above are not null
     if paml_total_substitutions != 0 and total_polymorphisms != 0:
-        calc_values['direction of selection'] = (paml_non_synonymous_substitut / paml_total_substitutions
+        calc_values['DoS'] = (paml_non_synonymous_substitut / paml_total_substitutions
                                                  - non_synonymous_polymorphisms / total_polymorphisms)
     else:
         #"the direction of selection is undefined if either Dn+Ds or Pn+Ps are zero": None or Not a Number?
-        calc_values['direction of selection'] = None
+        calc_values['DoS'] = None
 
     #Combine synonymous and non synonymous site frequency spectra to get polymorphism sfs for below Pi calculation
     polymorpisms_sfs = synonymous_sfs.copy()
@@ -585,7 +585,7 @@ def _get_column_headers_in_sequence(max_nton):
 
     #Final _two_ values here are ignored when calculation sums over complete table
     headers.append('neutrality index')
-    headers.append('direction of selection')
+    headers.append('DoS')
 
     return headers
 
