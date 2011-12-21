@@ -161,7 +161,7 @@ def get_complete_genomes(genomes=_parse_genomes_table()):
     #Bin genomes using the following key functions iteratively
     by_kingdom = itemgetter('Super Kingdom')
     by_group = itemgetter('Group')
-    by_firstname = lambda x:x['Organism Name'].split()[0]
+    by_firstname = lambda x: x['Organism Name'].split()[0]
     first_bin = _bin_using_keyfunctions(genomes, [by_kingdom, by_group, by_firstname])
 
     for key1 in sorted(first_bin.keys()):
@@ -385,7 +385,7 @@ Usage: select_taxa.py
         #Read previous GenBank Project IDs from previous_file, each on their own line
         with open(previous_file) as read_handle:
             genome_ids.extend(line.split()[0] for line in read_handle
-                              #But skip external genomes as their IDs will fail to download 
+                              #But skip external genomes as their IDs will fail to download
                               if 'external genome' not in line)
 
     #Assert each clade contains enough IDs

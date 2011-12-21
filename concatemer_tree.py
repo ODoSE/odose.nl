@@ -77,7 +77,7 @@ def concatemer_per_genome(run_dir, genome_coding_regions_files):
         #Copy ACTG content from coding regions file to concatemer
         with open(coding_region_file) as read_handle:
             with open(concatemer_file, mode='w') as write_handle:
-                #Write out single concatemer header 
+                #Write out single concatemer header
                 write_handle.write('> {0}|trimmed concatemer\n'.format(basename))
 
                 #Copy over all lines that are not header lines (do not start with '>')

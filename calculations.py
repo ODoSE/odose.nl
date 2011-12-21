@@ -124,7 +124,7 @@ def get_most_recent_gene_name(genomes, sequence_records):
 
 def _every_other_codon_alignments(alignment):
     """Separate alignment into separate alignments per codon, to get independent axis when graphing data."""
-    #Calculate sequence_length to use when splitting MSA into codons 
+    #Calculate sequence_length to use when splitting MSA into codons
     sequence_lengths = len(alignment[0]) - len(alignment[0]) % 3
     alignment_codons = [alignment[:, index:index + 3] for index in range(0, sequence_lengths, 3)]
 
@@ -172,7 +172,7 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven=False):
         return table_a, table_b
 
     #As an alternate method of calculating number of substitutions for independent X-axis of eventual graph:
-    #split each alignment for a and b into two further alignments of odd and even codons 
+    #split each alignment for a and b into two further alignments of odd and even codons
     odd_even_split_orth_alignments = [(orthologname,
                                       _every_other_codon_alignments(alignment_x),
                                       _every_other_codon_alignments(alignment_y))
@@ -296,7 +296,7 @@ def _four_fold_degenerate_patterns():
     letters = BACTERIAL_CODON_TABLE.nucleotide_alphabet.letters
     #Any combination of letters of length two
     for site12 in [''.join(prod) for prod in product(letters, repeat=2)]:
-        #4-fold when the length of the unique encoded amino acids for all possible third site nucleotides is exactly 1 
+        #4-fold when the length of the unique encoded amino acids for all possible third site nucleotides is exactly 1
         if 1 == len(set([BACTERIAL_CODON_TABLE.forward_table.get(site12 + site3) for site3 in letters])):
             #Add regular expression pattern to the set of patterns
             yield '{0}[{1}]'.format(site12, letters)
@@ -306,8 +306,9 @@ FOUR_FOLD_DEGENERATE_PATTERN = '|'.join(_four_fold_degenerate_patterns())
 
 def _get_nton_name(nton, prefix=''):
     """Given the number of strains in which a polymorphism/substitution is found, give the appropriate SFS name."""
-    return prefix + {1:'singletons', 2:'doubletons', 3:'tripletons', 4:'quadrupletons', 5:'quintupletons'}.get(nton,
-                                                                                                    str(nton) + '-tons')
+    named = {1: 'single', 2: 'double', 3: 'triple', 4: 'quadruple', 5: 'quintuple'}
+    middle = named.get(nton, str(nton) + '-')
+    return prefix + middle + 'tons'
 
 
 def _perform_calculations(alignment, codeml_values):
@@ -324,7 +325,7 @@ def _perform_calculations(alignment, codeml_values):
     #Split into codon_alignments
     codon_alignments = (alignment[:, index:index + 3] for index in range(0, sequence_lengths, 3))
     for codon_alignment in codon_alignments:
-        #Get string representations of codons for simplicity 
+        #Get string representations of codons for simplicity
         codons = [str(seqr.seq) for seqr in codon_alignment]
 
         #As per AEW: ignore codons with gaps, and codons with unresolved bases: Basically anything but ACGT
@@ -344,7 +345,7 @@ def _perform_calculations(alignment, codeml_values):
         #Mutations are synonymous when all codons encode the same AA, and there are no skipped codons
         synonymous = len(translation_usage) == 1 and len(translations) == len(codon_alignment)
 
-        #Retrieve nucleotides per site within the codon 
+        #Retrieve nucleotides per site within the codon
         site1 = [nucl for nucl in codon_alignment[:, 0]]
         site2 = [nucl for nucl in codon_alignment[:, 1]]
         site3 = [nucl for nucl in codon_alignment[:, 2]]
@@ -415,7 +416,7 @@ def _perform_calculations(alignment, codeml_values):
                     _update_sfs_with_local_sfs(four_fold_syn_sfs, local_sfs)
                     #Increase the number of four_fold synonymous sites here as well
                     four_fold_synonymous_sites += 1
-        else: #not synonymous
+        else:  # not synonymous
             if len(polymorph_site_usage) == len(translation_usage):
                 #If all polymorphisms encode for different AA, we have multiple non-synonymous polymorphisms, where:
                 #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
@@ -426,7 +427,7 @@ def _perform_calculations(alignment, codeml_values):
                 #Some, but not all polymorphisms encode for different AA, making it unclear how this should be scored
                 mixed_synonymous_polymorphisms += 1
 
-    #Compute combined values from the above counted statistics 
+    #Compute combined values from the above counted statistics
     computed_values = _compute_values_from_statistics(len(alignment), sequence_lengths, codeml_values,
                                                       synonymous_sfs, non_synonymous_sfs, four_fold_syn_sfs,
                                                       four_fold_synonymous_sites)
@@ -542,7 +543,7 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
     #Watterson's estimator of theta: S / (L*Sum(1/i, i from 1 to n-1))
     #where L is the number of segregating [polymorphic] sites = Sum(D(i), i from 1 to RoundDown(n/2))
     seg_sites = sum(polymorpisms_sfs.get(i, 0) for i in range(1, nr_of_strains // 2 + 1))
-    harmonic = sum(1 / i for i in range(1, nr_of_strains))#Not +/-1 as range already excludes the stop value
+    harmonic = sum(1 / i for i in range(1, nr_of_strains))  # Not +/-1 as range already excludes the stop value
     calc_values['Theta'] = paml_synonymous_sites / (seg_sites * harmonic) / sequence_lengths if seg_sites != 0 else None
 
     #These values will end up contributing to the Neutrality Index through NI = Sum(X) / Sum(Y)
@@ -647,7 +648,7 @@ def _prepend_table_header(table_file, genomes_x, common_prefix_x, genomes_y, com
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
-Usage: calculations.py 
+Usage: calculations.py
 --genomes-a=FILE     file with GenBank Project IDs from complete genomes table on each line for taxon A
 --genomes-b=FILE     file with GenBank Project IDs from complete genomes table on each line for taxon B
 --sico-zip=FILE      archive of aligned & trimmed single copy orthologous (SICO) genes
@@ -669,8 +670,8 @@ Usage: calculations.py
         common_prefix_b = os.path.commonprefix([line.split('\t')[1] for line in lines]).strip()
 
     #Prepend headers to each of the output tables
-    _prepend_table_header(table_a, genome_ids_a, common_prefix_a , genome_ids_b, common_prefix_b, oddeven)
-    _prepend_table_header(table_b, genome_ids_b, common_prefix_b , genome_ids_a, common_prefix_a, oddeven)
+    _prepend_table_header(table_a, genome_ids_a, common_prefix_a, genome_ids_b, common_prefix_b, oddeven)
+    _prepend_table_header(table_b, genome_ids_b, common_prefix_b, genome_ids_a, common_prefix_a, oddeven)
 
     #Create run_dir to hold files relating to this run
     run_dir = tempfile.mkdtemp(prefix='calculations_')
@@ -687,7 +688,7 @@ Usage: calculations.py
     with open(table_b, mode='ab') as append_handle:
         shutil.copyfileobj(open(tmp_table_tuple[1], mode='rb'), append_handle)
 
-    #Remove now unused files to free disk space 
+    #Remove now unused files to free disk space
     shutil.rmtree(run_dir)
     os.remove(tmp_table_tuple[0])
     os.remove(tmp_table_tuple[1])
@@ -697,4 +698,3 @@ Usage: calculations.py
 
 if __name__ == '__main__':
     main(sys.argv[1:])
-

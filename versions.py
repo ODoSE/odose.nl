@@ -9,7 +9,7 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
-SOFTWARE_DIR = '/projects/divergence/software/'
+SOFTWARE_DIR = '/data/projects/divergence/software/'
 
 #Blast
 NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.25+/bin/'

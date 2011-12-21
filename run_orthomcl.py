@@ -118,7 +118,7 @@ def _step5_orthomcl_adjust_fasta(run_dir, proteome_files, id_field=3):
     for proteome_file in proteome_files:
         #Use first part of header of first entry as taxon code
         record_iter = SeqIO.parse(proteome_file, 'fasta')
-        taxon_code = record_iter.next().id.split('|')[0]  #pylint: disable=E1101
+        taxon_code = record_iter.next().id.split('|')[0]  # pylint: disable=E1101
 
         #Call orhtomclAdjustFasta
         command = [ORTHOMCL_ADJUST_FASTA, taxon_code, proteome_file, str(id_field)]

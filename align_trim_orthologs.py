@@ -20,12 +20,14 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 def _align_sicos(run_dir, sico_files):
     """Align all SICO files given as argument in parallel and return the resulting alignment files."""
     log.info('Aligning {0} SICO genes using TranslatorX & muscle.'.format(len(sico_files)))
     #We'll multiplex this embarrassingly parallel task using a pool of workers
     tuples = [(run_dir, sico_file) for sico_file in sico_files]
     return Pool().map(_run_translatorx, tuples)
+
 
 def _run_translatorx((run_dir, sico_file), translation_table=CODON_TABLE_ID):
     """Run TranslatorX to create DNA level alignment file of protein level aligned DNA sequences within sico_file."""
@@ -49,6 +51,7 @@ def _run_translatorx((run_dir, sico_file), translation_table=CODON_TABLE_ID):
     assert os.path.isfile(dna_alignment) and 0 < os.path.getsize(dna_alignment), \
         'Alignment file should exist and have some content now: {0}'.format(dna_alignment)
     return dna_alignment
+
 
 def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_length, stats_file):
     """Trim all DNA alignments using _trim_alignment (singular), and calculate some statistics about the trimming."""
@@ -91,6 +94,7 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_leng
 
     return sorted(trimmed_alignments), sorted(misaligned)
 
+
 def _trim_alignment((trimmed_dir, dna_alignment, max_indel_length)):
     """Trim alignment to retain first & last non-gapped codons across alignment, and everything in between (+gaps!).
 
@@ -100,9 +104,9 @@ def _trim_alignment((trimmed_dir, dna_alignment, max_indel_length)):
     #print '\n'.join([str(seqr.seq) for seqr in alignment])
 
     #Total alignment should be just as long as first seqr of alignment
-    alignment_length = len (alignment[0])
+    alignment_length = len(alignment[0])
 
-    #After using protein alignment only for CDS, all alignment lengths should be multiples of three 
+    #After using protein alignment only for CDS, all alignment lengths should be multiples of three
     assert alignment_length % 3 == 0, 'Length not a multiple of three: {} \n{2}'.format(alignment_length, alignment)
 
     #Assert all codons are either full length codons or gaps, but not a mix of gaps and letters such as AA- or A--
@@ -143,6 +147,7 @@ def _trim_alignment((trimmed_dir, dna_alignment, max_indel_length)):
 
     return trimmed_file, alignment_length, trimmed_length, trimmed_length / alignment_length * 100
 
+
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
@@ -174,7 +179,7 @@ Usage: filter_orthologs.py
     #Align SICOs so all sequences become equal length sequences
     aligned_files = _align_sicos(run_dir, sico_files)
 
-    #Filter orthologs that retain less than PERC % of sequence after trimming alignment    
+    #Filter orthologs that retain less than PERC % of sequence after trimming alignment
     trimmed_files, misaligned_files = _trim_alignments(run_dir, aligned_files, retained_threshold, max_indel_length,
                                                        target_stats_path)
 
@@ -183,7 +188,7 @@ Usage: filter_orthologs.py
     create_archive_of_files(misaligned_zip, misaligned_files)
     create_archive_of_files(trimmed_zip, trimmed_files)
 
-    #Remove unused files to free disk space 
+    #Remove unused files to free disk space
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message

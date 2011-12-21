@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Package divergence"""
 
-from pkg_resources import resource_filename #@UnresolvedImport #pylint: disable=E0611
+from pkg_resources import resource_filename  # @UnresolvedImport  # pylint: disable=E0611
 from zipfile import ZipFile, ZIP_DEFLATED, is_zipfile
 import Bio
 import getopt
