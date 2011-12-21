@@ -15,14 +15,15 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 def format_fasta_genome_headers(label, nucl_fasta_file):
     """Format an individual nucleotide fasta file containing coding regions so the headers match expected patterns."""
     label = label.replace(' ', '_')
 
     #Determine output file name
     filename = os.path.split(nucl_fasta_file)[1]
-    formatted_fasta_file = tempfile.mkstemp(suffix = '.ffn', prefix = '{0}.{1}.formatted_'.format(label, filename))[1]
-    with open(formatted_fasta_file, mode = 'w') as write_handle:
+    formatted_fasta_file = tempfile.mkstemp(suffix='.ffn', prefix='{0}.{1}.formatted_'.format(label, filename))[1]
+    with open(formatted_fasta_file, mode='w') as write_handle:
         for index, nucl_seqrecord in enumerate(SeqIO.parse(nucl_fasta_file, 'fasta'), 1):
             #Try to retain user specified protein identifiers, hoping they stuck to this guideline:
             #http://www.ncbi.nlm.nih.gov/books/NBK7183/?rendertype=table&id=ch_demo.T5
@@ -41,13 +42,14 @@ def format_fasta_genome_headers(label, nucl_fasta_file):
             nucl_sequence_str = str(nucl_seqrecord.seq).replace('---', '')
             nucl_sequence = Seq(nucl_sequence_str)
 
-            #Write out fasta. Header format as requested: >project_id|genbank_ac|protein_id|cog|source 
+            #Write out fasta. Header format as requested: >project_id|genbank_ac|protein_id|cog|source
             header = '{0}|{1}|{2}|{3}|{4}'.format(label, filename, protein_id, None, 'upload')
 
             #Create protein sequence record and write it to file
-            formatted_seqrecord = SeqRecord(nucl_sequence, id = header, description = '')
+            formatted_seqrecord = SeqRecord(nucl_sequence, id=header, description='')
             SeqIO.write(formatted_seqrecord, write_handle, 'fasta')
     return formatted_fasta_file
+
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""

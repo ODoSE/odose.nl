@@ -15,15 +15,16 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 def create_crosstable(sico_files, target_crosstable):
     """Create crosstable with vertically the orthologs, horizontally the genomes, and gene IDs at intersections."""
-    with open(target_crosstable, mode = 'w') as write_handle:
-        #Create dictionaries mapping genomes to gene IDs per sico file 
+    with open(target_crosstable, mode='w') as write_handle:
+        #Create dictionaries mapping genomes to gene IDs per sico file
         row_data = [(sico_file, dict(itemgetter(0, 2)(fasta_record.id.split('|'))
                          for fasta_record in SeqIO.parse(sico_file, 'fasta')))
                     for sico_file in sico_files]
 
-        #Retrieve unique genomes across all sico files, just to be safe 
+        #Retrieve unique genomes across all sico files, just to be safe
         genomes = sorted(set(key for row in row_data for key in row[1].keys()))
         from divergence.select_taxa import select_genomes_by_ids
         genome_dicts = select_genomes_by_ids(genomes).values()
@@ -52,6 +53,7 @@ def create_crosstable(sico_files, target_crosstable):
             #New line
             write_handle.write('\n')
 
+
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
@@ -63,13 +65,13 @@ Usage: crosstable_gene_ids.py
     sizo_zip, target_crosstable = parse_options(usage, options, args)
 
     #Create tempdir
-    run_dir = tempfile.mkdtemp(prefix = 'crosstable_')
+    run_dir = tempfile.mkdtemp(prefix='crosstable_')
     sico_files = extract_archive_of_files(sizo_zip, run_dir)
 
     #Create crosstable
     create_crosstable(sico_files, target_crosstable)
 
-    #Remove extracted files to free disk space 
+    #Remove extracted files to free disk space
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message

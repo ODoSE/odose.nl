@@ -18,6 +18,7 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 def select_genomes_by_ids(genome_ids):
     """Return list of genomes from complete genomes table whose GenBank Project ID is in genome_ids."""
     #Loop over genomes and return any genomes whose GenBank Project ID is in genome_ids
@@ -27,7 +28,7 @@ def select_genomes_by_ids(genome_ids):
     #Require that the RefSeq and GenBank project IDs do not overlap, otherwise this fuzzy matching wont work anymore!
     assert set(refseq_genomes).isdisjoint(set(genbank_genomes)), 'RefSeq & GenBank project IDs should not overlap'
 
-    #Match genomes_ids to genomes 
+    #Match genomes_ids to genomes
     matches = dict((queryid, refseq_genomes[queryid]) for queryid in genome_ids if queryid in refseq_genomes)
     matches.update(dict((queryid, genbank_genomes[queryid]) for queryid in genome_ids if queryid in genbank_genomes))
 
@@ -38,6 +39,7 @@ def select_genomes_by_ids(genome_ids):
 
     return matches
 
+
 def _download_genomes_table():
     """Download complete genome table over HTTP with caching, decode as iso-8859-1 and return string."""
     genome_table = os.path.join(create_directory('.'), 'complete-genomes-table.tsv')
@@ -47,7 +49,7 @@ def _download_genomes_table():
         #Download complete genome table over HTTP with caching and decode as iso-8859-1
         url = 'http://www.ncbi.nlm.nih.gov/genomes/lproks.cgi?dump=selected&view=1&p1=5:0'
         content = HTTP_CACHE.request(url)[1].decode('iso-8859-1')
-        with open(genome_table, mode = 'w') as write_handle:
+        with open(genome_table, mode='w') as write_handle:
             write_handle.write(content.encode('utf-8'))
     else:
         #Read previously saved complete genomes table file
@@ -55,7 +57,8 @@ def _download_genomes_table():
             content = read_handle.read().decode('utf-8')
     return content
 
-def _parse_genomes_table(require_refseq = False):
+
+def _parse_genomes_table(require_refseq=False):
     """Parse table of genomes and return list of dictionaries with values per genome."""
     #Empty lists to hold column names and genome dictionaries
     columns = []
@@ -116,14 +119,15 @@ def _parse_genomes_table(require_refseq = False):
     #Return the genome dictionaries
     return tuple(genomes)
 
-#Assign content returned from _download_genomes_table as default value for complete_genome_table, such that we can 
+#Assign content returned from _download_genomes_table as default value for complete_genome_table, such that we can
 #override this value in tests
 _parse_genomes_table.complete_genome_table = _download_genomes_table()
+
 
 def _bin_using_keyfunctions(genomes, keyfunctions):
     """Bin genomes recursively according to keyfunctions, returning nested dictionaries mapping keys to collections."""
 
-    def _bin_according_to_keyfunction(genomes, keyfunction = lambda x: x):
+    def _bin_according_to_keyfunction(genomes, keyfunction=lambda x: x):
         """Group genomes into lists by unique values for keyfunction. Return dictionary mapping keys to lists."""
         bins = {}
         #Loop over genomes to map each to the right group
@@ -136,7 +140,7 @@ def _bin_using_keyfunctions(genomes, keyfunctions):
             bins[key].append(genome)
 
         #Sort resulting lists by keyfunction as well, so we get a nice ordering of results in the end
-        bins = dict((key, sorted(col, key = keyfunction)) for key, col in bins.iteritems())
+        bins = dict((key, sorted(col, key=keyfunction)) for key, col in bins.iteritems())
         return bins
 
     #Get first keyfunction, and bin genomes by that keyfunction
@@ -151,7 +155,8 @@ def _bin_using_keyfunctions(genomes, keyfunctions):
     #Return dictionary of keys in genomes mapped to lists of genomes for that key, or further nested dictionaries
     return bins
 
-def get_complete_genomes(genomes = _parse_genomes_table()):
+
+def get_complete_genomes(genomes=_parse_genomes_table()):
     """Get tuples of Organism Name, GenBank Project ID & False, for input into Galaxy clade selection."""
     #Bin genomes using the following key functions iteratively
     by_kingdom = itemgetter('Super Kingdom')
@@ -173,12 +178,13 @@ def get_complete_genomes(genomes = _parse_genomes_table()):
                     #Yield the composed name, the project ID & False according to the expected input for Galaxy
                     yield name, genome['Project ID'], False
 
+
 def _get_colored_labels(genome):
     """Optionally return colored labels for genome based on a release date, modified date and genome size."""
     labels = ''
 
     #Add New! & Updated! labels by looking at release and updated dates in the genome dictionary
-    day_limit = datetime.today() - timedelta(days = 30)
+    day_limit = datetime.today() - timedelta(days=30)
 
     #Released date 01/27/2009
     released_date = genome['Released date']
@@ -201,12 +207,13 @@ def _get_colored_labels(genome):
 
     return labels
 
-def download_genome_files(genome, download_log = None, require_ptt = False):
+
+def download_genome_files(genome, download_log=None, require_ptt=False):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples of three."""
     #ftp://ftp.ncbi.nih.gov/genbank/genomes/Bacteria/Sulfolobus_islandicus_M_14_25_uid18871/CP001400.ffn
     #Download using FTP
     ftp = FTP('ftp.ncbi.nih.gov')
-    ftp.login(passwd = 'brs@nbic.nl')
+    ftp.login(passwd='brs@nbic.nl')
 
     #Try to find project directory in RefSeq curated listing
     projectid = genome['RefSeq project ID']
@@ -285,7 +292,7 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
     if len(genome_files) == 0:
         #Write out commented out line to the logfile detailing this error
         if download_log:
-            with open(download_log, mode = 'a') as append_handle:
+            with open(download_log, mode='a') as append_handle:
                 append_handle.write('#{0}\t{1}\t'.format(projectid, genome['Organism Name']))
                 append_handle.write('#Genome skipped because of missing files\n')
 
@@ -298,11 +305,12 @@ def download_genome_files(genome, download_log = None, require_ptt = False):
     #Write out provenance logfile with sources of retrieved files
     #This file could coincidentally also serve as genome ID file for extract taxa
     if download_log:
-        with open(download_log, mode = 'a') as append_handle:
+        with open(download_log, mode='a') as append_handle:
             append_handle.write('{0}\t{1}\t{2}{3}\n'.format(projectid, genome['Organism Name'], ftp.host, project_dir))
 
     #Return genome files
     return genome_files
+
 
 def _find_project_dir(ftp, base_dir, projectid):
     """Find a genome project directory in ftp directory based upon directory name postfix. Return None if not found."""
@@ -316,6 +324,7 @@ def _find_project_dir(ftp, base_dir, projectid):
             return ftp_file
     return None
 
+
 def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_date):
     """Download a single file from remote folder to target folder, only if it does not already exist."""
     #Move completed tmp_file to actual output path when done
@@ -323,19 +332,19 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_dat
 
     #We know when genomes were last updated. Use this information to determine when to download again, or every 60 days
     last_changed_stamp = time.mktime(last_change_date.timetuple())
-    sixty_day_stamp = time.mktime((datetime.now() - timedelta(days = 60)).timetuple())
+    sixty_day_stamp = time.mktime((datetime.now() - timedelta(days=60)).timetuple())
     file_age_limit = max(last_changed_stamp, sixty_day_stamp)
 
     #Do not retrieve existing files if they exist and have content and are newer than the file_age_limit
     if not os.path.exists(out_file) or 0 == os.path.getsize(out_file) or os.path.getmtime(out_file) < file_age_limit:
         #Use a temporary file as write handle here, so we can not pollute cache when download is interrupted
-        tmp_file = tempfile.mkstemp(prefix = filename + '_')[1]
+        tmp_file = tempfile.mkstemp(prefix=filename + '_')[1]
 
         #Retrieve genbank & protein table files from FTP
         log.info('Retrieving genome file %s%s/%s to %s', ftp.host, remote_dir, filename, target_dir)
 
         #Write retrieved contents to file
-        with open(tmp_file, mode = 'wb') as write_file:
+        with open(tmp_file, mode='wb') as write_file:
             #Write contents of file to shared experiment sra_lite
             def download_callback(block):
                 """ftp.retrbinary requires a callback method"""
@@ -350,6 +359,7 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_dat
         shutil.move(tmp_file, out_file)
 
     return out_file
+
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
@@ -380,22 +390,22 @@ Usage: select_taxa.py
 
     #Assert each clade contains enough IDs
     maximum = 100
-    #TODO Move this test to translate, where we can see how many translations succeeded + how many externals there are 
+    #TODO Move this test to translate, where we can see how many translations succeeded + how many externals there are
     if  maximum < len(genome_ids):
         log.error('Expected between two and {0} selected genomes, but was {1}'.format(maximum, len(genome_ids)))
         sys.exit(1)
 
     #Retrieve genome dictionaries to get to Organism Name
     genomes = select_genomes_by_ids(genome_ids).values()
-    genomes = sorted(genomes, key = itemgetter('Organism Name'))
+    genomes = sorted(genomes, key=itemgetter('Organism Name'))
 
     #Semi-touch genomes file in case no genomes were selected, for instance when uploading external genomes
-    open(genomes_file, mode = 'a').close()
+    open(genomes_file, mode='a').close()
 
     #Write IDs to file, with organism name as second column to make the project ID files more self explanatory.
     for genome in genomes:
         #Download files here, but ignore returned files: These can be retrieved from cache during extraction/translation
-        download_genome_files(genome, genomes_file, require_ptt = require_ptt)
+        download_genome_files(genome, genomes_file, require_ptt=require_ptt)
 
     #Exit after a comforting log message
     log.info("Produced: \n%s", genomes_file)

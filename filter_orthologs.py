@@ -18,6 +18,7 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 def _filter_multiple_cog_orthologs(run_dir, ortholog_files):
     """Filter orthologs where multiple different COG annotations are found, and in addition transfer COGs."""
 
@@ -32,7 +33,7 @@ def _filter_multiple_cog_orthologs(run_dir, ortholog_files):
 
     #File detailing transfered COG annotations for recipient protein IDs & COGs
     transfered_cogs = os.path.join(run_dir, 'transfered_cogs.tsv')
-    with open(transfered_cogs, mode = 'w') as write_handle:
+    with open(transfered_cogs, mode='w') as write_handle:
         write_handle.write('ProjectID\tAccessioncode\tProteinID\tCOG\tsource\n')
 
     #Transfer COGs by overwriting sico_files with correct COG set
@@ -41,7 +42,8 @@ def _filter_multiple_cog_orthologs(run_dir, ortholog_files):
 
     return ortholog_files, transfered_cogs
 
-def find_cogs_in_sequence_records(sequence_records, include_none = False):
+
+def find_cogs_in_sequence_records(sequence_records, include_none=False):
     """Find unique COG annotations assigned to sequences within a single alignment."""
     cogs = set()
     for record in sequence_records:
@@ -55,13 +57,14 @@ def find_cogs_in_sequence_records(sequence_records, include_none = False):
             cogs.add(cog)
     return cogs
 
+
 def _group_cog_issues(sico_files):
     """Find issues with COG assignments within SICO files by looking at COG conflicts, transferable and missing COGs."""
     cog_conflicts = {}
     cog_transferable = {}
     cog_missing = []
     for sico_file in sico_files:
-        cogs = find_cogs_in_sequence_records(SeqIO.parse(sico_file, 'fasta'), include_none = True)
+        cogs = find_cogs_in_sequence_records(SeqIO.parse(sico_file, 'fasta'), include_none=True)
         if 0 == len(cogs):
             cog_missing.append(sico_file)
             continue
@@ -74,13 +77,14 @@ def _group_cog_issues(sico_files):
             cog_conflicts[sico_file] = cogs
     return cog_conflicts, cog_transferable, cog_missing
 
+
 def _assign_cog_to_sequences(fasta_file, cog, transfered_cogs):
     """Assign cog annotatione to all sequences in fasta_file."""
     #Read all sequence records from file
     seqrecords = SeqIO.to_dict(SeqIO.parse(fasta_file, 'fasta')).values()
-    #Write all sequence records back to the same(!) file 
-    with open(fasta_file, mode = 'w') as write_handle:
-        with open(transfered_cogs, mode = 'a') as append_handle:
+    #Write all sequence records back to the same(!) file
+    with open(fasta_file, mode='w') as write_handle:
+        with open(transfered_cogs, mode='a') as append_handle:
             for seqr in seqrecords:
                 #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
                 #Or for missing COG: >58191|NC_010067.1|YP_001569097.1|None|core
@@ -89,10 +93,11 @@ def _assign_cog_to_sequences(fasta_file, cog, transfered_cogs):
                 if split[3] == 'None':
                     #Assign cog and alter seqr variable to include assigned cog
                     split[3] = cog
-                    seqr = SeqRecord(seqr.seq, id = '|'.join(split), description = '')
+                    seqr = SeqRecord(seqr.seq, id='|'.join(split), description='')
                     #Append this COG transfer to append_handle
                     append_handle.write('\t'.join(split) + '\n')
                 SeqIO.write(seqr, write_handle, 'fasta')
+
 
 def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
     """Append COG statistics to stats_file"""
@@ -106,13 +111,14 @@ def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
     if cog_missing:
         log.info('{0}\tOrthologs did not contain any COG annotations'.format(len(cog_missing)))
 
+
 def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_ids_b):
-    """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees. 
+    """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees.
     Return two collections of aligned files, the first without recombination, the second with recombination."""
 
     log.info('Filtering orthologs where phylogenetic trees show evidence of recombination')
 
-    #Collections to hold both non recombination files & files showing recombination 
+    #Collections to hold both non recombination files & files showing recombination
     non_recomb = []
     recombined = []
 
@@ -120,7 +126,7 @@ def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_id
     for ortholog_file in aligned_files:
         #Determine input file base name to create an ortholog run specific directory
         base_name = os.path.split(os.path.splitext(ortholog_file)[0])[1]
-        ortholog_dir = create_directory(base_name, inside_dir = run_dir)
+        ortholog_dir = create_directory(base_name, inside_dir=run_dir)
 
         #Create distance file
         distance_file = _run_dna_dist(ortholog_dir, ortholog_file)
@@ -138,6 +144,7 @@ def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_id
              len(recombined), len(aligned_files), len(non_recomb))
 
     return non_recomb, recombined
+
 
 def _tree_shows_recombination(genome_ids_a, genome_ids_b, tree_file):
     """Look for evidence of recombination by seeing if all genomes of the separate taxa group together in the tree."""
@@ -159,6 +166,7 @@ def _tree_shows_recombination(genome_ids_a, genome_ids_b, tree_file):
     assert first_a_id in clade_two, '{0}\n{1}\n{2}\n{3}'.format(tree_file, clade_one, clade_two, first_a_id)
     return set(genome_ids_a) != set(clade_two) or set(genome_ids_b) != set(clade_one)
 
+
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
@@ -178,10 +186,10 @@ Usage: filter_orthologs.py
     taxona, taxonb, retained_zip = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
-    run_dir = tempfile.mkdtemp(prefix = 'filter_orthologs_')
+    run_dir = tempfile.mkdtemp(prefix='filter_orthologs_')
 
     #Extract files from zip archive
-    temp_dir = create_directory('orthologs', inside_dir = run_dir)
+    temp_dir = create_directory('orthologs', inside_dir=run_dir)
     ortholog_files = extract_archive_of_files(orthologs_zip, temp_dir)
 
     #Filter orthologs with multiple COG annotations among genes if flag was set
@@ -202,7 +210,6 @@ Usage: filter_orthologs.py
         #Create crosstable
         create_crosstable(recombined_files, recombined_crosstable)
 
-
     #Create archives of files on command line specified output paths
     if filter_cogs:
         shutil.move(transfered_cogs, filter_cogs)
@@ -210,7 +217,7 @@ Usage: filter_orthologs.py
         create_archive_of_files(filter_recombination, recombined_files)
     create_archive_of_files(retained_zip, ortholog_files)
 
-    #Remove unused files to free disk space 
+    #Remove unused files to free disk space
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message

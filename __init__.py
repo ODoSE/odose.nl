@@ -21,12 +21,12 @@ LOG_FORMAT = '%(levelname)s\t%(asctime)s %(module)s.%(funcName)s:%(lineno)d\t%(m
 LOG_DATE_FORMAT = '%H:%M:%S'
 
 #Logs WARNING messages and anything above to sys.stdout
-logging.basicConfig(level = logging.INFO, stream = sys.stdout, format = LOG_FORMAT, datefmt = LOG_DATE_FORMAT)
+logging.basicConfig(level=logging.INFO, stream=sys.stdout, format=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
 
 #Log ERROR messages to stderr separately; these will fail a tool run in Galaxy
 STDERR_HANDLER = logging.StreamHandler(sys.stderr)
 STDERR_HANDLER.setLevel(logging.ERROR)
-STDERR_HANDLER.setFormatter(logging.Formatter(fmt = LOG_FORMAT, datefmt = LOG_DATE_FORMAT))
+STDERR_HANDLER.setFormatter(logging.Formatter(fmt=LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
 logging.root.addHandler(STDERR_HANDLER)
 
 #Require at least version 1.53 op BioPython
@@ -38,9 +38,10 @@ CODON_TABLE_ID = 11
 #Base output dir
 BASE_OUTPUT_PATH = '../divergence-cache/'
 
-def create_directory(dirname, inside_dir = BASE_OUTPUT_PATH):
+
+def create_directory(dirname, inside_dir=BASE_OUTPUT_PATH):
     """Create a directory in the default output directory, and return the full path to the directory.
-    
+
     Return directory if directory already exists, raise error if file by that name already exists."""
     filename = os.path.join(inside_dir, dirname)
     #For non-absolute paths, get filename relative to this module
@@ -60,18 +61,20 @@ def create_directory(dirname, inside_dir = BASE_OUTPUT_PATH):
 #Initialize shared cache for files downloaded through httplib2
 HTTP_CACHE = httplib2.Http(create_directory('.cache'))
 
+
 def concatenate(target_path, source_files):
     """Concatenate arbitrary number of files into target_path by reading and writing in binary mode.
-    
+
     WARNING: The binary mode implies new line characters will NOT be added in between files!"""
-    with open(target_path, mode = 'wb') as write_handle:
+    with open(target_path, mode='wb') as write_handle:
         for source_file in source_files:
-            shutil.copyfileobj(open(source_file, mode = 'rb'), write_handle)
+            shutil.copyfileobj(open(source_file, mode='rb'), write_handle)
     assert os.path.isfile(target_path) and 0 < os.path.getsize(target_path), target_path + ' should exist with content'
+
 
 def create_archive_of_files(archive_file, file_iterable):
     """Write files in file_iterable to archive_file, using only filename for target path within archive_file."""
-    zipfile_handle = ZipFile(archive_file, mode = 'w', compression = ZIP_DEFLATED)
+    zipfile_handle = ZipFile(archive_file, mode='w', compression=ZIP_DEFLATED)
     if len(file_iterable):
         for some_file in file_iterable:
             zipfile_handle.write(some_file, os.path.split(some_file)[1])
@@ -81,20 +84,22 @@ def create_archive_of_files(archive_file, file_iterable):
     zipfile_handle.close()
     assert is_zipfile(archive_file), 'File should now have been a valid zipfile: ' + archive_file
 
+
 def extract_archive_of_files(archive_file, target_dir):
     """Extract all files from archive to target directory, and return list of files extracted."""
     extracted_files = []
-    read_handle = ZipFile(archive_file, mode = 'r')
+    read_handle = ZipFile(archive_file, mode='r')
     for zipinfo in read_handle.infolist():
-        extracted_path = read_handle.extract(zipinfo, path = target_dir)
+        extracted_path = read_handle.extract(zipinfo, path=target_dir)
         extracted_files.append(extracted_path)
     read_handle.close()
     assert extracted_files, 'At least some files should have been read from ' + archive_file
     return extracted_files
 
+
 def parse_options(usage, options, args):
     """Parse command line arguments in args. Options require argument by default; flags are indicated with '?' postfix.
-    
+
     Parameters:
     usage -- Usage string detailing command line arguments
     options -- List of command line arguments to parse
@@ -117,7 +122,7 @@ def parse_options(usage, options, args):
             raise getopt.GetoptError('Unrecognized argument(s) passed: ' + str(remainder), remainder)
         arguments = dict((opt[2:], value) for opt, value in tuples)
     except getopt.GetoptError as err:
-        #Print error & usage information to stderr 
+        #Print error & usage information to stderr
         print >> sys.stderr, str(err)
         print >> sys.stderr, usage
         sys.exit(1)
@@ -144,4 +149,3 @@ def parse_options(usage, options, args):
 
     #Retrieve & return file paths from dictionary in order of options
     return [arguments[option] for option in options]
-

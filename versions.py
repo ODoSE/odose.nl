@@ -46,16 +46,19 @@ CODEML = PAML_DIR + 'bin/codeml'
 
 from subprocess import Popen, PIPE
 
+
 def _call_program(*command):
     """Execute command and return the standard output returned by the program. Standard error is caught and ignored."""
-    process = Popen(command, stdout = PIPE, stderr = PIPE)
+    process = Popen(command, stdout=PIPE, stderr=PIPE)
     process.wait()
     return process.communicate()[0]
 
-def _grep_version(path, pattern = 'version'):
+
+def _grep_version(path, pattern='version'):
     """Grep for the pattern `version` case insensitively in files specified on path and return the first line."""
     stdout = _call_program('grep', '-ri', pattern, path)
     return stdout.split('\n')[0]
+
 
 def main():
     """Method intended to be run when __name-- == '__main__'."""
@@ -79,7 +82,7 @@ def main():
     logging.info('PHYLIP neighbor: ' + _grep_version(PHYLIP_DIR + 'src/neighbor.c')[3:] + '\n')
 
     #TranslatorX calls muscle internally
-    logging.info('translatorx: ' + _grep_version(TRANSLATORX, pattern = 'TranslatorX v')[28:-6] + '\n')
+    logging.info('translatorx: ' + _grep_version(TRANSLATORX, pattern='TranslatorX v')[28:-6] + '\n')
     logging.info(_call_program('muscle', '-version'))
 
 if __name__ == '__main__':

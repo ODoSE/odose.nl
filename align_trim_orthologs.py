@@ -27,13 +27,13 @@ def _align_sicos(run_dir, sico_files):
     tuples = [(run_dir, sico_file) for sico_file in sico_files]
     return Pool().map(_run_translatorx, tuples)
 
-def _run_translatorx((run_dir, sico_file), translation_table = CODON_TABLE_ID):
+def _run_translatorx((run_dir, sico_file), translation_table=CODON_TABLE_ID):
     """Run TranslatorX to create DNA level alignment file of protein level aligned DNA sequences within sico_file."""
     assert os.path.exists(TRANSLATORX) and os.access(TRANSLATORX, os.X_OK), 'Could not find or run ' + TRANSLATORX
 
     #Determine output file name
     sico_base = os.path.splitext(os.path.split(sico_file)[1])[0]
-    alignment_dir = create_directory('alignments/' + sico_base, inside_dir = run_dir)
+    alignment_dir = create_directory('alignments/' + sico_base, inside_dir=run_dir)
 
     #Created output file
     file_base = os.path.join(alignment_dir, sico_base)
@@ -44,7 +44,7 @@ def _run_translatorx((run_dir, sico_file), translation_table = CODON_TABLE_ID):
                '-i', sico_file,
                '-c', str(translation_table),
                '-o', file_base]
-    check_call(command, stdout = open('/dev/null', 'w'), stderr = STDOUT)
+    check_call(command, stdout=open('/dev/null', 'w'), stderr=STDOUT)
 
     assert os.path.isfile(dna_alignment) and 0 < os.path.getsize(dna_alignment), \
         'Alignment file should exist and have some content now: {0}'.format(dna_alignment)
@@ -55,7 +55,7 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_leng
     log.info('Trimming {0} DNA alignments from first non-gap codon to last non-gap codon'.format(len(dna_alignments)))
 
     #Create directory here, to prevent race-condition when folder does not exist, but is then created by another process
-    trimmed_dir = create_directory('trimmed', inside_dir = run_dir)
+    trimmed_dir = create_directory('trimmed', inside_dir=run_dir)
 
     #Use Pool().map again to scale trimming out over multiple cores. This requires tuple'd arguments however
     trim_tpls = Pool().map(_trim_alignment, ((trimmed_dir, dna_alignment, max_indel_length)
@@ -66,7 +66,7 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_leng
     misaligned = [tpl[0] for tpl in trim_tpls if retained_threshold > tpl[3]]
 
     #Write trim statistics to file in such a way that they're easily converted to a graph in Galaxy
-    with open(stats_file, mode = 'w') as append_handle:
+    with open(stats_file, mode='w') as append_handle:
         msg = '{0:6} sequence alignments trimmed'.format(len(trim_tpls))
         log.info(msg)
         append_handle.write('#' + msg + '\n')
@@ -83,7 +83,7 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_leng
         append_handle.write('#' + msg + '\n')
 
         append_handle.write('# Trimmed file\tOriginal length\tTrimmed length\tPercentage retained\n')
-        for tpl in sorted(trim_tpls, key = itemgetter(3)):
+        for tpl in sorted(trim_tpls, key=itemgetter(3)):
             append_handle.write(os.path.split(tpl[0])[1] + '\t')
             append_handle.write(str(tpl[1]) + '\t')
             append_handle.write(str(tpl[2]) + '\t')
@@ -93,7 +93,7 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_leng
 
 def _trim_alignment((trimmed_dir, dna_alignment, max_indel_length)):
     """Trim alignment to retain first & last non-gapped codons across alignment, and everything in between (+gaps!).
-    
+
     Return trimmed file, original length, trimmed length and percentage retained as tuple"""
     #Read single alignment from fasta file
     alignment = AlignIO.read(dna_alignment, 'fasta')
@@ -130,7 +130,7 @@ def _trim_alignment((trimmed_dir, dna_alignment, max_indel_length)):
 
     #Write out trimmed alignment file
     trimmed_file = os.path.join(trimmed_dir, os.path.split(dna_alignment)[1])
-    with open(trimmed_file, mode = 'w') as write_handle:
+    with open(trimmed_file, mode='w') as write_handle:
         AlignIO.write(trimmed, write_handle, 'fasta')
 
     #Assert file now exists with content
@@ -165,10 +165,10 @@ Usage: filter_orthologs.py
     max_indel_length = int(max_indel_length)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
-    run_dir = tempfile.mkdtemp(prefix = 'align_trim_')
+    run_dir = tempfile.mkdtemp(prefix='align_trim_')
 
     #Extract files from zip archive
-    temp_dir = create_directory('orthologs', inside_dir = run_dir)
+    temp_dir = create_directory('orthologs', inside_dir=run_dir)
     sico_files = extract_archive_of_files(orthologs_zip, temp_dir)
 
     #Align SICOs so all sequences become equal length sequences

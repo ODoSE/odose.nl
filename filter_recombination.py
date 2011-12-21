@@ -21,16 +21,17 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 def _filter_recombined_orthologs(run_dir, aligned_files, stats_file):
-    """Filter aligned fasta files where there is evidence of recombination when inspecting PhiPack values. 
+    """Filter aligned fasta files where there is evidence of recombination when inspecting PhiPack values.
     Return two collections of aligned files, the first without recombination, the second with recombination."""
 
     log.info('Running PhiPack for %i orthologs to find recombination', len(aligned_files))
 
     #Create separate directory for phipack related values
-    phipack_dir = create_directory('phipack', inside_dir = run_dir)
+    phipack_dir = create_directory('phipack', inside_dir=run_dir)
 
-    with open(stats_file, mode = 'w') as write_handle:
+    with open(stats_file, mode='w') as write_handle:
         write_handle.write('\t'.join(['Ortholog',
                                       'Informative sites',
                                       'Phi',
@@ -39,7 +40,7 @@ def _filter_recombined_orthologs(run_dir, aligned_files, stats_file):
                                       'COGs',
                                       'Product']) + '\n')
 
-        #Retrieve unique genomes from first ortholog file 
+        #Retrieve unique genomes from first ortholog file
         genome_ids = set(fasta_record.id.split('|')[0] for fasta_record in SeqIO.parse(aligned_files[0], 'fasta'))
         genome_dicts = select_genomes_by_ids(genome_ids).values()
 
@@ -65,16 +66,17 @@ def _filter_recombined_orthologs(run_dir, aligned_files, stats_file):
 
     #Nothing to return, the stats_file is the product
 
+
 def _run_phipack(phipack_dir, dna_file):
     """Run PhiPack and return ortholog name, the number of informative sites, PHI, Max Chi^2 and NSS."""
     #Create directory for PhiPack to run in, so files get created there
     orth_name = os.path.split(dna_file)[1].split('.')[0]
-    rundir = create_directory(orth_name, inside_dir = phipack_dir)
+    rundir = create_directory(orth_name, inside_dir=phipack_dir)
 
     #Build up list of commands
-    command = PHIPACK, '-f', dna_file, '-o' #Output NSS & Max Chi^2
+    command = PHIPACK, '-f', dna_file, '-o'  # Output NSS & Max Chi^2
     try:
-        check_call(command, cwd = rundir, stdout = open('/dev/null', mode = 'w'))
+        check_call(command, cwd=rundir, stdout=open('/dev/null', mode='w'))
     except CalledProcessError as err:
         log.warn('Error running PhiPack for %s:\n%s', orth_name, err)
         return orth_name, None, None, None, None
@@ -96,6 +98,7 @@ def _run_phipack(phipack_dir, dna_file):
     nss = float(re.search('NSS:\s+(.*)\s+\(1000 permutations\)', contents).group(1))
     return orth_name, sites, phi, chi, nss
 
+
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
@@ -107,16 +110,16 @@ Usage: filter_recombination.py
     orthologs_zip, stats_file = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
-    run_dir = tempfile.mkdtemp(prefix = 'filter_recombined_')
+    run_dir = tempfile.mkdtemp(prefix='filter_recombined_')
 
     #Extract files from zip archive
-    extraction_dir = create_directory('extracted_orthologs', inside_dir = run_dir)
+    extraction_dir = create_directory('extracted_orthologs', inside_dir=run_dir)
     ortholog_files = extract_archive_of_files(orthologs_zip, extraction_dir)
 
     #Find recombination in all ortholog_files
     _filter_recombined_orthologs(run_dir, ortholog_files, stats_file)
 
-    #Remove unused files to free disk space 
+    #Remove unused files to free disk space
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message

@@ -19,6 +19,7 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 def _produce_heatmap(genome_ids, sico_files, muco_files, accessory_files):
     """Produce heatmap of orthologs, and how many times ortholog ooccurs in genome, with the COGs added as well. """
     def _occurences_and_cogs(genome_ids, ortholog_files):
@@ -36,8 +37,8 @@ def _produce_heatmap(genome_ids, sico_files, muco_files, accessory_files):
             product = get_most_recent_gene_name(genomes, records)
             yield count_per_id, ortholog_nr, cogs, product
 
-    heatmap = tempfile.mkstemp(suffix = '.tsv', prefix = 'genome_ortholog_heatmap_')[1]
-    with open(heatmap, mode = 'w') as write_handle:
+    heatmap = tempfile.mkstemp(suffix='.tsv', prefix='genome_ortholog_heatmap_')[1]
+    with open(heatmap, mode='w') as write_handle:
         #Write file header
         write_handle.write('\t'.join(genome_ids))
         write_handle.write('\tOrtholog\tCOGs\tProduct\n')
@@ -64,7 +65,8 @@ def _produce_heatmap(genome_ids, sico_files, muco_files, accessory_files):
             write_handle.write('\t{0}\n'.format(product))
     return heatmap
 
-def extract_orthologs(run_dir, genomes, dna_files, groups_file, require_limiter = False):
+
+def extract_orthologs(run_dir, genomes, dna_files, groups_file, require_limiter=False):
     """Extract DNA sequences for SICO, MUCO & partially shared orthologs to a single file per ortholog."""
     #Subdivide orthologs into groups
     shared_single_copy, shared_multi_copy, accessory = _extract_shared_orthologs(genomes, groups_file, require_limiter)
@@ -89,6 +91,7 @@ def extract_orthologs(run_dir, genomes, dna_files, groups_file, require_limiter 
 
     return sico_files, muco_files, accessory_files, stats_file, heatmap_file
 
+
 def _create_ortholog_dictionaries(groups_file):
     """Convert groups file into a list of ortholog dictionaries, which map project_id to their associated proteins."""
     #Sample line: 58017|YP_219088.1 58191|YP_001572431.1 59431|YP_002149136.1
@@ -100,14 +103,15 @@ def _create_ortholog_dictionaries(groups_file):
             for ortholog in remainder:
                 #Sample: 58017|YP_219088.1
                 project_id, protein_id = ortholog.split('|')
-                #Use dict().get(key, fallback_value) here to retrieve and assign valid array values for missing keys 
+                #Use dict().get(key, fallback_value) here to retrieve and assign valid array values for missing keys
                 proteins_per_genome[project_id] = proteins_per_genome.get(project_id, [])
                 proteins_per_genome[project_id].append(protein_id)
-            #Assign proteins per genome dictionary to orthologs per group as 
+            #Assign proteins per genome dictionary to orthologs per group as
             ortholog_proteins_per_genome.append(proteins_per_genome)
     return ortholog_proteins_per_genome
 
-def _extract_shared_orthologs(selected_genome_ids, groups_file, require_limiter_presence = False):
+
+def _extract_shared_orthologs(selected_genome_ids, groups_file, require_limiter_presence=False):
     """Filter orthologs to retain shared single and multiple copy orthologs from the collection of genomes."""
     log.info('Extracting shared orthologs for %d genomes from %s', len(selected_genome_ids), groups_file)
     ortholog_proteins_per_genome = _create_ortholog_dictionaries(groups_file)
@@ -127,7 +131,7 @@ def _extract_shared_orthologs(selected_genome_ids, groups_file, require_limiter_
             is_shared_ortholog = is_shared_ortholog and 'limiter' in prot_per_genomes
 
         #The ortholog is single copy if for all genomes in selected genome ids the number of proteins is exactly one
-        #While this still allows for multiple copies in proteins not included in selected_genome_ids   
+        #While this still allows for multiple copies in proteins not included in selected_genome_ids
         is_single_copy = all(len(proteins) == 1
                              for genome_id, proteins in prot_per_genomes.iteritems()
                              if genome_id in selected_genome_ids)
@@ -148,12 +152,13 @@ def _extract_shared_orthologs(selected_genome_ids, groups_file, require_limiter_
     #Return three collections of dictionaries mapping project_id to proteins for all orthologs
     return shared_single_copy, shared_multi_copy, non_shared_orthologs
 
+
 def _dna_file_per_sico(run_dir, dna_files, shared_single_copy, shared_multi_copy, non_shared):
     """Create fasta files with all sequences per ortholog."""
     #Delete & create directory to remove any previously existing SICO files
-    sico_dir = create_directory('sico', inside_dir = run_dir)
-    muco_dir = create_directory('muco', inside_dir = run_dir)
-    subset_dir = create_directory('subset', inside_dir = run_dir)
+    sico_dir = create_directory('sico', inside_dir=run_dir)
+    muco_dir = create_directory('muco', inside_dir=run_dir)
+    subset_dir = create_directory('subset', inside_dir=run_dir)
 
     #Loop over DNA files to extract SICO genes from each genome to file per SICO
     sico_files = set()
@@ -165,12 +170,13 @@ def _dna_file_per_sico(run_dir, dna_files, shared_single_copy, shared_multi_copy
         for record in SeqIO.parse(dna_file, 'fasta'):
             number_of_sequences += 1
 
-            #Find record in each list of dictionaries, to append it to the corresponding ortholog files 
+            #Find record in each list of dictionaries, to append it to the corresponding ortholog files
             sico_files.update(_write_record_to_ortholog_file(sico_dir, shared_single_copy, record))
             muco_files.update(_write_record_to_ortholog_file(muco_dir, shared_multi_copy, record))
             subset_files.update(_write_record_to_ortholog_file(subset_dir, non_shared, record))
 
     return sorted(sico_files), sorted(muco_files), sorted(subset_files), number_of_sequences
+
 
 def _write_record_to_ortholog_file(directory, ortholog_dictionaries, record):
     """Find sequence record in list of ortholog dictionaries, to write the record to corresponding ortholog file."""
@@ -194,7 +200,7 @@ def _write_record_to_ortholog_file(directory, ortholog_dictionaries, record):
             affected_ortholog_files.add(sico_file)
 
             #Append to the MUCO files here to group the orthologs from various genomes in the same file
-            with open(sico_file, mode = 'a') as write_handle:
+            with open(sico_file, mode='a') as write_handle:
                 SeqIO.write(record, write_handle, 'fasta')
 
             #Can't rule out that a single protein is part of multiple orthologs, without intricate knowledge of OrthoMCL
@@ -203,6 +209,7 @@ def _write_record_to_ortholog_file(directory, ortholog_dictionaries, record):
 
     #Return affected files, so a complete set of ortholog files can be build by caller
     return affected_ortholog_files
+
 
 def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, partially_shared, nr_of_seqs):
     """Write out file with some basic statistics about the genomes, orthologs and size of shared core genome."""
@@ -221,8 +228,8 @@ def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_co
     #nr_non_sico_genes = len(proteins) - nr_sico_genes
 
     stats_file = os.path.join(run_dir, 'extract-stats.txt')
-    with open(stats_file, mode = 'w') as writer:
-        #Write Genome & gene count statistics to file        
+    with open(stats_file, mode='w') as writer:
+        #Write Genome & gene count statistics to file
         writer.write('{0:7}\tGenomes\n'.format(len(genomes)))
         writer.write('{0:7}\tGenes\n'.format(nr_of_seqs))
         writer.write('{0:7}\tORFan genes (no orthologs)\n'.format(nr_orfans))
@@ -235,14 +242,15 @@ def _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_co
     assert os.path.isfile(stats_file) and 0 < os.path.getsize(stats_file), stats_file + ' should exist with content.'
     return stats_file
 
+
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
-Usage: extract_orthologs.py 
---genomes=FILE       file with GenBank Project IDs from complete genomes table on each line 
+Usage: extract_orthologs.py
+--genomes=FILE       file with GenBank Project IDs from complete genomes table on each line
 --dna-zip=FILE       zip archive of extracted DNA files
 --groups=FILE        file listing groups of orthologous proteins
---require-limiter    flag whether extracted core set of genomes should contain the limiter added in OrthoMCL [OPTIONAL] 
+--require-limiter    flag whether extracted core set of genomes should contain the limiter added in OrthoMCL [OPTIONAL]
 
 --sico-zip=FILE      destination file path for archive of shared single copy orthologous (SICO) genes
 --muco-zip=FILE      destination file path for archive of shared multiple copy orthologous genes
@@ -261,10 +269,10 @@ Usage: extract_orthologs.py
         genomes = [line.split()[0] for line in read_handle if not line.startswith('#')]
 
     #Create temporary directory within which to extract orthologs
-    run_dir = tempfile.mkdtemp(prefix = 'extract_orthologs_run_')
+    run_dir = tempfile.mkdtemp(prefix='extract_orthologs_run_')
 
     #Extract files from zip archive
-    temp_dir = create_directory('dna_files', inside_dir = run_dir)
+    temp_dir = create_directory('dna_files', inside_dir=run_dir)
     dna_files = extract_archive_of_files(dna_zip, temp_dir)
 
     #Actually run ortholog extraction
@@ -280,7 +288,7 @@ Usage: extract_orthologs.py
     shutil.move(stats_file, target_stats_path)
     shutil.move(heatmap_file, target_heat)
 
-    #Remove unused files to free disk space 
+    #Remove unused files to free disk space
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message

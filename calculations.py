@@ -25,10 +25,11 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 def _bootstrap(comp_values_list):
     """Bootstrap by gene to get to confidence scores for Neutrality Index."""
 
-    def _sample_with_replacement(sample_set, sample_size = None):
+    def _sample_with_replacement(sample_set, sample_size=None):
         """Sample sample_size items from sample_set, or len(sample_set) items if sample_size is None (default)."""
         if sample_size is None:
             sample_size = len(sample_set)
@@ -54,6 +55,7 @@ def _bootstrap(comp_values_list):
     lower_limit = int(round(0.025 * (len(ni_values) - 1)))
     upper_limit = int(round(0.975 * (len(ni_values) - 1)))
     return ni_values[lower_limit], ni_values[upper_limit]
+
 
 def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_list):
     """Append sums over columns 3 through -1, and the mean of the final direction of selection column."""
@@ -88,6 +90,7 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
         _append_statistics(calculations_file, 'NI 95% upper limit',
                            {'neutrality index': upper_95perc_limit}, sfs_max_nton)
 
+
 def get_most_recent_gene_name(genomes, sequence_records):
     """Return gene name annotation for most recently updated genome from sequence records in ortholog."""
     ortholog_products = {}
@@ -108,7 +111,7 @@ def get_most_recent_gene_name(genomes, sequence_records):
 
     #Determine which genome is the most recent by looking at the modification & release dates of published genomes
     #Starting at the newest genomes, return the first gene name annotation we find
-    for genome in sorted(genomes, key = lambda x: x['Modified date'] or x['Released date'], reverse = True):
+    for genome in sorted(genomes, key=lambda x: x['Modified date'] or x['Released date'], reverse=True):
         if genome['RefSeq project ID'] in ortholog_products:
             return ortholog_products[genome['RefSeq project ID']]
         if genome['Project ID'] in ortholog_products:
@@ -117,6 +120,7 @@ def get_most_recent_gene_name(genomes, sequence_records):
     #Shouldn't really happen, but write this clause anyhow
     log.warn('Could not retrieve gene name annotation for newest genome; returning first gene name annotation instead')
     return ortholog_products.values()[0]
+
 
 def _every_other_codon_alignments(alignment):
     """Separate alignment into separate alignments per codon, to get independent axis when graphing data."""
@@ -137,7 +141,8 @@ def _every_other_codon_alignments(alignment):
     ali_even = _concat_codons_to_alignment([codon for index, codon in enumerate(alignment_codons, 1) if index % 2 == 0])
     return ali_odd, ali_even
 
-def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
+
+def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven=False):
     """Compute a spreadsheet of data points each for A and B based the SICO files, without duplicating computations."""
     #Convert list of sico files into ortholog name mapped to BioPython Alignment object
     sico_alignments = [(os.path.split(sico_file)[1].split('.')[0], AlignIO.read(sico_file, 'fasta'))
@@ -194,24 +199,26 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven = False):
     table_a_even, table_b_even = _tables_for_split_alignments(even_split_alignments, ortholog_gene_names)
 
     #Concatenate tables and return their values
-    table_a_full = tempfile.mkstemp(suffix = '.tsv', prefix = 'table_a_full_')[1]
-    table_b_full = tempfile.mkstemp(suffix = '.tsv', prefix = 'table_b_full_')[1]
+    table_a_full = tempfile.mkstemp(suffix='.tsv', prefix='table_a_full_')[1]
+    table_b_full = tempfile.mkstemp(suffix='.tsv', prefix='table_b_full_')[1]
     concatenate(table_a_full, [table_a, table_a_odd, table_a_even])
     concatenate(table_b_full, [table_b, table_b_odd, table_b_even])
     return table_a_full, table_b_full
 
+
 def _codeml_values_for_alignments(codeml_dir, ali_x, ali_y):
     """Calculate codeml values for sico files for full alignment, and alignments of even and odd codons."""
     #Run codeml to calculate values for dn & ds
-    subdir = tempfile.mkdtemp(dir = codeml_dir)
+    subdir = tempfile.mkdtemp(dir=codeml_dir)
     codeml_file = run_codeml(subdir, ali_x, ali_y)
     codeml_values_dict = parse_codeml_output(codeml_file)
     return codeml_values_dict
 
+
 def _tables_for_split_alignments(split_ortholog_alignments, ortholog_gene_names):
     """Calculate full tables of values for """
     #Create temporary folder for codeml files
-    codeml_dir = tempfile.mkdtemp(prefix = 'codeml_')
+    codeml_dir = tempfile.mkdtemp(prefix='codeml_')
     #Run codeml calculations per sico asynchronously for a significant speed up
     pool = Pool()
     async_values = dict((ortholog, pool.apply_async(_codeml_values_for_alignments, (codeml_dir, alignx, aligny)))
@@ -234,20 +241,21 @@ def _tables_for_split_alignments(split_ortholog_alignments, ortholog_gene_names)
     calculations_b = _calculate_for_clade_alignments(alignments_b, ortholog_codeml_values, ortholog_gene_names)
     return calculations_a, calculations_b
 
+
 def _calculate_for_clade_alignments(alignments_x, ortholog_codeml_values, ortholog_gene_names):
     """Calculate spreadsheet of data for genomes in genome_ids_x using the provided sico files and codeml values."""
     #Create the output file here
-    calculations_file = tempfile.mkstemp(suffix = '.tsv', prefix = 'calculations_')[1]
+    calculations_file = tempfile.mkstemp(suffix='.tsv', prefix='calculations_')[1]
 
     #Return empty file if genome_ids_x contains no or only a single genome
     nr_of_strains = len(alignments_x[0][1])
     if nr_of_strains <= 1:
-        with open(calculations_file, mode = 'w') as write_handle:
+        with open(calculations_file, mode='w') as write_handle:
             write_handle.write('#Need at least two genomes to calculate table, but was: {0}\n'.format(nr_of_strains))
         return calculations_file
 
     #Temp dir for calculations
-    run_dir = tempfile.mkdtemp(prefix = 'calculate_')
+    run_dir = tempfile.mkdtemp(prefix='calculate_')
 
     #Determine the maximum number of columns for singleton, doubleton, etc.
     sfs_max_nton = nr_of_strains // 2
@@ -282,11 +290,12 @@ def _calculate_for_clade_alignments(alignments_x, ortholog_codeml_values, orthol
 #Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11)
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(CODON_TABLE_ID)
 
+
 def _four_fold_degenerate_patterns():
     """Find patterns of 4-fold degenerate codons, wherein all third site substitutions code for the same amino acid."""
     letters = BACTERIAL_CODON_TABLE.nucleotide_alphabet.letters
     #Any combination of letters of length two
-    for site12 in [''.join(prod) for prod in product(letters, repeat = 2)]:
+    for site12 in [''.join(prod) for prod in product(letters, repeat=2)]:
         #4-fold when the length of the unique encoded amino acids for all possible third site nucleotides is exactly 1 
         if 1 == len(set([BACTERIAL_CODON_TABLE.forward_table.get(site12 + site3) for site3 in letters])):
             #Add regular expression pattern to the set of patterns
@@ -294,10 +303,12 @@ def _four_fold_degenerate_patterns():
 
 FOUR_FOLD_DEGENERATE_PATTERN = '|'.join(_four_fold_degenerate_patterns())
 
-def _get_nton_name(nton, prefix = ''):
+
+def _get_nton_name(nton, prefix=''):
     """Given the number of strains in which a polymorphism/substitution is found, give the appropriate SFS name."""
     return prefix + {1:'singletons', 2:'doubletons', 3:'tripletons', 4:'quadrupletons', 5:'quintupletons'}.get(nton,
                                                                                                     str(nton) + '-tons')
+
 
 def _perform_calculations(alignment, codeml_values):
     """Perform actual calculations on the alignment to determine pN, pS, SFS & the number of ignored cases per SICO."""
@@ -438,6 +449,7 @@ def _perform_calculations(alignment, codeml_values):
 
     return computed_values
 
+
 def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_values,
                                     synonymous_sfs, non_synonymous_sfs, four_fold_syn_sfs, four_fold_synonymous_sites):
     """Compute values (mostly from the site frequency spectra) that we'll output according to provided formula's."""
@@ -458,7 +470,7 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
         """Add values contained within SFS to named columns for singletons, doubletons, tripletons, etc.."""
         max_nton = nr_of_strains // 2 + 1
         for nton in range(1, max_nton):
-            name = _get_nton_name(nton, prefix = sfs_name)
+            name = _get_nton_name(nton, prefix=sfs_name)
             value = sfs[nton] if nton in sfs else 0
             calc_values[name] = value
 
@@ -546,6 +558,7 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
 
     return calc_values
 
+
 def _get_column_headers_in_sequence(max_nton):
     """Return the column headers to the generated statistics files in the correct order, using max_nton for SFS max."""
     #Gene name is captured as product of the orthologous DNA sequence
@@ -589,18 +602,20 @@ def _get_column_headers_in_sequence(max_nton):
 
     return headers
 
+
 def _write_output_file_header(calculations_file, max_nton):
     """Write header line for combined statistics file."""
-    with open(calculations_file, mode = 'a') as append_handle:
+    with open(calculations_file, mode='a') as append_handle:
         append_handle.write('ortholog\t')
         append_handle.write('\t'.join(column for column in _get_column_headers_in_sequence(max_nton)
                                       #Hide the following columns in the output, but do calculate & pass their values
                                       if column not in ('Ds*Pn/(Ps+Ds)', 'Dn*Ps/(Ps+Ds)')))
         append_handle.write('\n')
 
+
 def _append_statistics(calculations_file, orthologname, comp_values, max_nton):
     """Append statistics for individual ortholog to genome-wide files."""
-    with open(calculations_file, mode = 'a') as append_handle:
+    with open(calculations_file, mode='a') as append_handle:
         append_handle.write(orthologname + '\t')
         append_handle.write('\t'.join(str(comp_values.get(column, ''))
                                       for column in _get_column_headers_in_sequence(max_nton)
@@ -608,9 +623,10 @@ def _append_statistics(calculations_file, orthologname, comp_values, max_nton):
                                       if column not in ('Ds*Pn/(Ps+Ds)', 'Dn*Ps/(Ps+Ds)')))
         append_handle.write('\n')
 
+
 def _prepend_table_header(table_file, genomes_x, common_prefix_x, genomes_y, common_prefix_y, oddeven):
     """Prepend header to output data table that lists source IDs"""
-    with open(table_file, mode = 'w') as write_handle:
+    with open(table_file, mode='w') as write_handle:
         #Write out the number of strains for each of the taxa, and the participating IDs
         write_handle.write('#{0} {1} strains compared with {2} {3} strains\n'.format(len(genomes_x),
                                                                                    common_prefix_x,
@@ -626,6 +642,7 @@ def _prepend_table_header(table_file, genomes_x, common_prefix_x, genomes_y, com
             write_handle.write('#Third table contains calculations for even codons only\n')
 
         #Possible extension: # orthologs dropped in each step, # cut-off used to trim alignments, # of strains
+
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
@@ -656,19 +673,19 @@ Usage: calculations.py
     _prepend_table_header(table_b, genome_ids_b, common_prefix_b , genome_ids_a, common_prefix_a, oddeven)
 
     #Create run_dir to hold files relating to this run
-    run_dir = tempfile.mkdtemp(prefix = 'calculations_')
+    run_dir = tempfile.mkdtemp(prefix='calculations_')
 
     #Extract files from zip archive
-    sico_files = extract_archive_of_files(sico_zip, create_directory('sicos', inside_dir = run_dir))
+    sico_files = extract_archive_of_files(sico_zip, create_directory('sicos', inside_dir=run_dir))
 
     #Actually do calculations
     tmp_table_tuple = calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven)
 
     #Write the produced files to command line argument filenames
-    with open(table_a, mode = 'ab') as append_handle:
-        shutil.copyfileobj(open(tmp_table_tuple[0], mode = 'rb'), append_handle)
-    with open(table_b, mode = 'ab') as append_handle:
-        shutil.copyfileobj(open(tmp_table_tuple[1], mode = 'rb'), append_handle)
+    with open(table_a, mode='ab') as append_handle:
+        shutil.copyfileobj(open(tmp_table_tuple[0], mode='rb'), append_handle)
+    with open(table_b, mode='ab') as append_handle:
+        shutil.copyfileobj(open(tmp_table_tuple[1], mode='rb'), append_handle)
 
     #Remove now unused files to free disk space 
     shutil.rmtree(run_dir)

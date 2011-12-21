@@ -10,10 +10,11 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 def fail(unfiltered_a, unfiltered_b, filtered_a, filtered_b):
     """Report error back to the user and exit with error code 1."""
 
-    def _log_error_and_print_stderr(msg, dictionary = None):
+    def _log_error_and_print_stderr(msg, dictionary=None):
         """Both log an error and print it to sys.stderr"""
         log.error(msg)
         print >> sys.stderr, msg
@@ -29,6 +30,7 @@ def fail(unfiltered_a, unfiltered_b, filtered_a, filtered_b):
     _log_error_and_print_stderr('Filtered taxon B:', filtered_b)
 
     sys.exit(1)
+
 
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
@@ -52,7 +54,7 @@ Usage: compare_taxa.py
     with open(filtered_b_file) as read_handle:
         filtered_b = dict((line.split('\t')[0], line.strip().split('\t')[1]) for line in read_handle)
 
-    #Otherwise fail after 
+    #Otherwise fail after
     if unfiltered_a.keys()[0] in filtered_a:
         if not (set(unfiltered_a.keys()) == set(filtered_a.keys())
                 and set(unfiltered_b.keys()) == set(filtered_b.keys())):

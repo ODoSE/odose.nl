@@ -16,13 +16,14 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 def split_alignment_by_taxa(run_dir, ortholog_files, (genome_ids_a, prefix_a), (genome_ids_b, prefix_b)):
     """Separate multiple sequence alignments with sequences from two taxa out into separate files per taxon."""
     #Collections to hold split files
     taxon_a_files = []
     taxon_b_files = []
 
-    #For each alignment create separate alignments for clade A & clade B genomes 
+    #For each alignment create separate alignments for clade A & clade B genomes
     for ortholog_file in ortholog_files:
         #Determine input file base name
         base_name, extension = os.path.splitext(os.path.split(ortholog_file)[1])
@@ -47,7 +48,8 @@ def split_alignment_by_taxa(run_dir, ortholog_files, (genome_ids_a, prefix_a), (
     #Return collection of files
     return taxon_a_files, taxon_b_files
 
-def _common_prefix(names, fallback = None):
+
+def _common_prefix(names, fallback=None):
     """Return common prefix from list of organism names with non alphanumeric characters removed, or fallback value
     if less than three characters are retained."""
     prefix = os.path.commonprefix(names).strip()
@@ -56,10 +58,11 @@ def _common_prefix(names, fallback = None):
         return fallback
     return clean_prefix
 
+
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
-Usage: split_by_taxa.py 
+Usage: split_by_taxa.py
 --genomes-a=FILE        file with genome GenBank Project ID and Organism name on each line for taxon A
 --genomes-b=FILE        file with genome GenBank Project ID and Organism name on each line for taxon B
 --orthologs-zip=FILE    archive of aligned & trimmed single copy orthologous (SICO) genes
@@ -80,10 +83,10 @@ Usage: split_by_taxa.py
         common_prefix_b = _common_prefix([line[1] for line in lines], 'taxon_b')
 
     #Create run_dir to hold files related to this run
-    run_dir = tempfile.mkdtemp(prefix = 'split_by_taxa_')
+    run_dir = tempfile.mkdtemp(prefix='split_by_taxa_')
 
     #Extract files from zip archive
-    ortholog_files = extract_archive_of_files(orthologs_zip, create_directory('alignments', inside_dir = run_dir))
+    ortholog_files = extract_archive_of_files(orthologs_zip, create_directory('alignments', inside_dir=run_dir))
 
     #Actually split alignments per taxon
     taxon_a_files, taxon_b_files = split_alignment_by_taxa(run_dir, ortholog_files,
@@ -94,7 +97,7 @@ Usage: split_by_taxa.py
     create_archive_of_files(taxon_a_zip, taxon_a_files)
     create_archive_of_files(taxon_b_zip, taxon_b_files)
 
-    #Remove unused files to free disk space 
+    #Remove unused files to free disk space
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
