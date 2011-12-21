@@ -538,9 +538,11 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
                          * sum(polymorpisms_sfs.get(i, 0)
                                * 2 * i / nr_of_strains
                                * (1 - i / nr_of_strains)
-                               for i in range(1, nr_of_strains // 2 + 1))) / sequence_lengths
+                               for i in range(1, nr_of_strains // 2 + 1))  # +1 as range excludes stop value
+                         ) / sequence_lengths
 
     #Watterson's estimator of theta: S / (L * harmonic)
+    #where the harmonic is Sum[ 1 / i, i from 1 to n - 1 ] 
     seg_sites = sum(polymorpisms_sfs.get(i, 0) for i in range(1, nr_of_strains // 2 + 1))
     harmonic = sum(1 / i for i in range(1, nr_of_strains))  # Not +/-1 as range already excludes the stop value
     calc_values['Theta'] = seg_sites / (sequence_lengths * harmonic)
