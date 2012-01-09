@@ -102,7 +102,7 @@ def _run_phipack(phipack_dir, dna_file):
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
-Usage: filter_recombination.py
+Usage: run_phipack.py
 --orthologs-zip=FILE     archive of orthologous genes in FASTA format
 --stats-file=FILE        destination file path for values found through PhiPack for each ortholog
 """
