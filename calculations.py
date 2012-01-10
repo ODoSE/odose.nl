@@ -5,9 +5,10 @@ from __future__ import division
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
-from divergence import parse_options, create_directory, extract_archive_of_files, concatenate, CODON_TABLE_ID
-from divergence.filter_orthologs import find_cogs_in_sequence_records
+from divergence import find_cogs_in_sequence_records, parse_options, create_directory, extract_archive_of_files, \
+    concatenate, CODON_TABLE_ID, get_most_recent_gene_name
 from divergence.run_codeml import run_codeml, parse_codeml_output
+from divergence.run_phipack import run_phipack
 from divergence.select_taxa import select_genomes_by_ids
 from itertools import product
 from multiprocessing import Pool
@@ -91,37 +92,6 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
                            {'neutrality index': upper_95perc_limit}, sfs_max_nton)
 
 
-def get_most_recent_gene_name(genomes, sequence_records):
-    """Return gene name annotation for most recently updated genome from sequence records in ortholog."""
-    ortholog_products = {}
-    for record in sequence_records:
-        #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|some gene name
-        values = record.id.split('|')
-        genome = values[0]
-        gene_name = values[4]
-        ortholog_products[genome] = gene_name
-
-    #If there's only a single gene name, look no further
-    if len(set(ortholog_products.values())) == 1:
-        return ortholog_products.values()[0]
-
-    #When no genomes are found, for instance when all genomes are external genomes, just return the first annotation
-    if not genomes:
-        return ortholog_products.values()[0]
-
-    #Determine which genome is the most recent by looking at the modification & release dates of published genomes
-    #Starting at the newest genomes, return the first gene name annotation we find
-    for genome in sorted(genomes, key=lambda x: x['Modified date'] or x['Released date'], reverse=True):
-        if genome['RefSeq project ID'] in ortholog_products:
-            return ortholog_products[genome['RefSeq project ID']]
-        if genome['Project ID'] in ortholog_products:
-            return ortholog_products[genome['Project ID']]
-
-    #Shouldn't really happen, but write this clause anyhow
-    log.warn('Could not retrieve gene name annotation for newest genome; returning first gene name annotation instead')
-    return ortholog_products.values()[0]
-
-
 def _every_other_codon_alignments(alignment):
     """Separate alignment into separate alignments per codon, to get independent axis when graphing data."""
     #Calculate sequence_length to use when splitting MSA into codons
@@ -142,11 +112,30 @@ def _every_other_codon_alignments(alignment):
     return ali_odd, ali_even
 
 
+def _phipack_values_for_sicos(orth_files):
+    """Calculate"""
+    #Create temporary folder for PhiPack files
+    phipack_dir = tempfile.mkdtemp(prefix='phipack_')
+    pool = Pool()
+    futures_per_orth = dict((ortholog, pool.apply_async(run_phipack, (phipack_dir, sico_file)))
+                           for ortholog, sico_file in orth_files.iteritems())
+    values_per_orth = dict((ortholog, future.get()) for ortholog, future in futures_per_orth.iteritems())
+    #Remove phipack directory
+    shutil.rmtree(phipack_dir)
+    return values_per_orth
+
+
 def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven=False):
     """Compute a spreadsheet of data points each for A and B based the SICO files, without duplicating computations."""
+    #Convert file names into identifiers while preserving filenames, as filenames are used both for BioPython & PhiPack
+    orth_files = dict((os.path.split(sico_file)[1].split('.')[0], sico_file) for sico_file in sico_files)
+
+    #Find PhiPack values for each sico file
+    orth_phipack_values = _phipack_values_for_sicos(orth_files)
+
     #Convert list of sico files into ortholog name mapped to BioPython Alignment object
-    sico_alignments = [(os.path.split(sico_file)[1].split('.')[0], AlignIO.read(sico_file, 'fasta'))
-                       for sico_file in sico_files]
+    sico_alignments = [(ortholog, AlignIO.read(sico_file, 'fasta'))
+                       for ortholog, sico_file in orth_files.iteritems()]
 
     #Only retrieve genomes once which we'll use to link gene names to orthologs
     all_genome_ids = list(genome_ids_a)
@@ -154,19 +143,19 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven=False):
     genomes = select_genomes_by_ids(all_genome_ids).values()
 
     #For each ortholog, determine the newest gene name across taxa so unannotated taxa also get gene names
-    ortholog_gene_names = dict((ortholog, get_most_recent_gene_name(genomes, alignment))
-                               for ortholog, alignment in sico_alignments)
+    ortholog_gene_names = dict((ortholog, get_most_recent_gene_name(genomes, alignmnt))
+                               for ortholog, alignmnt in sico_alignments)
 
     #Split individual sico alignments into separate alignments for each of the clades per ortholog
     #These split alignments can later be reversed and/or subselections can be made to calculate for alternate alignments
     split_alignments = [(ortholog,
-                         MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_a),
-                         MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_b))
-                        for ortholog, alignment in sico_alignments]
+                         MultipleSeqAlignment(seqr for seqr in alignmnt if seqr.id.split('|')[0] in genome_ids_a),
+                         MultipleSeqAlignment(seqr for seqr in alignmnt if seqr.id.split('|')[0] in genome_ids_b))
+                        for ortholog, alignmnt in sico_alignments]
 
     #Calculate tables for normal sico alignments
     log.info('Starting calculations for full alignments')
-    table_a, table_b = _tables_for_split_alignments(split_alignments, ortholog_gene_names)
+    table_a, table_b = _tables_for_split_alignments(split_alignments, ortholog_gene_names, orth_phipack_values)
 
     if not oddeven:
         return table_a, table_b
@@ -184,9 +173,16 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven=False):
                             odd_even_y[0])
                             for orthologname, odd_even_x, odd_even_y in odd_even_split_orth_alignments]
 
+    #Create files for all the odd codon alignments, so we can run PhiPack for them
+    odd_alignments_dir = tempfile.mkdtemp(prefix='odd_codon_alignments_')
+    odd_files = dict((ortholog, AlignIO.write(alignmnt, os.path.join(odd_alignments_dir, ortholog + '.ffn'), 'fasta'))
+                     for ortholog, alignmnt in odd_split_alignments)
+    odd_phipack_vals = _phipack_values_for_sicos(odd_files)
+    shutil.rmtree(odd_alignments_dir)
+
     #Calculate tables for odd codon sico alignments
     log.info('Starting calculations for odd alignments')
-    table_a_odd, table_b_odd = _tables_for_split_alignments(odd_split_alignments, ortholog_gene_names)
+    table_a_odd, table_b_odd = _tables_for_split_alignments(odd_split_alignments, ortholog_gene_names, odd_phipack_vals)
 
     #Recover even alignments as second from each pair of alignments
     even_split_alignments = [(orthologname,
@@ -194,9 +190,18 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven=False):
                             odd_even_y[1])
                             for orthologname, odd_even_x, odd_even_y in odd_even_split_orth_alignments]
 
+    #Create files for all the odd codon alignments, so we can run PhiPack for them
+    even_alignments_dir = tempfile.mkdtemp(prefix='even_codon_alignments_')
+    even_files = dict((ortholog, AlignIO.write(alignmnt, os.path.join(even_alignments_dir, ortholog + '.ffn'), 'fasta'))
+                     for ortholog, alignmnt in even_split_alignments)
+    even_phipack_vals = _phipack_values_for_sicos(even_files)
+    shutil.rmtree(even_alignments_dir)
+
     #Calculate tables for even codon sico alignments
     log.info('Starting calculations for even alignments')
-    table_a_even, table_b_even = _tables_for_split_alignments(even_split_alignments, ortholog_gene_names)
+    table_a_even, table_b_even = _tables_for_split_alignments(even_split_alignments,
+                                                              ortholog_gene_names,
+                                                              even_phipack_vals)
 
     #Concatenate tables and return their values
     table_a_full = tempfile.mkstemp(suffix='.tsv', prefix='table_a_full_')[1]
@@ -215,7 +220,7 @@ def _codeml_values_for_alignments(codeml_dir, ali_x, ali_y):
     return codeml_values_dict
 
 
-def _tables_for_split_alignments(split_ortholog_alignments, ortholog_gene_names):
+def _tables_for_split_alignments(split_ortholog_alignments, ortholog_gene_names, orth_phipack_values):
     """Calculate full tables of values for """
     #Create temporary folder for codeml files
     codeml_dir = tempfile.mkdtemp(prefix='codeml_')
@@ -223,10 +228,9 @@ def _tables_for_split_alignments(split_ortholog_alignments, ortholog_gene_names)
     pool = Pool()
     async_values = dict((ortholog, pool.apply_async(_codeml_values_for_alignments, (codeml_dir, alignx, aligny)))
                         for ortholog, alignx, aligny in split_ortholog_alignments)
-    ortholog_codeml_values = {}
     #Retrieve asynchronously calculated values
     for ortholog, async_value in async_values.iteritems():
-        ortholog_codeml_values[ortholog] = async_value.get()
+        orth_phipack_values[ortholog].update(async_value.get())
     #Remove codeml_dir
     shutil.rmtree(codeml_dir)
 
@@ -236,9 +240,9 @@ def _tables_for_split_alignments(split_ortholog_alignments, ortholog_gene_names)
 
     #Create separate data table for genome_ids_a and genome_ids_b
     log.info('About to start calculations of %i clade A genomes vs %i clade B', len(alignments_a), len(alignments_b))
-    calculations_a = _calculate_for_clade_alignments(alignments_a, ortholog_codeml_values, ortholog_gene_names)
+    calculations_a = _calculate_for_clade_alignments(alignments_a, orth_phipack_values, ortholog_gene_names)
     log.info('About to start calculations of %i clade B genomes vs %i clade A', len(alignments_b), len(alignments_a))
-    calculations_b = _calculate_for_clade_alignments(alignments_b, ortholog_codeml_values, ortholog_gene_names)
+    calculations_b = _calculate_for_clade_alignments(alignments_b, orth_phipack_values, ortholog_gene_names)
     return calculations_a, calculations_b
 
 
@@ -542,7 +546,7 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
                          ) / sequence_lengths
 
     #Watterson's estimator of theta: S / (L * harmonic)
-    #where the harmonic is Sum[ 1 / i, i from 1 to n - 1 ] 
+    #where the harmonic is Sum[ 1 / i, i from 1 to n - 1 ]
     seg_sites = sum(polymorpisms_sfs.get(i, 0) for i in range(1, nr_of_strains // 2 + 1))
     harmonic = sum(1 / i for i in range(1, nr_of_strains))  # Not +/-1 as range already excludes the stop value
     calc_values['Theta'] = seg_sites / (sequence_lengths * harmonic)
@@ -590,6 +594,8 @@ def _get_column_headers_in_sequence(max_nton):
     headers.append('synonymous and non-synonymous polymorphisms mixed')
     #PAML
     headers.extend(['N', 'Dn', 'S', 'Ds'])
+    #PhiPack
+    headers.extend(['PhiPack sites', 'Phi', 'Max Chi^2', 'NSS'])
 
     #Measures of nucleotide diversity per SICO
     headers.extend(['Pi', 'Theta'])

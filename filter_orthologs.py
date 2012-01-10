@@ -4,7 +4,8 @@
 from __future__ import division
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options
+from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
+    find_cogs_in_sequence_records
 from divergence.concatemer_tree import _run_dna_dist, _run_neighbor, _read_taxa_from_tree
 from divergence.crosstable_gene_ids import create_crosstable
 import logging as log
@@ -41,21 +42,6 @@ def _filter_multiple_cog_orthologs(run_dir, ortholog_files):
         _assign_cog_to_sequences(sico_file, cog, transfered_cogs)
 
     return ortholog_files, transfered_cogs
-
-
-def find_cogs_in_sequence_records(sequence_records, include_none=False):
-    """Find unique COG annotations assigned to sequences within a single alignment."""
-    cogs = set()
-    for record in sequence_records:
-        #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
-        cog = record.id.split('|')[3]
-        if cog in cogs:
-            continue
-        if cog == 'None':
-            cog = None
-        if cog != None or include_none:
-            cogs.add(cog)
-    return cogs
 
 
 def _group_cog_issues(sico_files):
@@ -112,7 +98,7 @@ def _log_cog_statistics(cog_conflicts, cog_transferable, cog_missing):
         log.info('{0}\tOrthologs did not contain any COG annotations'.format(len(cog_missing)))
 
 
-def _filter_recombined_orthologs(run_dir, aligned_files, genome_ids_a, genome_ids_b):
+def _phipack_for_all_orthologs(run_dir, aligned_files, genome_ids_a, genome_ids_b):
     """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees.
     Return two collections of aligned files, the first without recombination, the second with recombination."""
 
@@ -205,7 +191,7 @@ Usage: filter_orthologs.py
             genome_ids_a = [line.split()[0] for line in read_handle]
         with open(taxonb) as read_handle:
             genome_ids_b = [line.split()[0] for line in read_handle]
-        ortholog_files, recombined_files = _filter_recombined_orthologs(run_dir, ortholog_files,
+        ortholog_files, recombined_files = _phipack_for_all_orthologs(run_dir, ortholog_files,
                                                                        genome_ids_a, genome_ids_b)
         #Create crosstable
         create_crosstable(recombined_files, recombined_crosstable)

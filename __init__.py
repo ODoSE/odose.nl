@@ -149,3 +149,49 @@ def parse_options(usage, options, args):
 
     #Retrieve & return file paths from dictionary in order of options
     return [arguments[option] for option in options]
+
+
+def get_most_recent_gene_name(genomes, sequence_records):
+    """Return gene name annotation for most recently updated genome from sequence records in ortholog."""
+    ortholog_products = {}
+    for record in sequence_records:
+        #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|some gene name
+        values = record.id.split('|')
+        genome = values[0]
+        gene_name = values[4]
+        ortholog_products[genome] = gene_name
+
+    #If there's only a single gene name, look no further
+    if len(set(ortholog_products.values())) == 1:
+        return ortholog_products.values()[0]
+
+    #When no genomes are found, for instance when all genomes are external genomes, just return the first annotation
+    if not genomes:
+        return ortholog_products.values()[0]
+
+    #Determine which genome is the most recent by looking at the modification & release dates of published genomes
+    #Starting at the newest genomes, return the first gene name annotation we find
+    for genome in sorted(genomes, key=lambda x: x['Modified date'] or x['Released date'], reverse=True):
+        if genome['RefSeq project ID'] in ortholog_products:
+            return ortholog_products[genome['RefSeq project ID']]
+        if genome['Project ID'] in ortholog_products:
+            return ortholog_products[genome['Project ID']]
+
+    #Shouldn't really happen, but write this clause anyhow
+    logging.warn('Could not retrieve gene name annotation based on date; returning first gene name annotation instead')
+    return ortholog_products.values()[0]
+
+
+def find_cogs_in_sequence_records(sequence_records, include_none=False):
+    """Find unique COG annotations assigned to sequences within a single alignment."""
+    cogs = set()
+    for record in sequence_records:
+        #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
+        cog = record.id.split('|')[3]
+        if cog in cogs:
+            continue
+        if cog == 'None':
+            cog = None
+        if cog != None or include_none:
+            cogs.add(cog)
+    return cogs

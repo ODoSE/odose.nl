@@ -3,10 +3,9 @@
 
 from __future__ import division
 from Bio import SeqIO
-from calculations import get_most_recent_gene_name
-from divergence import create_directory, extract_archive_of_files, parse_options
+from divergence import create_directory, extract_archive_of_files, parse_options, get_most_recent_gene_name, \
+    find_cogs_in_sequence_records
 from divergence.select_taxa import select_genomes_by_ids
-from filter_orthologs import find_cogs_in_sequence_records
 from subprocess import check_call, CalledProcessError
 from versions import PHIPACK
 import logging as log
@@ -22,7 +21,7 @@ __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
 
-def _filter_recombined_orthologs(run_dir, aligned_files, stats_file):
+def _phipack_for_all_orthologs(run_dir, aligned_files, stats_file):
     """Filter aligned fasta files where there is evidence of recombination when inspecting PhiPack values.
     Return two collections of aligned files, the first without recombination, the second with recombination."""
 
@@ -46,11 +45,14 @@ def _filter_recombined_orthologs(run_dir, aligned_files, stats_file):
 
         #Assign ortholog files to the correct collection based on whether they show recombination
         for ortholog_file in aligned_files:
+            orth_name = os.path.split(ortholog_file)[1].split('.')[0]
+
             #Parse tree file to ensure all genome_ids_a & genome_ids_b group together in the tree
-            orth_name, sites, phi, chi, nss = _run_phipack(phipack_dir, ortholog_file)
+            phipack_values = run_phipack(phipack_dir, ortholog_file)
 
             #Write PhiPack values to line
-            write_handle.write('\t'.join(str(item) for item in [orth_name, sites, phi, chi, nss]))
+            write_handle.write('{0}\t{1[PhiPack sites]}\t{1[Phi]}\t{1[Max Chi^2]}\t{1[NSS]}'.format(orth_name,
+                                                                                                    phipack_values))
 
             #Parse sequence records again, but now to retrieve cogs and products
             seq_records = list(SeqIO.parse(ortholog_file, 'fasta'))
@@ -67,7 +69,7 @@ def _filter_recombined_orthologs(run_dir, aligned_files, stats_file):
     #Nothing to return, the stats_file is the product
 
 
-def _run_phipack(phipack_dir, dna_file):
+def run_phipack(phipack_dir, dna_file):
     """Run PhiPack and return ortholog name, the number of informative sites, PHI, Max Chi^2 and NSS."""
     #Create directory for PhiPack to run in, so files get created there
     orth_name = os.path.split(dna_file)[1].split('.')[0]
@@ -78,8 +80,8 @@ def _run_phipack(phipack_dir, dna_file):
     try:
         check_call(command, cwd=rundir, stdout=open('/dev/null', mode='w'))
     except CalledProcessError as err:
-        log.warn('Error running PhiPack for %s:\n%s', orth_name, err)
-        return orth_name, None, None, None, None
+        log.warn('Error running PhiPack for %s:\n%s', dna_file, err)
+        return {'PhiPack sites': None, 'Phi': None, 'Max Chi^2': None, 'NSS': None}
 
     #Retrieve output log file contents
     logfile = os.path.join(rundir, 'Phi.log')
@@ -96,7 +98,7 @@ def _run_phipack(phipack_dir, dna_file):
     phi = float(raw_phi) if raw_phi != '--' else None
     chi = float(re.search('Max Chi\^2:\s+(.*)\s+\(1000 permutations\)', contents).group(1))
     nss = float(re.search('NSS:\s+(.*)\s+\(1000 permutations\)', contents).group(1))
-    return orth_name, sites, phi, chi, nss
+    return {'PhiPack sites': sites, 'Phi': phi, 'Max Chi^2': chi, 'NSS': nss}
 
 
 def main(args):
@@ -110,14 +112,14 @@ Usage: run_phipack.py
     orthologs_zip, stats_file = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
-    run_dir = tempfile.mkdtemp(prefix='filter_recombined_')
+    run_dir = tempfile.mkdtemp(prefix='run_phipack_')
 
     #Extract files from zip archive
     extraction_dir = create_directory('extracted_orthologs', inside_dir=run_dir)
     ortholog_files = extract_archive_of_files(orthologs_zip, extraction_dir)
 
     #Find recombination in all ortholog_files
-    _filter_recombined_orthologs(run_dir, ortholog_files, stats_file)
+    _phipack_for_all_orthologs(run_dir, ortholog_files, stats_file)
 
     #Remove unused files to free disk space
     shutil.rmtree(run_dir)

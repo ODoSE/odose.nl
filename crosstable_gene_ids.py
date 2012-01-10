@@ -2,7 +2,8 @@
 """Module to create a crosstable between orthologs & genomes showing gene IDs at intersections."""
 
 from Bio import SeqIO
-from divergence import parse_options, extract_archive_of_files
+from divergence import find_cogs_in_sequence_records, get_most_recent_gene_name, parse_options, extract_archive_of_files
+from divergence.select_taxa import select_genomes_by_ids
 from operator import itemgetter
 import logging
 import os.path
@@ -26,7 +27,6 @@ def create_crosstable(sico_files, target_crosstable):
 
         #Retrieve unique genomes across all sico files, just to be safe
         genomes = sorted(set(key for row in row_data for key in row[1].keys()))
-        from divergence.select_taxa import select_genomes_by_ids
         genome_dicts = select_genomes_by_ids(genomes).values()
 
         #Write out values to file
@@ -41,12 +41,10 @@ def create_crosstable(sico_files, target_crosstable):
             seq_records = list(SeqIO.parse(sico_file, 'fasta'))
 
             #COGs
-            from filter_orthologs import find_cogs_in_sequence_records
             cogs = find_cogs_in_sequence_records(seq_records)
             write_handle.write('\t' + ','.join(cogs))
 
             #Product
-            from calculations import get_most_recent_gene_name
             product = get_most_recent_gene_name(genome_dicts, seq_records)
             write_handle.write('\t' + product)
 
