@@ -118,7 +118,7 @@ def _phipack_values_for_sicos(orth_files):
     phipack_dir = tempfile.mkdtemp(prefix='phipack_')
     pool = Pool()
     futures_per_orth = dict((ortholog, pool.apply_async(run_phipack, (phipack_dir, sico_file)))
-                           for ortholog, sico_file in orth_files.iteritems())
+                           for ortholog, sico_file in orth_files)
     values_per_orth = dict((ortholog, future.get()) for ortholog, future in futures_per_orth.iteritems())
     #Remove phipack directory
     shutil.rmtree(phipack_dir)
@@ -128,14 +128,14 @@ def _phipack_values_for_sicos(orth_files):
 def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven=False):
     """Compute a spreadsheet of data points each for A and B based the SICO files, without duplicating computations."""
     #Convert file names into identifiers while preserving filenames, as filenames are used both for BioPython & PhiPack
-    orth_files = dict((os.path.split(sico_file)[1].split('.')[0], sico_file) for sico_file in sico_files)
+    orth_files = [(os.path.split(sico_file)[1].split('.')[0], sico_file) for sico_file in sico_files]
 
     #Find PhiPack values for each sico file
     orth_phipack_values = _phipack_values_for_sicos(orth_files)
 
     #Convert list of sico files into ortholog name mapped to BioPython Alignment object
     sico_alignments = [(ortholog, AlignIO.read(sico_file, 'fasta'))
-                       for ortholog, sico_file in orth_files.iteritems()]
+                       for ortholog, sico_file in orth_files]
 
     #Only retrieve genomes once which we'll use to link gene names to orthologs
     all_genome_ids = list(genome_ids_a)
