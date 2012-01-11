@@ -6,8 +6,8 @@ from Bio import SeqIO
 from divergence import create_directory, extract_archive_of_files, parse_options, get_most_recent_gene_name, \
     find_cogs_in_sequence_records
 from divergence.select_taxa import select_genomes_by_ids
+from divergence.versions import PHIPACK
 from subprocess import check_call, CalledProcessError
-from versions import PHIPACK
 import logging as log
 import os.path
 import re
