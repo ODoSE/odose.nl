@@ -20,21 +20,10 @@ def _create_blast_database(run_dir, fasta_file, nucleotide=False):
     db_name = '{0}_blast_db'.format(dbtype)
 
     #Upload fasta file to a new database
-    values = {'dbtype': dbtype,
-              'in': open(fasta_file).read(),
-              'input_type': 'fasta',
+    params = {'dbtype': dbtype,
               'out': db_name}
-    #FIXME HTTP/1.1 400 Bad Request: Missing required option -in
-    db_dir = run_application(MAKEBLASTDB, values)
-
-    #Print files in directory
-    print db_dir
-    for dirfile in os.listdir(db_dir):
-        dirfile = os.path.join(db_dir, dirfile)
-        print dirfile
-        #with open(dirfile) as read_handle:
-        #    print read_handle.read()
-
+    files = {'in-file[]': fasta_file}
+    db_dir = run_application(MAKEBLASTDB, params=params, files=files)
     return db_dir, db_name
 
 

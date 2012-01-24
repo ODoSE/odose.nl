@@ -8,6 +8,7 @@
 		python-nose \
 		sloccount \
 		muscle;
+	sudo easy_install poster;  # For Life Science Grid Portal 
 	sudo easy_install coverage;
 	sudo easy_install httplib2;
 	sudo easy_install pylint;
