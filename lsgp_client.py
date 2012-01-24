@@ -15,8 +15,9 @@ import tempfile
 import time
 import urllib2
 
-URL_JOBS = 'https://ws2.grid.sara.nl/apps/prod/jobstates/'
 URL_APPS = 'https://ws2.grid.sara.nl/apps/prod/applications/'
+URL_DBS = 'https://ws2.grid.sara.nl/apps/prod/databases/'
+URL_JOBS = 'https://ws2.grid.sara.nl/apps/prod/jobstates/'
 
 LSGP_USER = ''
 LSGP_PASS = ''
@@ -49,9 +50,9 @@ def run_application(application, params=None, files=None):
     @param params: dictionary mapping keys to values for use as parameters
     @param files: dictionary mapping keys to files for use as parameters
     """
-    # Invoke greeter version 1.0 with the below argument
-    url_greeter = URL_APPS + application
-    url_job = _send_request(url_greeter, params=params, files=files)
+    # Invoke application with provided arguments
+    url_application = URL_APPS + application
+    url_job = send_request(url_application, params=params, files=files)
     jobid = url_job.split('/')[-1]
     logging.debug('Submitted %s run at %s', application, url_job)
 
@@ -64,13 +65,28 @@ def run_application(application, params=None, files=None):
     logging.debug('%s saved to %s', jobid, directory)
 
     # Delete job result
-    _send_request(url_job, method='DELETE')
+    send_request(url_job, method='DELETE')
     logging.debug('%s deleted', jobid)
 
     return directory
 
 
-def _send_request(url, params=None, files=None, method=None):
+def upload_database(database, dbtype='formatdb', shared=False):
+    """
+    Upload a database file to the Life Science Grid Portal.
+    @param database: database file
+    @param dbtype: one of: FASTA, csbfa, formatdb
+    @param shared: boolean to indicate whether this database should be shared with other users
+    """
+    from datetime import datetime
+    today = datetime.today()
+    version = str(today.date()) + '_' + str(today.time()).replace(':', '-')
+    url_db_version = URL_DBS + 'www.odose.nl/' + version
+    send_request(url_db_version, params={'type': dbtype, 'shared': 1 if shared else 0}, files={'dbfile': database})
+    return url_db_version
+
+
+def send_request(url, params=None, files=None, method=None):
     """
     Send a request to the SARA Life Science Grid Portal, using the provided credentials to login rather than x509.
     @param url: url to request / submit to
@@ -127,7 +143,7 @@ def _wait_for_job(jobid):
     duration = 10
     while True:
         #Retrieve state for all jobs, and convert to dictionary for easier lookup
-        jobstates = _send_request(URL_JOBS)
+        jobstates = send_request(URL_JOBS)
         jobstates = dict(line.split('\t') for line in jobstates.strip().split('\r\n')[1:])
         if jobid not in jobstates or jobstates[jobid] != 'Queued':
             break
@@ -143,7 +159,7 @@ def _save_job_result(jobid):
     @param jobid:
     """
     #Retrieve the produced gzipped tarfile and write it to a tempdir
-    content = _send_request(URL_JOBS + jobid)
+    content = send_request(URL_JOBS + jobid)
     tempdir = tempfile.mkdtemp('_' + jobid, 'lsgp_jobid_')
     outputfile = os.path.join(tempdir, 'out.tgz')
     with open(outputfile, mode='wb') as write_handle:

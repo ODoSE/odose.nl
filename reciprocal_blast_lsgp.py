@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Module for the reciprocal blast step using the SARA Life Science Grid Portal."""
 
-from divergence.lsgp_client import run_application
+from divergence.lsgp_client import run_application, upload_database
 import os
 
 __author__ = "Tim te Beek"
@@ -19,13 +19,16 @@ def _create_blast_database(run_dir, fasta_file, nucleotide=False):
     dbtype = 'nucl' if nucleotide else 'prot'
     db_name = '{0}_blast_db'.format(dbtype)
 
-    #Upload fasta file to a new database
+    #Run MAKEBLASTDB remotely
     params = {'dbtype': dbtype,
               'out': db_name}
     files = {'in-file[]': fasta_file}
     db_dir = run_application(MAKEBLASTDB, params=params, files=files)
-    return db_dir, db_name
 
+    #Upload and return database url
+    database = os.path.join(db_dir, db_name + '.tgz')
+    database_url = upload_database(database)
+    return database_url
 
 #TODO Convert
 #def reciprocal_blast(run_dir, good_proteins_fasta, fasta_files):
