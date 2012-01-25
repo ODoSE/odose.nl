@@ -43,37 +43,52 @@ def _load_credentials():
 _load_credentials()
 
 
-def run_application(application, params=None, files=None):
+def submit_application_run(application, params, files):
     """
-    Run application with provided parameters and files.
+    Submit an application run with given parameters and files. Returns jobid of submitted run.
     @param application: the application part of the Life Science Grid Portal url
     @param params: dictionary mapping keys to values for use as parameters
     @param files: dictionary mapping keys to files for use as parameters
     """
-    # Invoke application with provided arguments
     url_application = URL_APPS + application
     url_job = send_request(url_application, params=params, files=files)
     logging.info('Submitted %s run; job result will be at: %s', application, url_job)
     jobid = url_job.split('/')[-1]
+    return jobid
 
+
+def retrieve_run_result(jobid):
+    """
+    Retrieve results for jobid. Returns directory containing results.
+    @param jobid:
+    """
     # Wait for job to finish
     _wait_for_job(jobid)
     logging.info('Finished waiting for job result %s', jobid)
-
     # Retrieve job result file & Extract files from .tgz
     directory = _save_job_result(jobid)
     logging.info('Saved job result %s to %s', jobid, directory)
-
     # Delete job result
-    send_request(url_job, method='DELETE')
+    send_request(URL_JOBS + jobid, method='DELETE')
     logging.info('Deleted remote job result %s', jobid)
+    return directory
 
+
+def run_application(application, params=None, files=None):
+    """
+    Run application with provided parameters and files, and retrieve result directly.
+    @param application: the application part of the Life Science Grid Portal url
+    @param params: dictionary mapping keys to values for use as parameters
+    @param files: dictionary mapping keys to files for use as parameters
+    """
+    jobid = submit_application_run(application, params, files)
+    directory = retrieve_run_result(jobid)
     return directory
 
 
 def upload_database(database, dbtype='formatdb', shared=False):
     """
-    Upload a database file to the Life Science Grid Portal.
+    Upload a database file to the Life Science Grid Portal. Returns the url of the database file in the portal.
     @param database: database file
     @param dbtype: one of: FASTA, csbfa, formatdb
     @param shared: boolean to indicate whether this database should be shared with other users
@@ -98,7 +113,7 @@ def upload_database(database, dbtype='formatdb', shared=False):
 
 def send_request(url, params=None, files=None, method=None):
     """
-    Send a request to the SARA Life Science Grid Portal, using the provided credentials to login rather than x509.
+    Send a request to the SARA Life Science Grid Portal, using the provided credentials to login. Returns text content.
     @param url: url to request / submit to
     @param values: dictionary of data that should be POSTed to the url (optional)
     @param method: string HTTP method (optional: POST when data is provided, GET otherwise)
@@ -131,11 +146,11 @@ def send_request(url, params=None, files=None, method=None):
 
     #Send request over opener and retrieve response
     try:
-        response = opener.open(request, timeout=10)
+        response = opener.open(request, timeout=60)
     except HTTPError as e:
         print e
-        for k in sorted(e.hdrs.keys()):
-            print k, e.hdrs[k]
+        for key in sorted(e.hdrs.keys()):
+            print key, e.hdrs[key]
         raise e
 
     #Retrieve
