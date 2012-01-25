@@ -53,20 +53,20 @@ def run_application(application, params=None, files=None):
     # Invoke application with provided arguments
     url_application = URL_APPS + application
     url_job = send_request(url_application, params=params, files=files)
+    logging.info('Submitted %s run; job result will be at: %s', application, url_job)
     jobid = url_job.split('/')[-1]
-    logging.debug('Submitted %s run at %s', application, url_job)
 
     # Wait for job to finish
     _wait_for_job(jobid)
-    logging.debug('%s finished', jobid)
+    logging.info('Finished waiting for job result %s', jobid)
 
     # Retrieve job result file & Extract files from .tgz
     directory = _save_job_result(jobid)
-    logging.debug('%s saved to %s', jobid, directory)
+    logging.info('Saved job result %s to %s', jobid, directory)
 
     # Delete job result
     send_request(url_job, method='DELETE')
-    logging.debug('%s deleted', jobid)
+    logging.info('Deleted remote job result %s', jobid)
 
     return directory
 
@@ -78,12 +78,22 @@ def upload_database(database, dbtype='formatdb', shared=False):
     @param dbtype: one of: FASTA, csbfa, formatdb
     @param shared: boolean to indicate whether this database should be shared with other users
     """
+    #Build a unique URL using todays date
     from datetime import datetime
     today = datetime.today()
-    version = str(today.date()) + '_' + str(today.time()).replace(':', '-')
+    # The trailing slash is key.. Time spent: ~2 hours
+    version = str(today.date()) + '_' + str(today.time()).replace(':', '-') + '/'
     url_db_version = URL_DBS + 'www.odose.nl/' + version
-    send_request(url_db_version, params={'type': dbtype, 'shared': 1 if shared else 0}, files={'dbfile': database})
-    return url_db_version
+
+    #Build up parameters for send_request
+    params = {'type': dbtype,
+              'shared': 1 if shared else 0}
+    files = {'dbfile': database}
+
+    #Upload
+    content = send_request(url_db_version, params=params, files=files)
+    logging.info('Uploaded %s database %s to: ' + content, dbtype, database)
+    return content
 
 
 def send_request(url, params=None, files=None, method=None):
@@ -126,7 +136,6 @@ def send_request(url, params=None, files=None, method=None):
         print e
         for k in sorted(e.hdrs.keys()):
             print k, e.hdrs[k]
-        print e.fp.read()
         raise e
 
     #Retrieve
@@ -145,7 +154,10 @@ def _wait_for_job(jobid):
         #Retrieve state for all jobs, and convert to dictionary for easier lookup
         jobstates = send_request(URL_JOBS)
         jobstates = dict(line.split('\t') for line in jobstates.strip().split('\r\n')[1:])
-        if jobid not in jobstates or jobstates[jobid] != 'Queued':
+        if jobid not in jobstates:
+            logging.error('Life Science Grid Portal jobid %s not found in overview', jobid)
+            break
+        if jobstates[jobid] != 'Queued':
             break
         #Sleep for up to two minutes
         time.sleep(duration)
@@ -169,6 +181,10 @@ def _save_job_result(jobid):
     tar = tarfile.open(outputfile)
     tar.extractall(path=tempdir)
     tar.close()
+
+    #Remove the out.tgz file we created above
+    os.remove(outputfile)
+
     return tempdir
 
 
