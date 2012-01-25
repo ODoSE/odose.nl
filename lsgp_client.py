@@ -19,11 +19,10 @@ URL_APPS = 'https://ws2.grid.sara.nl/apps/prod/applications/'
 URL_DBS = 'https://ws2.grid.sara.nl/apps/prod/databases/'
 URL_JOBS = 'https://ws2.grid.sara.nl/apps/prod/jobstates/'
 
-LSGP_USER = ''
-LSGP_PASS = ''
+URLLIB2_OPENER = None
 
 
-def _load_credentials():
+def _build_authenticated_multipart_opener():
     """Read Life Science Grid Portal credentials from file and store in global variables."""
     #Get path to credential file
     from __init__ import resource_filename
@@ -35,12 +34,16 @@ def _load_credentials():
     parser.read(lsgp_credentials_file)
     defaults = parser.defaults()
 
-    #Overwrite global values with read values
-    global LSGP_USER, LSGP_PASS
-    LSGP_USER = defaults['username']
-    LSGP_PASS = defaults['password']
+    #Add HTTP Basic Authentication
+    password_manager = urllib2.HTTPPasswordMgr()
+    password_manager.add_password('Grid Portal', 'ws2.grid.sara.nl', defaults['username'], defaults['password'])
+    auth_handler = urllib2.HTTPBasicAuthHandler(password_manager)
 
-_load_credentials()
+    #Create opener using our above auth_handler, and the StreamingHTTPSHandler from poster to handle multipart forms
+    global URLLIB2_OPENER
+    URLLIB2_OPENER = urllib2.build_opener(auth_handler, StreamingHTTPSHandler)
+
+_build_authenticated_multipart_opener()
 
 
 def submit_application_run(application, params, files):
@@ -113,18 +116,11 @@ def upload_database(database, dbtype='formatdb', shared=False):
 
 def send_request(url, params=None, files=None, method=None):
     """
-    Send a request to the SARA Life Science Grid Portal, using the provided credentials to login. Returns text content.
+    Send a request to the SARA Life Science Grid Portal, using the provided arguments. Returns text content.
     @param url: url to request / submit to
     @param values: dictionary of data that should be POSTed to the url (optional)
     @param method: string HTTP method (optional: POST when data is provided, GET otherwise)
     """
-    #Add HTTP Basic Authentication
-    password_manager = urllib2.HTTPPasswordMgr()
-    password_manager.add_password('Grid Portal', 'ws2.grid.sara.nl', LSGP_USER, LSGP_PASS)
-    auth_handler = urllib2.HTTPBasicAuthHandler(password_manager)
-    #Create opener using our above auth_handler, and the StreamingHTTPSHandler from poster
-    opener = urllib2.build_opener(auth_handler, StreamingHTTPSHandler)
-
     #Encode data
     data = None
     headers = {}
@@ -146,7 +142,7 @@ def send_request(url, params=None, files=None, method=None):
 
     #Send request over opener and retrieve response
     try:
-        response = opener.open(request, timeout=60)
+        response = URLLIB2_OPENER.open(request, timeout=60)
     except HTTPError as e:
         print e
         for key in sorted(e.hdrs.keys()):
