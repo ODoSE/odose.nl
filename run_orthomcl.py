@@ -4,18 +4,19 @@
 from Bio import SeqIO
 from divergence import create_directory, extract_archive_of_files, parse_options
 from divergence.orthomcl_database import create_database, get_configuration_file, delete_database
-from divergence.reciprocal_blast import reciprocal_blast
-from divergence.upload_genomes import format_fasta_genome_headers
+from divergence.reciprocal_blast_lsgp import reciprocal_blast  # Remove _lsgp suffix to using local BLAST instead
 from divergence.translate import translate_fasta_coding_regions
+from divergence.upload_genomes import format_fasta_genome_headers
 from divergence.versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
     ORTHOMCL_BLAST_PARSER, ORTHOMCL_LOAD_BLAST, ORTHOMCL_PAIRS, ORTHOMCL_DUMP_PAIRS_FILES
 from subprocess import Popen, PIPE, CalledProcessError, check_call, STDOUT
 import logging as log
 import multiprocessing
-import os.path
+import os
 import shutil
 import sys
 import tempfile
+
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -31,8 +32,10 @@ def run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_po
     #Steps leading up to and performing the reciprocal blast, as well as minor post processing
     adjusted_fasta_dir, fasta_files = _step5_orthomcl_adjust_fasta(run_dir, proteome_files)
     good, poor = _step6_orthomcl_filter_fasta(run_dir, adjusted_fasta_dir, min_length=poor_protein_length)
-    allvsall = _step7_blast_all_vs_all(run_dir, good, fasta_files)
+    allvsall = _step7_blast_all_vs_all(good, fasta_files)
     similar_sequences = _step8_orthomcl_blast_parser(run_dir, allvsall, adjusted_fasta_dir)
+    #Clean up all vs all blast results file
+    os.remove(allvsall)
 
     #Create new database and install database schema in it, so individual runs do not interfere with each other
     dbname = create_database()
@@ -195,7 +198,7 @@ def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length=10, max_percent_
     return good, poor
 
 
-def _step7_blast_all_vs_all(run_dir, good_proteins_file, fasta_files):
+def _step7_blast_all_vs_all(good_proteins_file, fasta_files):
     """Input:
       - goodProteins.fasta
     Output:
@@ -216,7 +219,7 @@ def _step7_blast_all_vs_all(run_dir, good_proteins_file, fasta_files):
     Time estimate: highly dependent on your data and hardware
     """
     #Handled by reciprocal blast module
-    return reciprocal_blast(run_dir, good_proteins_file, fasta_files)
+    return reciprocal_blast(good_proteins_file, fasta_files)
 
 
 def _step8_orthomcl_blast_parser(run_dir, blast_file, fasta_files_dir):
