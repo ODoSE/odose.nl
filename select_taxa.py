@@ -104,7 +104,7 @@ def _parse_genomes_table(require_refseq=False):
         #Convert date columns to actual dates
         #Released date 01/27/2009
         if genome['Released date']:
-            genome['Released date'] = datetime.strptime(genome['Released date'], '%m/%d/%Y')
+            genome['Released date'] = datetime.strptime(genome['Released date'].split()[0], '%m/%d/%Y')
         #Modified date 02/10/2011 17:38:40
         if genome['Modified date']:
             genome['Modified date'] = datetime.strptime(genome['Modified date'].split()[0], '%m/%d/%Y')

@@ -15,6 +15,7 @@ import tempfile
 import time
 import urllib2
 
+#Verified to work with: X-Portal-Version: 3603
 URL_APPS = 'https://ws2.grid.sara.nl/apps/prod/applications/'
 URL_DBS = 'https://ws2.grid.sara.nl/apps/prod/databases/'
 URL_JOBS = 'https://ws2.grid.sara.nl/apps/prod/jobstates/'
