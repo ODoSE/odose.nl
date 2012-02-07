@@ -212,7 +212,7 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples of three."""
     #ftp://ftp.ncbi.nih.gov/genbank/genomes/Bacteria/Sulfolobus_islandicus_M_14_25_uid18871/CP001400.ffn
     #Download using FTP
-    ftp = FTP('ftp.ncbi.nih.gov')
+    ftp = FTP('ftp.ncbi.nlm.nih.gov')
     ftp.login(passwd='brs@nbic.nl')
 
     #Try to find project directory in RefSeq curated listing
