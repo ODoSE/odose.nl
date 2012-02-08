@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Module to keep track of paths and versions of other software used within the workflow at various intervals."""
 
+from subprocess import Popen, PIPE
 import Bio
 import logging
 
@@ -43,8 +44,6 @@ PHIPACK = SOFTWARE_DIR + 'PhiPack/Phi'
 #Calculation
 PAML_DIR = SOFTWARE_DIR + 'paml44/'
 CODEML = PAML_DIR + 'bin/codeml'
-
-from subprocess import Popen, PIPE
 
 
 def _call_program(*command):
