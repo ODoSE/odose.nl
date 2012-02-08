@@ -22,11 +22,11 @@ URL_JOBS = 'https://ws2.grid.sara.nl/apps/prod/jobstates/'
 URLLIB2_OPENER = None
 
 
-def _build_authenticated_multipart_opener():
+def _build_authed_multipart_opener():
     """Read Life Science Grid Portal credentials from file and store in global variables."""
     if 'lsg_username' not in os.environ or 'lsg_password' not in os.environ:
         #Get path to credential file
-        from __init__ import resource_filename
+        from divergence import resource_filename
         lsgp_credentials_file = resource_filename(__name__, 'credentials/lsg-portal.cfg')
         logging.info('Credentials not found on path: Reading credentials from %s', lsgp_credentials_file)
 
@@ -46,7 +46,7 @@ def _build_authenticated_multipart_opener():
     global URLLIB2_OPENER
     URLLIB2_OPENER = urllib2.build_opener(auth_handler, StreamingHTTPSHandler)
 
-_build_authenticated_multipart_opener()
+_build_authed_multipart_opener()
 
 
 def submit_application_run(application, params, files):
@@ -121,8 +121,9 @@ def send_request(url, params=None, files=None, method=None):
     """
     Send a request to the SARA Life Science Grid Portal, using the provided arguments. Returns text content.
     @param url: url to request / submit to
-    @param values: dictionary of data that should be POSTed to the url (optional)
-    @param method: string HTTP method (optional: POST when data is provided, GET otherwise)
+    @param params: dictionary of parameters that should be POSTed to the url (optional)
+    @param files: dictionary of files that should be POSTed to the url (optional)
+    @param method: string HTTP method (optional: POST when params of files are provided, GET otherwise)
     """
     #Encode data
     data = None
@@ -147,11 +148,11 @@ def send_request(url, params=None, files=None, method=None):
     #Send request over opener and retrieve response
     try:
         response = URLLIB2_OPENER.open(request, timeout=60)
-    except urllib2.HTTPError as e:
-        print e
-        for key in sorted(e.hdrs.keys()):
-            print key, e.hdrs[key]
-        raise e
+    except urllib2.HTTPError as err:
+        print err
+        for key in sorted(err.hdrs.keys()):
+            print key, err.hdrs[key]
+        raise err
 
     #Retrieve
     content = response.read()
@@ -171,11 +172,11 @@ def _wait_for_job(jobid):
             #It would be a shame to lose a reference to all jobs, so we allow for more errors when retrieving jobstates
             jobstates = send_request(URL_JOBS)
             failures = 0
-        except urllib2.URLError as e:
+        except urllib2.URLError as err:
             failures += 1
             #But after five consecutive failures we just plain give up
             if 5 <= failures:
-                raise e
+                raise err
 
         #Retrieve state for all jobs, and convert to dictionary for easier lookup
         jobstates = dict(line.split('\t') for line in jobstates.strip().split('\r\n')[1:])

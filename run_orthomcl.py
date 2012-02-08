@@ -157,9 +157,9 @@ def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length=10, max_percent_
          where xxxx is the three or four letter taxon code and yyyyyy is a sequence identifier unique within that taxon.
 
     Output:
-      - my_orthomcl_dir/goodProteins.fasta
-      - my_orthomcl_dir/poorProteins.fasta
-      - report of suspicious proteomes (> 10% poor proteins)
+        my_orthomcl_dir/goodProteins.fasta
+        my_orthomcl_dir/poorProteins.fasta
+        report of suspicious proteomes (> 10% poor proteins)
 
     EXAMPLE: orthomclSoftware/bin/orthomclFilterFasta my_orthomcl_dir/compliantFasta 10 20
     """
@@ -200,16 +200,16 @@ def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length=10, max_percent_
 
 def _step7_blast_all_vs_all(good_proteins_file, fasta_files):
     """Input:
-      - goodProteins.fasta
+        goodProteins.fasta
     Output:
-      - your_blast_results_in_tab_format
+        your_blast_results_in_tab_format
 
     You must run your own BLAST.  For large datasets you should consider gaining access to a compute cluster.
 
     We expect you to:
-      - use NCBI BLAST
-      - run with the -m 8 option to provide tab delimited output required by Step 8
-      - for IMPORTANT DETAILS about other BLAST arguments, see:
+        use NCBI BLAST
+        run with the - m 8 option to provide tab delimited output required by Step 8
+        for IMPORTANT DETAILS about other BLAST arguments, see:
         the OrthoMCL Algorithm Document (http://docs.google.com/Doc?id=dd996jxg_1gsqsp6)
 
     If you are a power user you can deviate from this, so long as you can ultimately provide output in exactly the format provided by NCBI BLAST using the -m 8 option, and expected by Step 8.
@@ -287,23 +287,23 @@ def _step10_orthomcl_pairs(run_dir, config_file):
     usage: orthomclPairs config_file log_file cleanup=[yes|no|only|all] <startAfter=TAG>
 
     where:
-      config_file : see below
-      cleanup     : clean up temp tables?
+        config_file : see below
+        cleanup     : clean up temp tables?
                        yes = clean as we go;
                        no = don't clean as we go;
                        only=just clean, do nothing else;
                        all=just clean, plus clean InParalog, Ortholog and CoOrtholog tables.
-      startAfter  : optionally start after a previously completed step. see below for TAGs
+        startAfter  : optionally start after a previously completed step. see below for TAGs
 
     Database Input:
-      - SimilarSequences table containing all-v-all BLAST hits
-      - InParalog, Ortholog, CoOrtholog tables - created but empty
+        SimilarSequences table containing all - v - all BLAST hits
+        InParalog, Ortholog, CoOrtholog tables - created but empty
 
     Database Output:
-      - Populated InParalog, Ortholog and CoOrtholog tables
+        Populated InParalog, Ortholog and CoOrtholog tables
 
     Standard Error:
-      - logging info
+        logging info
 
     NOTE: the database login in the config file must have update/insert/truncate privileges on the tables specified in the config file.
 
@@ -324,17 +324,17 @@ def _step11_orthomcl_dump_pairs(run_dir, config_file):
     usage: orthomclDumpPairsFiles config_file
 
     where:
-      config_file : see below (you can use the same file given to orthomclPairs)
+        config_file : see below (you can use the same file given to orthomclPairs)
 
     Database Input:
-      - InParalog, Ortholog, CoOrtholog tables - populated by orthomclPairs
+        InParalog, Ortholog, CoOrtholog tables - populated by orthomclPairs
 
     Output files:
-      orthomclMclInput                       - file required by the mcl program
-      pairs/                                 - dir holding relationship files
-        potentialOrthologs.txt               - ortholog relationships
-        potentialInparalogs.txt              - inparalog relationships
-        potentialCoorthologs.txt             - coortholog relationships
+        orthomclMclInput - file required by the mcl program
+        pairs/ -dir holding relationship files
+            potentialOrthologs.txt - ortholog relationships
+            potentialInparalogs.txt - inparalog relationships
+            potentialCoorthologs.txt - coortholog relationships
 
     The pairs/ files contain the pairs found by the orthomclPairs tables, and their
     average normalized scores.  This is the same information as in the
@@ -344,7 +344,7 @@ def _step11_orthomcl_dump_pairs(run_dir, config_file):
     more sensitive and less selective relationships then the final ortholog groups.
 
     Standard Error:
-      - logging info
+        logging info
 
     EXAMPLE: orthomclSoftware/bin/orthomclDumpPairsFile out_dir/orthomcl.config
     """
@@ -377,9 +377,9 @@ def _step12_mcl(run_dir, mcl_input_file):
     """Markov Cluster Algorithm: http://www.micans.org/mcl/
 
     Input:
-      - mclInput file
+        mclInput file
     Output:
-      - mclOutput file
+        mclOutput file
 
     mcl my_orthomcl_dir/mclInput --abc -I 1.5 -o my_orthomcl_dir/mclOutput
     """
