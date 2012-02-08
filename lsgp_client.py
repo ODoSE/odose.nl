@@ -7,7 +7,6 @@ Module to talk to the SARA Life Science Grid Portal.
 
 from poster.encode import multipart_encode, MultipartParam
 from poster.streaminghttp import StreamingHTTPSHandler
-from urllib2 import HTTPError
 import logging
 import os
 import tarfile
@@ -25,19 +24,22 @@ URLLIB2_OPENER = None
 
 def _build_authenticated_multipart_opener():
     """Read Life Science Grid Portal credentials from file and store in global variables."""
-    #Get path to credential file
-    from __init__ import resource_filename
-    lsgp_credentials_file = resource_filename(__name__, 'credentials/lsg-portal.cfg')
+    if 'lsg_username' not in os.environ or 'lsg_password' not in os.environ:
+        #Get path to credential file
+        from __init__ import resource_filename
+        lsgp_credentials_file = resource_filename(__name__, 'credentials/lsg-portal.cfg')
+        logging.info('Credentials not found on path: Reading credentials from %s', lsgp_credentials_file)
 
-    #Parse credential file
-    from ConfigParser import SafeConfigParser
-    parser = SafeConfigParser()
-    parser.read(lsgp_credentials_file)
-    defaults = parser.defaults()
+        #Parse credential file
+        from ConfigParser import SafeConfigParser
+        parser = SafeConfigParser()
+        parser.read(lsgp_credentials_file)
+        os.environ['lsg_username'] = parser.defaults()['lsg_username']
+        os.environ['lsg_password'] = parser.defaults()['lsg_password']
 
     #Add HTTP Basic Authentication
     password_manager = urllib2.HTTPPasswordMgr()
-    password_manager.add_password('Grid Portal', 'ws2.grid.sara.nl', defaults['username'], defaults['password'])
+    password_manager.add_password('Grid Portal', 'ws2.grid.sara.nl', os.environ['lsg_username'], os.environ['lsg_password'])
     auth_handler = urllib2.HTTPBasicAuthHandler(password_manager)
 
     #Create opener using our above auth_handler, and the StreamingHTTPSHandler from poster to handle multipart forms
@@ -145,7 +147,7 @@ def send_request(url, params=None, files=None, method=None):
     #Send request over opener and retrieve response
     try:
         response = URLLIB2_OPENER.open(request, timeout=60)
-    except HTTPError as e:
+    except urllib2.HTTPError as e:
         print e
         for key in sorted(e.hdrs.keys()):
             print key, e.hdrs[key]
@@ -162,17 +164,28 @@ def _wait_for_job(jobid):
     Wait for a given job to either leave the Queued status, or disappear from the job states page completely.
     @param jobid: id of the job to wait for
     """
-    duration = 10
+    duration = 30
+    failures = 0
     while True:
+        try:
+            #It would be a shame to lose a reference to all jobs, so we allow for more errors when retrieving jobstates
+            jobstates = send_request(URL_JOBS)
+            failures = 0
+        except urllib2.URLError as e:
+            failures += 1
+            #But after five consecutive failures we just plain give up
+            if 5 <= failures:
+                raise e
+
         #Retrieve state for all jobs, and convert to dictionary for easier lookup
-        jobstates = send_request(URL_JOBS)
         jobstates = dict(line.split('\t') for line in jobstates.strip().split('\r\n')[1:])
         if jobid not in jobstates:
             logging.error('Life Science Grid Portal jobid %s not found in overview', jobid)
             break
         if jobstates[jobid] != 'Queued':
             break
-        #Sleep for up to two minutes
+
+        #If we're still here: Sleep for up to two minutes before trying again
         time.sleep(duration)
         if duration < 120:
             duration += 10
