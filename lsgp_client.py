@@ -137,6 +137,7 @@ def send_request(url, params=None, files=None, method=None):
 
     #Create request
     headers.update(Accept='text/plain')
+    #Authentication retry loop can be resolved by sending credentials to start: http://stackoverflow.com/a/2955687/53444
     request = urllib2.Request(url=url, headers=headers, data=data)
     if method:
         request.get_method = lambda: method
