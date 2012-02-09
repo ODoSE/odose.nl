@@ -172,19 +172,19 @@ def _wait_for_job(jobid):
             #It would be a shame to lose a reference to all jobs, so we allow for more errors when retrieving jobstates
             jobstates = send_request(URL_JOBS)
             failures = 0
+
+            #Retrieve state for all jobs, and convert to dictionary for easier lookup
+            jobstates = dict(line.split('\t') for line in jobstates.strip().split('\r\n')[1:])
+            if jobid not in jobstates:
+                logging.error('Life Science Grid Portal jobid %s not found in overview', jobid)
+                break
+            if jobstates[jobid] != 'Queued':
+                break
         except urllib2.URLError as err:
             failures += 1
             #But after five consecutive failures we just plain give up
             if 5 <= failures:
                 raise err
-
-        #Retrieve state for all jobs, and convert to dictionary for easier lookup
-        jobstates = dict(line.split('\t') for line in jobstates.strip().split('\r\n')[1:])
-        if jobid not in jobstates:
-            logging.error('Life Science Grid Portal jobid %s not found in overview', jobid)
-            break
-        if jobstates[jobid] != 'Queued':
-            break
 
         #If we're still here: Sleep for up to two minutes before trying again
         time.sleep(duration)
