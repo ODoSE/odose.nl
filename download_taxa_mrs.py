@@ -53,16 +53,17 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     #Download all gbk & ptt files
     for ac in accessioncodes:
         #TODO This currently contains no error handling what so ever, while identifiers might in some cases be too new
-        genbank_file = _download_file(output_dir, databank, ac, '.gbk', last_change_date)
+        genbank_file = _download_file(output_dir, databank, ac, last_change_date)
 
         #Try to parse Bio.GenBank.Record to see if it contains more than five (arbitrary) feature records
         features = SeqIO.read(genbank_file, 'genbank').features
+        #FIXME EMBL files should be parsed with the separate 'embl' format
         if not any(feature.type == 'CDS' for feature in features):
             #Skip when genbank file does not contain any coding sequence features
             logging.warn('GenBank file %s did not contain any coding sequence features', ac)
             continue
 
-        ptt_file = None if not ptt_available else _download_file(output_dir, 'ptt', ac, '.ptt', last_change_date)
+        ptt_file = None if not ptt_available else _download_file(output_dir, 'ptt', ac, last_change_date)
 
         #Skip this accession when required ptt file is missing, but to allow for other accessions to pass
         if require_ptt and ptt_file == None:
@@ -86,9 +87,10 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
 
     #Write out provenance logfile with sources of retrieved files
     #This file could coincidentally also serve as genome ID file for extract taxa
-    with open(download_log, mode='a') as append_handle:
-        append_handle.write('{0}\t{1}\t{2}\n'.format(project, genome['Organism Name'],
-                                                     'http://mrs.cmbi.ru.nl/mrs-5/info?db=' + databank))
+    if download_log:
+        with open(download_log, mode='a') as append_handle:
+            append_handle.write('{0}\t{1}\t{2}\n'.format(project, genome['Organism Name'],
+                                                         'http://mrs.cmbi.ru.nl/mrs-5/info?db=' + databank))
 
     return genome_files
 
@@ -96,11 +98,11 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
 BASE_URL = 'http://mrs.cmbi.ru.nl/mrs-5/download?db={db}&id={id}'
 
 
-def _download_file(output_dir, databank, ac, extension, last_change_date):
+def _download_file(output_dir, databank, ac, last_change_date):
     """Download a single databank file by accessioncode from MRS"""
 
     #Determine target output file path
-    out_file = os.path.join(output_dir, ac + extension)
+    out_file = os.path.join(output_dir, ac + '.' + databank)
 
     #We know when genomes were last updated. Use this information to determine when to download again, or every 60 days
     last_changed_stamp = time.mktime(last_change_date.timetuple())
@@ -114,12 +116,14 @@ def _download_file(output_dir, databank, ac, extension, last_change_date):
 
         #Download file from MRS
         response = urllib2.urlopen(url, timeout=60)
+        print response.__dict__
         content = response.read()
 
         #FIXME Temporarily stripping off content up to header line due to bug in MRS: Remove when remote bug is fixed
         if databank in ('embl', 'refseq'):
             from itertools import dropwhile
-            content = ''.join(dropwhile(lambda x: not x.startswith('LOCUS'), content.splitlines(True)))
+            content = ''.join(dropwhile(lambda x: not x.startswith('LOCUS') and not x.startswith('ID   '),
+                                        content.splitlines(True)))
 
         #Save to local path
         with open(out_file, mode='w') as write_handle:
@@ -136,5 +140,5 @@ def _download_file(output_dir, databank, ac, extension, last_change_date):
 
 if __name__ == '__main__':
     moddate = datetime.strptime('02/13/2012', '%m/%d/%Y')
-    print _download_file('/tmp', 'refseq', 'nc_011753', '.gbk', moddate)
-    print _download_file('/tmp', 'ptt', 'nc_011753', '.ptt', moddate)
+    print _download_file('/tmp', 'refseq', 'nc_011753', moddate)
+    print _download_file('/tmp', 'ptt', 'nc_011753', moddate)
