@@ -15,9 +15,10 @@ import time
 import urllib2
 
 #Verified to work with: X-Portal-Version: 3603
-URL_APPS = 'https://ws2.grid.sara.nl/apps/prod/applications/'
-URL_DBS = 'https://ws2.grid.sara.nl/apps/prod/databases/'
-URL_JOBS = 'https://ws2.grid.sara.nl/apps/prod/jobstates/'
+BASE_URL = 'https://ws2.grid.sara.nl/apps/prod/'
+URL_APPS = BASE_URL + 'applications/'
+URL_DBS = BASE_URL + 'databases/'
+URL_JOBS = BASE_URL + 'jobstates/'
 
 URLLIB2_OPENER = None
 
@@ -69,7 +70,7 @@ def retrieve_run_result(jobid):
     @param jobid:
     """
     # Wait for job to finish
-    _wait_for_job(jobid)
+    wait_for_job(jobid)
     logging.info('Finished waiting for job result %s', jobid)
     # Retrieve job result file & Extract files from .tgz
     directory = _save_job_result(jobid)
@@ -160,7 +161,7 @@ def send_request(url, params=None, files=None, method=None):
     return content
 
 
-def _wait_for_job(jobid):
+def wait_for_job(jobid):
     """
     Wait for a given job to either leave the Queued status, or disappear from the job states page completely.
     @param jobid: id of the job to wait for
@@ -190,6 +191,9 @@ def _wait_for_job(jobid):
         time.sleep(duration)
         if duration < 120:
             duration += 10
+
+    #Return url with job result
+    return URL_JOBS + jobid
 
 
 def _save_job_result(jobid):
