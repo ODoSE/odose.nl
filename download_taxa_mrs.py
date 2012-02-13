@@ -30,6 +30,7 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
         databank = 'refseq'
         ptt_available = True
     else:
+        #Use embl accessions
         project = genome['Project ID']
         accessioncodes = genome['List of GenBank accessions']
         databank = 'embl'
@@ -39,7 +40,7 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
         if require_ptt:
             return None
 
-    #TODO Figure out how MRS handles updates, and whether we should fall back on genbank when refseq is missing
+    #The MRS embl & refseq databases receive updates daily, so there should be no need to fallback from one to the other
 
     #Determine output directory
     output_dir = create_directory(os.path.join(databank, project))
@@ -52,10 +53,13 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
 
     #Download all gbk & ptt files
     for ac in accessioncodes:
-        #TODO This currently contains no error handling what so ever, while identifiers might in some cases be too new
-        genbank_file = _download_file(output_dir, databank, ac, last_change_date)
+        try:
+            genbank_file = _download_file(output_dir, databank, ac, last_change_date)
+        except IOError as ioerr:
+            logging.warn('{0} file {1} missing for {2} because of: {3}'.format(databank, ac, project, str(ioerr)))
+            continue
 
-        #Try to parse Bio.GenBank.Record to see if it contains more than five (arbitrary) feature records
+        #Try to parse Bio.GenBank.Record to see if it contains any CDS feature records
         filetype = os.path.splitext(genbank_file)[1][1:]
         features = SeqIO.read(genbank_file, filetype).features
         if not any(feature.type == 'CDS' for feature in features):
@@ -63,9 +67,16 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
             logging.warn('GenBank file %s did not contain any coding sequence features', ac)
             continue
 
-        ptt_file = None if not ptt_available else _download_file(output_dir, 'ptt', ac, last_change_date)
+        if not ptt_available:
+            ptt_file = None
+        else:
+            try:
+                ptt_file = _download_file(output_dir, 'ptt', ac, last_change_date)
+            except IOError as ioerr:
+                logging.warn('{0} file {1} missing for {2} because of: {3}'.format(databank, ac, project, str(ioerr)))
+                ptt_file = None
 
-        #Skip this accession when required ptt file is missing, but to allow for other accessions to pass
+        #Skip this accession when required ptt file is missing, but do allow for other accessions to pass
         if require_ptt and ptt_file == None:
             logging.warn('Protein table file %s missing for %s: Probably no coding sequences', ac, project)
             continue
@@ -102,7 +113,8 @@ def _download_file(output_dir, databank, ac, last_change_date):
     """Download a single databank file by accessioncode from MRS"""
 
     #Determine target output file path
-    out_file = os.path.join(output_dir, ac + '.' + databank)
+    extension = 'genbank' if databank == 'refseq' else databank
+    out_file = os.path.join(output_dir, ac + '.' + extension)
 
     #We know when genomes were last updated. Use this information to determine when to download again, or every 60 days
     last_changed_stamp = time.mktime(last_change_date.timetuple())
@@ -118,19 +130,17 @@ def _download_file(output_dir, databank, ac, last_change_date):
         response = urllib2.urlopen(url, timeout=60)
         content = response.read()
 
-        #FIXME Temporarily stripping off content up to header line due to bug in MRS: Remove when remote bug is fixed
-        if databank == 'refseq':
-            from itertools import dropwhile
-            content = ''.join(dropwhile(lambda x: not x.startswith('LOCUS') and not x.startswith('ID   '),
-                                        content.splitlines(True)))
+        #Assert file was actually written to
+        if len(content) == 0:
+            raise IOError('No content retrieved from download: Did source have content?\n' + url)
 
-        #Save to local path
+        #MRS does not raise 404 Not found for missing entries, but returns html content: Verify that didn't happen
+        if 'mrs.cmbi.ru.nl' in content or '<html>' in content:
+            raise IOError('Error found in download: What does the message say?\n' + content)
+
+        #Only when above checks pass save to local path
         with open(out_file, mode='w') as write_handle:
             write_handle.write(content)
-
-        #Assert file was actually written to
-        if not os.path.isfile(out_file) or 0 == os.path.getsize(out_file):
-            raise IOError('Target file was empty after download: Did source have content?\n' + url)
     else:
         logging.info('Cache hit on file %s dated %s', out_file, datetime.fromtimestamp(os.path.getmtime(out_file)))
 

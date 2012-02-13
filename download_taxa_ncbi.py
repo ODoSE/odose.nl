@@ -165,5 +165,7 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_dat
 
         #Actually move now that we've finished downloading files
         shutil.move(tmp_file, out_file)
+    else:
+        log.info('Cache hit on file %s dated %s', out_file, datetime.fromtimestamp(os.path.getmtime(out_file)))
 
     return out_file
