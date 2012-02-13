@@ -56,8 +56,8 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
         genbank_file = _download_file(output_dir, databank, ac, last_change_date)
 
         #Try to parse Bio.GenBank.Record to see if it contains more than five (arbitrary) feature records
-        features = SeqIO.read(genbank_file, 'genbank').features
-        #FIXME EMBL files should be parsed with the separate 'embl' format
+        filetype = os.path.splitext(genbank_file)[1][1:]
+        features = SeqIO.read(genbank_file, filetype).features
         if not any(feature.type == 'CDS' for feature in features):
             #Skip when genbank file does not contain any coding sequence features
             logging.warn('GenBank file %s did not contain any coding sequence features', ac)
@@ -116,11 +116,10 @@ def _download_file(output_dir, databank, ac, last_change_date):
 
         #Download file from MRS
         response = urllib2.urlopen(url, timeout=60)
-        print response.__dict__
         content = response.read()
 
         #FIXME Temporarily stripping off content up to header line due to bug in MRS: Remove when remote bug is fixed
-        if databank in ('embl', 'refseq'):
+        if databank == 'refseq':
             from itertools import dropwhile
             content = ''.join(dropwhile(lambda x: not x.startswith('LOCUS') and not x.startswith('ID   '),
                                         content.splitlines(True)))
