@@ -3,7 +3,7 @@
 
 from datetime import datetime, timedelta
 from divergence import create_directory, HTTP_CACHE, parse_options
-from divergence.download_taxa_ncbi import download_genome_files
+from divergence.download_taxa_mrs import download_genome_files
 from operator import itemgetter
 import logging as log
 import os
