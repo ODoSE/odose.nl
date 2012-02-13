@@ -131,6 +131,7 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None):
         log.warn('No .ptt file given for %s: COG assignment disabled', genbank_file)
         #Disable COG mapping by setting cog_dict to an empty dictionary
         cog_dict = {}
+        product_dict = {}
     else:
         #Retrieve PID to COG mapping from ptt file
         cog_dict, product_dict = _map_protein_cog_and_gene(ptt_file)
@@ -139,8 +140,13 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None):
     log.info('Translating %s', genbank_file)
     with open(aa_tmp, mode='w') as aa_wrtr:
         with open(dna_tmp, mode='w') as dna_wrtr:
+            #Determine filetype by looking at extension, which should be either genbank or embl
+            filetype = os.path.splitext(genbank_file)[1][1:]
+            if filetype == 'gbk':
+                filetype = 'genbank'
+
             #Bio.GenBank.Record
-            gb_recrd = SeqIO.read(genbank_file, 'genbank')
+            gb_recrd = SeqIO.read(genbank_file, filetype)
 
             #Determine whether the source of this genbank file is core genome or plasmid
             #plasmid = False
