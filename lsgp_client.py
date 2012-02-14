@@ -5,6 +5,7 @@ Module to talk to the SARA Life Science Grid Portal.
 @author: tbeek
 '''
 
+from datetime import datetime
 from poster.encode import multipart_encode, MultipartParam
 from poster.streaminghttp import StreamingHTTPSHandler
 import logging
@@ -15,12 +16,11 @@ import time
 import urllib2
 
 #Verified to work with: X-Portal-Version: 3603
-BASE_URL = 'https://ws2.grid.sara.nl/apps/prod/'
+HOSTNAME = 'ws2.grid.sara.nl'
+BASE_URL = 'https://' + HOSTNAME + '/apps/prod/'
 URL_APPS = BASE_URL + 'applications/'
 URL_DBS = BASE_URL + 'databases/'
 URL_JOBS = BASE_URL + 'jobstates/'
-
-URLLIB2_OPENER = None
 
 
 def _build_authed_multipart_opener():
@@ -40,14 +40,16 @@ def _build_authed_multipart_opener():
 
     #Add HTTP Basic Authentication
     password_manager = urllib2.HTTPPasswordMgr()
-    password_manager.add_password('Grid Portal', 'ws2.grid.sara.nl', os.environ['lsg_username'], os.environ['lsg_password'])
+    password_manager.add_password('Grid Portal',
+                                  HOSTNAME,
+                                  os.environ['lsg_username'],
+                                  os.environ['lsg_password'])
     auth_handler = urllib2.HTTPBasicAuthHandler(password_manager)
 
     #Create opener using our above auth_handler, and the StreamingHTTPSHandler from poster to handle multipart forms
-    global URLLIB2_OPENER
-    URLLIB2_OPENER = urllib2.build_opener(auth_handler, StreamingHTTPSHandler)
+    return urllib2.build_opener(auth_handler, StreamingHTTPSHandler)
 
-_build_authed_multipart_opener()
+URLLIB2_OPENER = _build_authed_multipart_opener()
 
 
 def submit_application_run(application, params, files):
@@ -101,7 +103,6 @@ def upload_database(database, dbtype='formatdb', shared=False):
     @param shared: boolean to indicate whether this database should be shared with other users
     """
     #Build a unique URL using todays date
-    from datetime import datetime
     today = datetime.today()
     # The trailing slash is key.. Time spent: ~2 hours
     version = str(today.date()) + '_' + str(today.time()).replace(':', '-') + '/'

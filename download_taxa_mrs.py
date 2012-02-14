@@ -13,6 +13,8 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+BASE_URL = 'http://mrs.cmbi.ru.nl/mrs-5/download?db={db}&id={id}'
+
 
 def download_genome_files(genome, download_log=None, require_ptt=False):
     """
@@ -52,11 +54,11 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     genome_files = []
 
     #Download all gbk & ptt files
-    for ac in accessioncodes:
+    for acc in accessioncodes:
         try:
-            genbank_file = _download_file(output_dir, databank, ac, last_change_date)
+            genbank_file = _download_file(output_dir, databank, acc, last_change_date)
         except IOError as ioerr:
-            logging.warn('{0} file {1} missing for {2} because of: {3}'.format(databank, ac, project, str(ioerr)))
+            logging.warn('{0} file {1} missing for {2} because of: {3}'.format(databank, acc, project, str(ioerr)))
             continue
 
         #Try to parse Bio.GenBank.Record to see if it contains any CDS feature records
@@ -64,21 +66,21 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
         features = SeqIO.read(genbank_file, filetype).features
         if not any(feature.type == 'CDS' for feature in features):
             #Skip when genbank file does not contain any coding sequence features
-            logging.warn('GenBank file %s did not contain any coding sequence features', ac)
+            logging.warn('GenBank file %s did not contain any coding sequence features', acc)
             continue
 
         if not ptt_available:
             ptt_file = None
         else:
             try:
-                ptt_file = _download_file(output_dir, 'ptt', ac, last_change_date)
+                ptt_file = _download_file(output_dir, 'ptt', acc, last_change_date)
             except IOError as ioerr:
-                logging.warn('{0} file {1} missing for {2} because of: {3}'.format(databank, ac, project, str(ioerr)))
+                logging.warn('{0} file {1} missing for {2} because of: {3}'.format(databank, acc, project, str(ioerr)))
                 ptt_file = None
 
         #Skip this accession when required ptt file is missing, but do allow for other accessions to pass
         if require_ptt and ptt_file == None:
-            logging.warn('Protein table file %s missing for %s: Probably no coding sequences', ac, project)
+            logging.warn('Protein table file %s missing for %s: Probably no coding sequences', acc, project)
             continue
 
         #Append tuples to genome_files
@@ -106,15 +108,12 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     return genome_files
 
 
-BASE_URL = 'http://mrs.cmbi.ru.nl/mrs-5/download?db={db}&id={id}'
-
-
-def _download_file(output_dir, databank, ac, last_change_date):
+def _download_file(output_dir, databank, acc, last_change_date):
     """Download a single databank file by accessioncode from MRS"""
 
     #Determine target output file path
     extension = 'genbank' if databank == 'refseq' else databank
-    out_file = os.path.join(output_dir, ac + '.' + extension)
+    out_file = os.path.join(output_dir, acc + '.' + extension)
 
     #We know when genomes were last updated. Use this information to determine when to download again, or every 60 days
     last_changed_stamp = time.mktime(last_change_date.timetuple())
@@ -123,7 +122,7 @@ def _download_file(output_dir, databank, ac, last_change_date):
 
     #Do not retrieve existing files if they exist and have content and are newer than the file_age_limit
     if not os.path.exists(out_file) or 0 == os.path.getsize(out_file) or os.path.getmtime(out_file) < file_age_limit:
-        url = BASE_URL.format(db=databank, id=ac)
+        url = BASE_URL.format(db=databank, id=acc)
         logging.info('Retrieving genome file %s to %s', url, out_file)
 
         #Download file from MRS
@@ -145,9 +144,3 @@ def _download_file(output_dir, databank, ac, last_change_date):
         logging.info('Cache hit on file %s dated %s', out_file, datetime.fromtimestamp(os.path.getmtime(out_file)))
 
     return out_file
-
-
-if __name__ == '__main__':
-    moddate = datetime.strptime('02/13/2012', '%m/%d/%Y')
-    print _download_file('/tmp', 'refseq', 'nc_011753', moddate)
-    print _download_file('/tmp', 'ptt', 'nc_011753', moddate)
