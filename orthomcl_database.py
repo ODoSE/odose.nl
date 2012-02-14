@@ -28,8 +28,7 @@ def _get_root_credentials():
 def create_database():
     """Create database orthomcl_{random suffix}, grant rights to orthomcl user and return """
     #Build a unique URL using todays date
-    today = datetime.today()
-    dbname = 'orthomcl_' + str(today.date()) + '_' + str(today.time()).replace(':', '-')
+    dbname = 'orthomcl_{t.year}_{t.month}_{t.day}__{t.hour}_{t.minute}_{t.second}'.format(t=datetime.today())
     host, port, user, passwd = _get_root_credentials()
     db_connection = MySQLdb.connect(host=host, port=port, user=user, passwd=passwd)
     cursor = db_connection.cursor()
