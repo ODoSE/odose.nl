@@ -149,7 +149,7 @@ def send_request(url, params=None, files=None, method=None):
 
     #Send request over opener and retrieve response
     try:
-        response = URLLIB2_OPENER.open(request, timeout=60)
+        response = URLLIB2_OPENER.open(request, timeout=180)
     except urllib2.HTTPError as err:
         print err
         for key in sorted(err.hdrs.keys()):
