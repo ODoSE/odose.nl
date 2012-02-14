@@ -247,7 +247,9 @@ def _extract_and_translate_cds(cog_mapping, product_mapping, aa_writer, dna_writ
     #Determine COG by looking it up based on protein identifier
     cog = None
     product = None
-    idlist = [xref[3:] for xref in gb_feature.qualifiers['db_xref'] if xref.startswith('GI:')]
+    idlist = []
+    if 'db_xref' in gb_feature.qualifiers:  # Prevent key error that might occur with some EMBL records
+        idlist = [xref[3:] for xref in gb_feature.qualifiers['db_xref'] if xref.startswith('GI:')]
     if idlist:
         pid = idlist[0]
         cog = cog_mapping.get(pid, None)
