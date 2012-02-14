@@ -2,11 +2,11 @@
 """Module to create, configure and dispose separate database instances for individual OrthoMCL runs."""
 
 from ConfigParser import SafeConfigParser
+from datetime import datetime
 from divergence import resource_filename
 import MySQLdb
 import logging as log
 import os.path
-import random
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -27,7 +27,9 @@ def _get_root_credentials():
 
 def create_database():
     """Create database orthomcl_{random suffix}, grant rights to orthomcl user and return """
-    dbname = 'orthomcl_' + str(random.getrandbits(16))
+    #Build a unique URL using todays date
+    today = datetime.today()
+    dbname = 'orthomcl_' + str(today.date()) + '_' + str(today.time()).replace(':', '-')
     host, port, user, passwd = _get_root_credentials()
     db_connection = MySQLdb.connect(host=host, port=port, user=user, passwd=passwd)
     cursor = db_connection.cursor()
