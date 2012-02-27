@@ -193,6 +193,10 @@ def wait_for_job(jobid):
         if duration < 120:
             duration += 10
 
+    #Check job result
+    if jobstates[jobid] == 'Error':
+        raise IOError('Job {1} in error: {0}{1}'.format(URL_JOBS, jobid))
+
     #Return url with job result
     return URL_JOBS + jobid
 
