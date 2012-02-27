@@ -59,9 +59,12 @@ def submit_application_run(application, params, files):
     @param params: dictionary mapping keys to values for use as parameters
     @param files: dictionary mapping keys to files for use as parameters
     """
+    logging.info('Submitting %s run', application)
     url_application = URL_APPS + application
+    logging.info('Parameters:\n%s', params)
+    logging.info('Files:\n%s', params)
     url_job = send_request(url_application, params=params, files=files)
-    logging.info('Submitted %s run; job result will be at: %s', application, url_job)
+    logging.info('Result will be at: %s', url_job)
     jobid = url_job.split('/')[-1]
     return jobid
 
