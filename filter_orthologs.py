@@ -102,7 +102,7 @@ def _phipack_for_all_orthologs(run_dir, aligned_files, genome_ids_a, genome_ids_
     """Filter aligned fasta files where there is evidence of recombination when inspecting phylogenetic trees.
     Return two collections of aligned files, the first without recombination, the second with recombination."""
 
-    log.info('Filtering orthologs where phylogenetic trees show evidence of recombination')
+    log.info('Filtering orthologs where phylogenetic trees show evidence of inter-taxon recombination')
 
     #Collections to hold both non recombination files & files showing recombination
     non_recomb = []
