@@ -3,6 +3,7 @@
 from Bio import SeqIO
 from datetime import datetime, timedelta
 from divergence import create_directory
+from lxml import etree
 import logging
 import os.path
 import time
@@ -134,8 +135,14 @@ def _download_file(output_dir, databank, acc, last_change_date):
             raise IOError('No content retrieved from download: Did source have content?\n' + url)
 
         #MRS does not raise 404 Not found for missing entries, but returns html content: Verify that didn't happen
-        if 'mrs.cmbi.ru.nl' in content or '<html>' in content:
-            raise IOError('Error found in download: What does the message say?\n' + content)
+        if 'mrs.cmbi.ru.nl' in content or '<html' in content:
+            try:
+                root = etree.fromstring(content, parser=etree.HTMLParser())
+                reason = root.find('.//pre').text
+                message = 'Error in downloading file; ' + reason
+            except:
+                message = 'Error in downloading file; Full response was:\n' + content
+            raise IOError(message)
 
         #Only when above checks pass save to local path
         with open(out_file, mode='w') as write_handle:

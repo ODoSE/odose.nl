@@ -6,6 +6,7 @@
 		python-mysqldb \
 		python-networkx \
 		python-nose \
+		python-lxml \
 		sloccount \
 		muscle;
 	sudo easy_install poster;  # For Life Science Grid Portal 
