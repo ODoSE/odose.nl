@@ -13,6 +13,7 @@ from multiprocessing import Pool
 from operator import itemgetter
 import logging as log
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -148,6 +149,13 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None):
             #Bio.GenBank.Record
             gb_recrd = SeqIO.read(genbank_file, filetype)
 
+            #Some RefSeq records such as 61583 do not contain nucleic acids, but rather refer to other files.
+            #This means any extracted sequences will only consist of NNNN or XXXX, meaning we can't continue.
+            str_seq = str(gb_recrd.seq)
+            if re.match('^N+$', str_seq) or re.match('^X+$', str_seq):
+                log.error('No nucleic acid sequence found in file %s, meaning we can not determine divergence for %s.',
+                          genbank_file, project_id)
+
             #Determine whether the source of this genbank file is core genome or plasmid
             #plasmid = False
             #for gb_featr in gb_recrd.features:#Bio.SeqFeature
@@ -162,7 +170,7 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None):
 
             #If there are no coding features, report this back to the user with a clear message rather than empty file
             if 0 == len(coding_features):
-                log.error('No coding sequences found in GenBank file %s. Require protein table files to prevent this.',
+                log.error('No coding sequences found in file %s. Require protein table files to prevent this.',
                           genbank_file)
 
             #Translate all coding sequences
@@ -192,6 +200,13 @@ def _extract_and_translate_cds(cog_mapping, product_mapping, aa_writer, dna_writ
         #Skip CDS feature if length of extracted_seq is not a multiple of three
         log.warn('Length of extracted coding sequence %s not a multiple of 3: %i\n%s',
                   protein_id, len(extracted_seq), extracted_seq)
+        return
+
+    #Some records do not contain nucleic acids, but rather refer to other files for their contigs: We can't handle that 
+    str_seq = str(extracted_seq)
+    if re.match('^X+$', str_seq) or re.match('^N+$', str_seq):
+        #Skip CDS feature if length of extracted_seq is not a multiple of three
+        log.warn('Extracted sequence only consists of X or N: %s', protein_id)
         return
 
     #Translation table is a property of the genbank feature
