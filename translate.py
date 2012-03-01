@@ -150,7 +150,7 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None):
             gb_recrd = SeqIO.read(genbank_file, filetype)
 
             #Some RefSeq records such as 61583 do not contain nucleic acids, but rather refer to other files.
-            #This means any extracted sequences will only consist of NNNN or XXXX, meaning we can't continue.
+            #This means any extracted sequences will only consist of NN or XX, meaning we can't continue.
             str_seq = str(gb_recrd.seq)
             if re.match('^N+$', str_seq) or re.match('^X+$', str_seq):
                 log.error('No nucleic acid sequence found in file %s, meaning we can not determine divergence for %s.',
