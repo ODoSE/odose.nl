@@ -113,7 +113,7 @@ def _every_other_codon_alignments(alignment):
 
 
 def _phipack_values_for_sicos(orth_files):
-    """Calculate"""
+    """Calculate PhiPack values for each ortholog and return a dictionary mapping ortholog to the PhiPack values."""
     #Create temporary folder for PhiPack files
     phipack_dir = tempfile.mkdtemp(prefix='phipack_')
     pool = Pool()
