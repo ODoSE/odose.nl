@@ -5,6 +5,7 @@ from __future__ import division
 from Bio import AlignIO
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
     CODON_TABLE_ID
+from divergence.scatterplot import scatterplot
 from divergence.versions import TRANSLATORX
 from multiprocessing import Pool
 from operator import itemgetter
@@ -53,7 +54,7 @@ def _run_translatorx((run_dir, sico_file), translation_table=CODON_TABLE_ID):
     return dna_alignment
 
 
-def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_length, stats_file):
+def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_length, stats_file, scatterplot_file):
     """Trim all DNA alignments using _trim_alignment (singular), and calculate some statistics about the trimming."""
     log.info('Trimming {0} DNA alignments from first non-gap codon to last non-gap codon'.format(len(dna_alignments)))
 
@@ -91,6 +92,9 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_leng
             append_handle.write(str(tpl[1]) + '\t')
             append_handle.write(str(tpl[2]) + '\t')
             append_handle.write('{0:.2f}\n'.format(tpl[3]))
+
+    #Create scatterplot using trim_tuples
+    scatterplot(retained_threshold, trim_tpls, scatterplot_file)
 
     return sorted(trimmed_alignments), sorted(misaligned)
 
@@ -141,7 +145,7 @@ def _trim_alignment((trimmed_dir, dna_alignment, max_indel_length)):
     assert os.path.isfile(trimmed_file) and os.path.getsize(trimmed_file), \
         'Expected trimmed alignment file to exist with some content now: {0}'.format(trimmed_file)
 
-    #Filter out those alignment that contain an indel longer than N
+    #Filter out those alignment that contain an indel longer than N: return zero (0) as trimmed length & % retained 
     if any('-' * max_indel_length in str(seqr.seq) for seqr in trimmed):
         return trimmed_file, alignment_length, 0, 0
 
@@ -159,10 +163,12 @@ Usage: filter_orthologs.py
 --misaligned-zip=FILE          destination file path for archive of misaligned orthologous genes
 --trimmed-zip=FILE             destination file path for archive of aligned & trimmed orthologous genes
 --stats=FILE                   destination file path for ortholog trimming statistics file
+--scatterplot=FILE             destination file path for scatterplot of retained and filtered sequences by length
 """
     options = ['orthologs-zip', 'retained-threshold', 'max-indel-length',
-               'aligned-zip', 'misaligned-zip', 'trimmed-zip', 'stats']
-    orthologs_zip, retained_threshold, max_indel_length, aligned_zip, misaligned_zip, trimmed_zip, target_stats_path = \
+               'aligned-zip', 'misaligned-zip', 'trimmed-zip', 'stats', 'scatterplot']
+    orthologs_zip, retained_threshold, max_indel_length, \
+    aligned_zip, misaligned_zip, trimmed_zip, target_stats_path, target_scatterplot = \
         parse_options(usage, options, args)
 
     #Convert retained threshold to integer, so we can fail fast if argument value format was wrong
@@ -181,7 +187,7 @@ Usage: filter_orthologs.py
 
     #Filter orthologs that retain less than PERC % of sequence after trimming alignment
     trimmed_files, misaligned_files = _trim_alignments(run_dir, aligned_files, retained_threshold, max_indel_length,
-                                                       target_stats_path)
+                                                       target_stats_path, target_scatterplot)
 
     #Create archives of files on command line specified output paths
     create_archive_of_files(aligned_zip, aligned_files)
@@ -192,7 +198,8 @@ Usage: filter_orthologs.py
     shutil.rmtree(run_dir)
 
     #Exit after a comforting log message
-    log.info('Produced: \n%s\n%s\n%s\n%s', aligned_zip, misaligned_zip, trimmed_zip, target_stats_path)
+    log.info('Produced: \n%s', '\n'.join((aligned_zip, misaligned_zip, trimmed_zip,
+                                         target_stats_path, target_scatterplot)))
 
 if __name__ == '__main__':
     main(sys.argv[1:])
