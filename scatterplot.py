@@ -19,7 +19,9 @@ def scatterplot(retained_threshold, trim_tuples, scatterplot_file):
     #Extract desired columns
     original_lengths = [trim_tuple[1] for trim_tuple in trim_tuples]
     percentages_retained = [trim_tuple[3] for trim_tuple in trim_tuples]
-    row_retained = ['green' if trim_tuple[3] >= retained_threshold else 'red' for trim_tuple in trim_tuples]
+    row_retained = ['green' if trim_tuple[3] >= retained_threshold
+                    else 'red' if trim_tuple[3] > 0 else 'black'
+                    for trim_tuple in trim_tuples]
 
     #Convert to R objects
     original_lengths = robjects.IntVector(original_lengths)
@@ -39,8 +41,12 @@ def scatterplot(retained_threshold, trim_tuples, scatterplot_file):
            main='Sequences retained in alignment & trimming',
            xlab='Percentage retained',
            ylab='Original length',
-           sub='Retained sequences in green, filtered sequences in red',
            pch=18)
+
+    # Add legend
+    r.legend('top',
+             legend=['retained', 'filtered', 'too large indel'],
+             fill=robjects.StrVector(['green', 'red', 'black']))
 
     # Close the graphical device
     grdevices.dev_off()  # pylint: disable=E1101
