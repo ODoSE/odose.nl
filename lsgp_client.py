@@ -16,8 +16,8 @@ import time
 import urllib2
 
 #Verified to work with: X-Portal-Version: 3603
-HOSTNAME = 'ws2.grid.sara.nl'
-BASE_URL = 'https://' + HOSTNAME + '/apps/prod/'
+HOSTNAME = 'apps.grid.sara.nl'
+BASE_URL = 'https://' + HOSTNAME + '/'
 URL_APPS = BASE_URL + 'applications/'
 URL_DBS = BASE_URL + 'databases/'
 URL_JOBS = BASE_URL + 'jobstates/'
@@ -62,7 +62,7 @@ def submit_application_run(application, params, files):
     logging.info('Submitting %s run', application)
     url_application = URL_APPS + application
     logging.info('Parameters:\n%s', params)
-    logging.info('Files:\n%s', params)
+    logging.info('Files:\n%s', files)
     url_job = send_request(url_application, params=params, files=files)
     logging.info('Result will be at: %s', url_job)
     jobid = url_job.split('/')[-1]
@@ -154,6 +154,7 @@ def send_request(url, params=None, files=None, method=None):
     try:
         response = URLLIB2_OPENER.open(request, timeout=180)
     except urllib2.HTTPError as err:
+        print url
         print err
         for key in sorted(err.hdrs.keys()):
             print key, err.hdrs[key]
@@ -230,5 +231,5 @@ def _save_job_result(jobid):
 if __name__ == '__main__':
     DIR = run_application('greeter/1.0', {'name': 'Tim'})
     print DIR, os.listdir(DIR)
-    with open(os.path.join(DIR, os.listdir(DIR)[-1])) as read_handle:
+    with open(os.path.join(DIR, os.listdir(DIR)[0])) as read_handle:
         print read_handle.read()
