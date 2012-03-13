@@ -6,7 +6,8 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
     find_cogs_in_sequence_records
-from divergence.concatemer_tree import _run_dna_dist, _run_neighbor, _read_taxa_from_tree
+from divergence.compare_taxa import main as ctaxa_main
+from divergence.concatemer_tree import _run_dna_dist, _run_neighbor, _read_taxa_from_tree, main as ctree_main
 from divergence.crosstable_gene_ids import create_crosstable
 import logging as log
 import os.path
@@ -153,23 +154,56 @@ def _tree_shows_recombination(genome_ids_a, genome_ids_b, tree_file):
     return set(genome_ids_a) != set(clade_two) or set(genome_ids_b) != set(clade_one)
 
 
+def post_recombination_filter(unfiltered_a_file, unfiltered_b_file, retained_zip,
+                              target_orth_per_genome, target_concat_file, run_dir):
+    """Extract orthologs per genome and genome concatemer, and verify there are no differing taxa."""
+    #Tasks:
+    #Run concatenate & deduce taxa
+    #Run compare taxa with above produced post-filtering Taxon A & B
+
+    #Create temporary files for the filtered taxon files
+    filtered_a_file = os.path.join(run_dir, 'filtered_taxon_a.tsv')
+    filtered_b_file = os.path.join(run_dir, 'filtered_taxon_b.tsv')
+    target_tree = os.path.join(run_dir, 'filtered_tree.pdf')
+
+    #Run concatemer tree
+    ctree_args = ['--orthologs-zip', retained_zip,
+                  '--coding-regions', target_orth_per_genome,
+                  '--concatemer', target_concat_file,
+                  '--taxon-a', filtered_a_file,
+                  '--taxon-b', filtered_b_file,
+                  '--tree', target_tree]
+    ctree_main(ctree_args)
+
+    #Run compare taxa
+    ctaxa_args = ['--unfiltered-taxon-a', unfiltered_a_file,
+                  '--unfiltered-taxon-b', unfiltered_b_file,
+                  '--filtered-taxon-a', filtered_a_file,
+                  '--filtered-taxon-b', filtered_b_file]
+    ctaxa_main(ctaxa_args)
+
+
 def main(args):
     """Main function called when run from command line or as part of pipeline."""
     usage = """
 Usage: filter_orthologs.py
 --orthologs-zip=FILE            archive of orthologous genes in FASTA format
 --filter-multiple-cogs          filter orthologs with multiple COG annotations among genes [OPTIONAL]
+
 --filter-recombination=FILE     filter orthologs that show recombination when comparing phylogenetic trees [OPTIONAL]
                                 destination file path for archive of recombination orthologs
 --recombined-crosstable=FILE    destination file path for recombined crosstable of GeneIDs, COGs and Products [OPTIONAL]
 --taxon-a=FILE                  file with genome IDs for taxon A to use in recombination filtering
 --taxon-b=FILE                  file with genome IDs for taxon B to use in recombination filtering
 --retained-zip=FILE             destination file path for archive of retained orthologs after filtering
+
+--orthologs-per-genome=FILE      destination file path for orthologs split out per genome, based on the retained.zip
+--concatemer=FILE                destination file path for super-concatemer of all genomes
 """
     options = ('orthologs-zip', 'filter-multiple-cogs=?', 'filter-recombination=?', 'recombined-crosstable=?',
-               'taxon-a=?', 'taxon-b=?', 'retained-zip')
+               'taxon-a=?', 'taxon-b=?', 'retained-zip', 'orthologs-per-genome', 'concatemer')
     orthologs_zip, filter_cogs, filter_recombination, recombined_crosstable, \
-    taxona, taxonb, retained_zip = parse_options(usage, options, args)
+    taxona, taxonb, retained_zip, target_orth_per_genome, target_concat_file = parse_options(usage, options, args)
 
     #Run filtering in a temporary folder, to prevent interference from simultaneous runs
     run_dir = tempfile.mkdtemp(prefix='filter_orthologs_')
@@ -203,6 +237,10 @@ Usage: filter_orthologs.py
         create_archive_of_files(filter_recombination, recombined_files)
     create_archive_of_files(retained_zip, ortholog_files)
 
+    #Run the steps required after filtering orthologs
+    post_recombination_filter(taxona, taxonb, retained_zip,
+                              target_orth_per_genome, target_concat_file, run_dir)
+
     #Remove unused files to free disk space
     shutil.rmtree(run_dir)
 
@@ -213,6 +251,8 @@ Usage: filter_orthologs.py
     if filter_recombination:
         log.info(filter_recombination)
     log.info(retained_zip)
+    log.info(target_orth_per_genome)
+    log.info(target_concat_file)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
