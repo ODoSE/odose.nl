@@ -76,7 +76,7 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_leng
         append_handle.write('#' + msg + '\n')
 
         average_retained = sum(remaining_percts) / len(remaining_percts)
-        msg = '{0:5.2}% sequence retained on average overall'.format(average_retained)
+        msg = '{0:5.1f}% sequence retained on average overall'.format(average_retained)
         log.info(msg)
         append_handle.write('#' + msg + '\n')
 
