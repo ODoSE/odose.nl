@@ -180,7 +180,7 @@ def wait_for_job(jobid):
             failures = 0
 
             #Retrieve state for all jobs, and convert to dictionary for easier lookup
-            jobstates = dict(line.split('\t') for line in jobstates.strip().split('\r\n')[1:])
+            jobstates = dict(line.split('\t')[:2] for line in jobstates.strip().split('\r\n')[1:])
             if jobid not in jobstates:
                 logging.error('Life Science Grid Portal jobid %s not found in overview', jobid)
                 break
