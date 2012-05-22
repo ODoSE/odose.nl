@@ -58,9 +58,6 @@ def create_directory(dirname, inside_dir=BASE_OUTPUT_PATH):
         os.makedirs(filename)
         return filename
 
-#Initialize shared cache for files downloaded through httplib2
-HTTP_CACHE = httplib2.Http(create_directory('.cache'))
-
 
 def concatenate(target_path, source_files):
     """Concatenate arbitrary number of files into target_path by reading and writing in binary mode.
@@ -172,8 +169,8 @@ def get_most_recent_gene_name(genomes, sequence_records):
     #Determine which genome is the most recent by looking at the modification & release dates of published genomes
     #Starting at the newest genomes, return the first gene name annotation we find
     for genome in sorted(genomes, key=lambda x: x['Modify Date'] or x['Release Date'], reverse=True):
-        if genome['BioProject'] in ortholog_products:
-            return ortholog_products[genome['BioProject']]
+        if genome['BioProject Accession'] in ortholog_products:
+            return ortholog_products[genome['BioProject Accession']]
 
     #Shouldn't really happen, but write this clause anyhow
     logging.warn('Could not retrieve gene name annotation based on date; returning first gene name annotation instead')
