@@ -171,11 +171,9 @@ def get_most_recent_gene_name(genomes, sequence_records):
 
     #Determine which genome is the most recent by looking at the modification & release dates of published genomes
     #Starting at the newest genomes, return the first gene name annotation we find
-    for genome in sorted(genomes, key=lambda x: x['Modified date'] or x['Released date'], reverse=True):
-        if genome['RefSeq project ID'] in ortholog_products:
-            return ortholog_products[genome['RefSeq project ID']]
-        if genome['Project ID'] in ortholog_products:
-            return ortholog_products[genome['Project ID']]
+    for genome in sorted(genomes, key=lambda x: x['Modify Date'] or x['Release Date'], reverse=True):
+        if genome['BioProject'] in ortholog_products:
+            return ortholog_products[genome['BioProject']]
 
     #Shouldn't really happen, but write this clause anyhow
     logging.warn('Could not retrieve gene name annotation based on date; returning first gene name annotation instead')

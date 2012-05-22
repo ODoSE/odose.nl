@@ -236,7 +236,7 @@ Usage: concatenate_orthologs.py
     genome_ids_a, genome_ids_b = _read_taxa_from_tree(super_tree_file)
 
     #Map Project IDs to Organism names
-    id_to_name_map = dict((gid, genome['Organism Name'])
+    id_to_name_map = dict((gid, genome['Organism/Name'])
                           for gid, genome in select_genomes_by_ids(genome_ids_a + genome_ids_b).iteritems())
 
     #Write Project IDs and Organism Names to files, with a fallback to genome_id for external genome

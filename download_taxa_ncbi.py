@@ -24,28 +24,27 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     ftp.login(passwd='brs@nbic.nl')
 
     #Try to find project directory in RefSeq curated listing
-    projectid = genome['RefSeq project ID']
+    projectid = genome['BioProject'][5:]
     base_dir = '/genomes/Bacteria'
     project_dir = _find_project_dir(ftp, base_dir, projectid)
     if project_dir:
-        accessioncodes = genome['List of RefSeq accessions']
+        accessioncodes = genome['Chromosomes/RefSeq']
         target_dir = create_directory('refseq/' + projectid)
     else:
         if projectid:
             log.warn('Genome directory not found under %s%s for %s', ftp.host, base_dir, projectid)
 
         #Try instead to find project directory in GenBank originals listing
-        projectid = genome['Project ID']
         base_dir = '/genbank/genomes/Bacteria'
         project_dir = _find_project_dir(ftp, base_dir, projectid)
         if project_dir:
-            accessioncodes = genome['List of GenBank accessions']
+            accessioncodes = genome['Chromosomes/INSDC']
             target_dir = create_directory('genbank/' + projectid)
         else:
             log.warn('Genome directory not found under %s%s for %s', ftp.host, base_dir, projectid)
 
     #Determine ast modified date to see if we should redownload the file following changes
-    last_change_date = genome['Modified date'] if genome['Modified date'] else genome['Released date']
+    last_change_date = genome['Modify Date'] if genome['Modify Date'] else genome['Release Date']
 
     #Download .gbk & .ptt files for all genome accessioncodes and append them to this list as tuples of gbk + ptt
     genome_files = []
@@ -101,7 +100,7 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
         #Write out commented out line to the logfile detailing this error
         if download_log:
             with open(download_log, mode='a') as append_handle:
-                append_handle.write('#{0}\t{1}\t'.format(projectid, genome['Organism Name']))
+                append_handle.write('#{0}\t{1}\t'.format(projectid, genome['Organism/Name']))
                 append_handle.write('#Genome skipped because of missing files\n')
 
         #Return nothing when:
@@ -114,7 +113,7 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     #This file could coincidentally also serve as genome ID file for extract taxa
     if download_log:
         with open(download_log, mode='a') as append_handle:
-            append_handle.write('{0}\t{1}\t{2}{3}\n'.format(projectid, genome['Organism Name'], ftp.host, project_dir))
+            append_handle.write('{0}\t{1}\t{2}{3}\n'.format(projectid, genome['Organism/Name'], ftp.host, project_dir))
 
     #Return genome files
     return genome_files

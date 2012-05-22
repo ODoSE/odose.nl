@@ -8,6 +8,7 @@ Module to talk to the SARA Life Science Grid Portal.
 from datetime import datetime
 from poster.encode import multipart_encode, MultipartParam
 from poster.streaminghttp import StreamingHTTPSHandler
+import base64
 import logging
 import os
 import tarfile
@@ -22,34 +23,23 @@ URL_APPS = BASE_URL + 'applications/'
 URL_DBS = BASE_URL + 'databases/'
 URL_JOBS = BASE_URL + 'jobstates/'
 
+#URL opener with support for multipart file upload forms
+URLLIB2_OPENER = urllib2.build_opener(StreamingHTTPSHandler)
 
-def _build_authed_multipart_opener():
-    """Read Life Science Grid Portal credentials from file and store in global variables."""
-    if 'lsg_username' not in os.environ or 'lsg_password' not in os.environ:
-        #Get path to credential file
-        from divergence import resource_filename
-        lsgp_credentials_file = resource_filename(__name__, 'credentials/lsg-portal.cfg')
-        logging.info('Credentials not found on path: Reading credentials from %s', lsgp_credentials_file)
 
-        #Parse credential file
-        from ConfigParser import SafeConfigParser
-        parser = SafeConfigParser()
-        parser.read(lsgp_credentials_file)
-        os.environ['lsg_username'] = parser.defaults()['lsg_username']
-        os.environ['lsg_password'] = parser.defaults()['lsg_password']
+def _load_lsg_credentials():
+    """Read Life Science Grid Portal credentials from file and store in os.environ variables."""
+    #Get path to credential file
+    from divergence import resource_filename
+    lsgp_credentials_file = resource_filename(__name__, 'credentials/lsg-portal.cfg')
+    logging.info('Credentials not found on path: Reading credentials from %s', lsgp_credentials_file)
 
-    #Add HTTP Basic Authentication
-    password_manager = urllib2.HTTPPasswordMgr()
-    password_manager.add_password('Grid Portal',
-                                  HOSTNAME,
-                                  os.environ['lsg_username'],
-                                  os.environ['lsg_password'])
-    auth_handler = urllib2.HTTPBasicAuthHandler(password_manager)
-
-    #Create opener using our above auth_handler, and the StreamingHTTPSHandler from poster to handle multipart forms
-    return urllib2.build_opener(auth_handler, StreamingHTTPSHandler)
-
-URLLIB2_OPENER = _build_authed_multipart_opener()
+    #Parse credential file
+    from ConfigParser import SafeConfigParser
+    parser = SafeConfigParser()
+    parser.read(lsgp_credentials_file)
+    os.environ['lsg_username'] = parser.defaults()['lsg_username']
+    os.environ['lsg_password'] = parser.defaults()['lsg_password']
 
 
 def submit_application_run(application, params, files):
@@ -145,10 +135,17 @@ def send_request(url, params=None, files=None, method=None):
 
     #Create request
     headers.update(Accept='text/plain')
-    #Authentication retry loop can be resolved by sending credentials to start: http://stackoverflow.com/a/2955687/53444
     request = urllib2.Request(url=url, headers=headers, data=data)
+
+    # Set method, which could be DELETE
     if method:
         request.get_method = lambda: method
+
+    # Add authentication, explicitly not using the urllib2.HTTPBasicAuthHandler, as it caused frequent failures
+    if 'lsg_username' not in os.environ or 'lsg_password' not in os.environ:
+        _load_lsg_credentials()
+    base64string = base64.encodestring(os.environ['lsg_username'] + ':' + os.environ['lsg_password']).replace('\n', '')
+    request.add_header("Authorization", "Basic %s" % base64string)
 
     #Send request over opener and retrieve response
     try:

@@ -338,7 +338,7 @@ Usage: translate.py
         if len(genome_ids):
             #Retrieve associated genome dictionaries from complete genomes table
             genomes = select_genomes_by_ids(genome_ids).values()
-            genomes = sorted(genomes, key=itemgetter('Organism Name'))
+            genomes = sorted(genomes, key=itemgetter('Organism/Name'))
 
             #Actually translate the genomes to produced a set of files for both  dna files & protein files
             dna_files, protein_files = translate_genomes(genomes)
