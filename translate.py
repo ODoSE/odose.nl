@@ -245,7 +245,8 @@ def _extract_and_translate_cds(cog_mapping, product_mapping, aa_writer, dna_writ
 
             #Assert lengths match, when stopcodon length is deducted
             if dna_length != 3 * aa_length:
-                log.error('Triple protein length %i did not match DNA length %i', 3 * aa_length, dna_length)
+                log.warn('Triple protein length %i did not match DNA length %i: record will be skipped',
+                         3 * aa_length, dna_length)
                 #Skip this CDS feature
                 return
 
@@ -253,9 +254,9 @@ def _extract_and_translate_cds(cog_mapping, product_mapping, aa_writer, dna_writ
             log.warning('Reverted to GenBank provided translation:\n%s', protein_seq)
         else:
             #Log some debug information before reraising error
-            log.error('Error in translating %s from %s using:\n%s', protein_id, gb_record.id, extracted_seq)
-            log.error(gb_feature)
-            log.error(err)
+            log.warn('Error in translating %s from %s using:\n%s', protein_id, gb_record.id, extracted_seq)
+            log.warn(gb_feature)
+            log.warn(str(err) + ': record will be skipped')
             #Skip this CDS feature, but do continue translating future CDS within the same GenBank record
             return
 
