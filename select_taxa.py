@@ -146,19 +146,21 @@ def get_complete_genomes(genomes=_parse_genomes_table()):
     sorted_genomes = _bin_using_keyfunctions(genomes)
 
     for genome in sorted_genomes:
-        name = '<b>{project}</b> - {group} &gt; {subgroup} &gt; {firstname} &gt; <i>{fullname}</i>'.format(
-            project=genome['BioProject Accession'],
+        name = '{project} - {group} > {subgroup} > {firstname} > {fullname}'.format(
+            project=genome['BioProject ID'],
             group=genome['Group'],
             subgroup=genome['SubGroup'],
             firstname=genome['Organism/Name'].split()[0],
             fullname=genome['Organism/Name'])
-        name += _get_colored_labels(genome)
+        labels = _get_colored_labels(genome)
+        if labels:
+            name += ' - ' + labels
 
         #Yield the composed name, the project ID & False according to the expected input for Galaxy
         yield name, genome['BioProject Accession'], False
 
 
-def _get_colored_labels(genome):
+def _get_colored_labels(genome, html_is_escaped=True):
     """Optionally return colored labels for genome based on a release date, modified date and genome size."""
     labels = ''
 
@@ -168,21 +170,30 @@ def _get_colored_labels(genome):
     #Released date 01/27/2009
     released_date = genome['Release Date']
     if released_date and day_limit < released_date:
-        title = 'title="Since {0}"'.format(released_date.date())
-        labels += ' <span {0} style="background-color: lightgreen">New!</span>'.format(title)
+        since = 'Since {0}'.format(released_date.strftime('%b %d'))
+        if html_is_escaped:
+            labels += '*' + since + '*'
+        else:
+            labels += '<span title="{0}" style="background-color: lightgreen">New!</span>'.format(since)
 
     #Modified date 02/10/2011
     modified_date = genome['Modify Date']
-    if modified_date and day_limit < modified_date:
-        title = 'title="Since {0}"'.format(modified_date.date())
-        labels += ' <span {0} style="background-color: yellow">Updated!</span>'.format(title)
+    if not labels and modified_date and day_limit < modified_date:
+        updated = 'Updated {0}'.format(modified_date.strftime('%b %d'))
+        if html_is_escaped:
+            labels += '*' + updated + '*'
+        else:
+            labels += '<span title="{0}" style="background-color: yellow">Updated!</span>'.format(updated)
 
     #Warn when genomes contain less than 0.5 MegaBase: unlikely to result in any orthologs
     genome_size = genome['Size (Mb)']
     if genome_size and float(genome_size) < 1:
-        ttl = 'title="Small genomes are unlikely to result in orthologs present across all genomes"'
-        style = 'style="background-color: orange"'
-        labels += ' <span {0} {1}>Only {2} Mb!</span>'.format(ttl, style, genome_size)
+        if html_is_escaped:
+            labels += '*Only {0} Mb!*'.format(genome_size)
+        else:
+            ttl = 'title="Small genomes are unlikely to result in orthologs present across all genomes"'
+            style = 'style="background-color: orange"'
+            labels += '<span {0} {1}>Only {2} Mb!</span>'.format(ttl, style, genome_size)
 
     return labels
 
