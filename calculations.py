@@ -439,7 +439,7 @@ def _perform_calculations(alignment, codeml_values):
     #Miscellaneous additional values
     computed_values['codons'] = sequence_lengths // 3
     computed_values['multiple site polymorphisms'] = multiple_site_polymorphisms
-    computed_values['synonymous and non-synonymous polymorphisms mixed'] = mixed_synonymous_polymorphisms
+    computed_values['complex codons (with both synonymous and non-synonymous polymorphisms segregating)'] = mixed_synonymous_polymorphisms
 
     #Add COGs to output file in split columns
     cog_digits = []
@@ -591,7 +591,7 @@ def _get_column_headers_in_sequence(max_nton):
     headers.extend(_write_sfs_column_names('4-fold synonymous sfs '))
     #Miscellaneous additional statistics
     headers.append('multiple site polymorphisms')
-    headers.append('synonymous and non-synonymous polymorphisms mixed')
+    headers.append('complex codons (with both synonymous and non-synonymous polymorphisms segregating)')
     #PAML
     headers.extend(['N', 'Dn', 'S', 'Ds'])
     #PhiPack
