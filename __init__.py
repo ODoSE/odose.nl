@@ -5,7 +5,6 @@ from pkg_resources import resource_filename  # @UnresolvedImport  # pylint: disa
 from zipfile import ZipFile, ZIP_DEFLATED, is_zipfile
 import Bio
 import getopt
-import httplib2
 import logging
 import os
 import shutil

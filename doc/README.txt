@@ -11,11 +11,10 @@
 		muscle;
 	sudo easy_install poster;  # For Life Science Grid Portal 
 	sudo easy_install coverage;
-	sudo easy_install httplib2;
 	sudo easy_install pylint;
 		
 	#BioPython
-	sudo apt-get build-dep python-biopython;
+	sudo apt-get build-dep python-biopython; # Ubuntu 12.04 Precise has v1.58, which is fine 
 	#Download & install 1.54 <= biopython
 
 	#Other software
