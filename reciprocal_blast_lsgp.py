@@ -2,8 +2,7 @@
 """Module for the reciprocal blast step using the SARA Life Science Grid Portal."""
 
 from divergence import concatenate
-from divergence.lsgp_client import run_application, upload_database, submit_application_run, retrieve_run_result, \
-    send_request
+from divergence.lsgp_client import run_application, submit_application_run, retrieve_run_result, send_request
 import os
 import shutil
 import tempfile
@@ -47,13 +46,14 @@ def _create_blast_database(fasta_file, nucleotide=False):
     db_name = '{0}_blast_db'.format(dbtype)
 
     #Run MAKEBLASTDB remotely
-    params = {'dbtype': dbtype, 'out': db_name}
+    params = {'dbtype': dbtype, 'out': db_name, 'portaldb': 1}
     files = {'in-file[]': fasta_file}
     db_dir = run_application(MAKEBLASTDB, params=params, files=files)
 
     #Upload database back to LSG Portal
-    database = os.path.join(db_dir, db_name + '.tgz')
-    database_url = upload_database(database)
+    with open(os.path.join(db_dir, 'db_url.txt')) as read_handle:
+        # XXX The port number is always added, so if we do not remove it we get :444:444
+        database_url = read_handle.read().replace(':444', '')
 
     #Remove local database directory
     shutil.rmtree(db_dir)
