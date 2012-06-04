@@ -53,7 +53,7 @@ def _create_blast_database(fasta_file, nucleotide=False):
     #Upload database back to LSG Portal
     with open(os.path.join(db_dir, 'db_url.txt')) as read_handle:
         # XXX The port number is always added, so if we do not remove it we get :444:444
-        database_url = read_handle.read().replace(':444', '')
+        database_url = read_handle.read().strip().replace(':444', '')
 
     #Remove local database directory
     shutil.rmtree(db_dir)
