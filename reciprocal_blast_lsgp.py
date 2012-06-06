@@ -35,6 +35,8 @@ def reciprocal_blast(good_proteins_fasta, fasta_files):
     # Clean up local and remote
     for x_vs_all in x_vs_all_hits:
         os.remove(x_vs_all)
+    #Remote database_url port :444 requires certificate authentication, which we remove to use the basic authentication
+    database_url = database_url.replace(':444', '')
     send_request(database_url, method='DELETE')
 
     return allvsall
@@ -52,8 +54,7 @@ def _create_blast_database(fasta_file, nucleotide=False):
 
     #Upload database back to LSG Portal
     with open(os.path.join(db_dir, 'db_url.txt')) as read_handle:
-        # XXX The port number is always added, so if we do not remove it we get :444:444
-        database_url = read_handle.read().strip().replace(':444', '')
+        database_url = read_handle.read().strip()
 
     #Remove local database directory
     shutil.rmtree(db_dir)
@@ -61,7 +62,7 @@ def _create_blast_database(fasta_file, nucleotide=False):
     return database_url
 
 
-def _blast_file_against_database(database_url, fasta_file, nucleotide=False):
+def blast_file_against_database(database_url, fasta_file, nucleotide=False):
     """
     Blast file against database, and immediately retrieve and return the resulting BLAST hits file.
     @param database_url:
