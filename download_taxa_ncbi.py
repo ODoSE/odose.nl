@@ -24,7 +24,7 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     ftp.login(passwd='brs@nbic.nl')
 
     #Try to find project directory in RefSeq curated listing
-    projectid = genome['BioProject Accession'][5:]
+    projectid = genome['BioProject ID']
     base_dir = '/genomes/Bacteria'
     project_dir = _find_project_dir(ftp, base_dir, projectid)
     if project_dir:

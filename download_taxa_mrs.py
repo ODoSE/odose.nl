@@ -26,7 +26,7 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     @param download_log: download log to append a line to for this genome
     @param require_ptt: boolean to indicate if individual accessioncodes should be skipped when ptt file is missing
     """
-    project = genome['BioProject Accession']
+    project = genome['BioProject ID']
     #Try RefSeq accessions
     if genome['Chromosomes/RefSeq']:
         accessioncodes = genome['Chromosomes/RefSeq']
