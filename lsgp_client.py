@@ -59,13 +59,13 @@ def submit_application_run(application, params, files):
     return jobid
 
 
-def retrieve_run_result(jobid):
+def retrieve_run_result(jobid, max_duration=None):
     """
     Retrieve results for jobid. Returns directory containing results.
     @param jobid:
     """
     # Wait for job to finish
-    wait_for_job(jobid)
+    wait_for_job(jobid, max_duration)
     logging.info('Finished waiting for job result %s', jobid)
     # Retrieve job result file & Extract files from .tgz
     directory = _save_job_result(jobid)
@@ -76,7 +76,7 @@ def retrieve_run_result(jobid):
     return directory
 
 
-def run_application(application, params=None, files=None):
+def run_application(application, params=None, files=None, max_duration=None):
     """
     Run application with provided parameters and files, and retrieve result directly.
     @param application: the application part of the Life Science Grid Portal url
@@ -84,7 +84,7 @@ def run_application(application, params=None, files=None):
     @param files: dictionary mapping keys to files for use as parameters
     """
     jobid = submit_application_run(application, params, files)
-    directory = retrieve_run_result(jobid)
+    directory = retrieve_run_result(jobid, max_duration)
     return directory
 
 
@@ -163,12 +163,14 @@ def send_request(url, params=None, files=None, method=None):
     return content
 
 
-def wait_for_job(jobid):
+def wait_for_job(jobid, max_duration=None):
     """
     Wait for a given job to either leave the Queued status, or disappear from the job states page completely.
     @param jobid: id of the job to wait for
+    @param max_duration: the maximum number of seconds to wait for job completion
     """
-    duration = 30
+    duration = 0
+    timetosleep = 30
     failures = 0
     while True:
         try:
@@ -189,10 +191,16 @@ def wait_for_job(jobid):
             if 5 <= failures:
                 raise err
 
+        # Raise an error when the maximum allotted time has arrived
+        if max_duration:
+            if max_duration <= duration:
+                raise IOError('Job {1} overran allotted time: {0}{1}'.format(URL_JOBS, jobid))
+            duration += timetosleep
+
         #If we're still here: Sleep for up to two minutes before trying again
-        time.sleep(duration)
-        if duration < 120:
-            duration += 10
+        time.sleep(timetosleep)
+        if timetosleep < 120:
+            timetosleep += 10
 
     #Check job result
     if jobstates[jobid] == 'Error':

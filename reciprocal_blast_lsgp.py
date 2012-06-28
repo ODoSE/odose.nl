@@ -50,7 +50,7 @@ def _create_blast_database(fasta_file, nucleotide=False):
     #Run MAKEBLASTDB remotely
     params = {'dbtype': dbtype, 'out': db_name, 'portaldb': 1}
     files = {'in-file[]': fasta_file}
-    db_dir = run_application(MAKEBLASTDB, params=params, files=files)
+    db_dir = run_application(MAKEBLASTDB, params=params, files=files, max_duration=60 * 30)
 
     #Upload database back to LSG Portal
     with open(os.path.join(db_dir, 'db_url.txt')) as read_handle:
@@ -98,7 +98,7 @@ def _retrieve_blast_hits(jobid, hits_file):
     @param hits_file: name of the created BLAST hits file to retrieve
     """
     #Wait for job to complete and retrieve results
-    results_dir = retrieve_run_result(jobid)
+    results_dir = retrieve_run_result(jobid, max_duration=60 * 30)
 
     # Construct the likely path to the local file
     local_path = os.path.join(results_dir, hits_file)
