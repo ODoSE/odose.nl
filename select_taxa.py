@@ -187,7 +187,7 @@ def _get_colored_labels(genome, html_is_escaped=True):
 
     #Warn when genomes contain less than 0.5 MegaBase: unlikely to result in any orthologs
     genome_size = genome['Size (Mb)']
-    if genome_size and float(genome_size) < 1:
+    if genome_size and genome_size != '-' and float(genome_size) < 1:
         if html_is_escaped:
             labels += '*Only {0} Mb!*'.format(genome_size)
         else:
