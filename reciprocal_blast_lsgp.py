@@ -98,7 +98,7 @@ def _retrieve_blast_hits(jobid, hits_file):
     @param hits_file: name of the created BLAST hits file to retrieve
     """
     #Wait for job to complete and retrieve results
-    results_dir = retrieve_run_result(jobid, max_duration=60 * 30)
+    results_dir = retrieve_run_result(jobid, max_duration=8 * 60 * 60)
 
     # Construct the likely path to the local file
     local_path = os.path.join(results_dir, hits_file)
