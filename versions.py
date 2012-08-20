@@ -10,16 +10,16 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
-SOFTWARE_DIR = '/projects/divergence/software/'
+SOFTWARE_DIR = '/work/project/software/'
 
 #Blast
-NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.25+/bin/'
+NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.26+/bin/'
 MAKEBLASTDB = NCBI_BLAST_DIR + 'makeblastdb'
 BLASTP = NCBI_BLAST_DIR + 'blastp'
 BLASTN = NCBI_BLAST_DIR + 'blastn'
 
 #OrthoMCL
-ORTHOMCL_DIR = SOFTWARE_DIR + 'orthomclSoftware-v2.0.2/bin/'
+ORTHOMCL_DIR = SOFTWARE_DIR + 'orthomclSoftware-v2.0.3/bin/'
 ORTHOMCL_INSTALL_SCHEMA = ORTHOMCL_DIR + 'orthomclInstallSchema'
 ORTHOMCL_ADJUST_FASTA = ORTHOMCL_DIR + 'orthomclAdjustFasta'
 ORTHOMCL_FILTER_FASTA = ORTHOMCL_DIR + 'orthomclFilterFasta'
@@ -42,7 +42,7 @@ NEIGHBOR = PHYLIP_DIR + 'exe/neighbor'
 PHIPACK = SOFTWARE_DIR + 'PhiPack/Phi'
 
 #Calculation
-PAML_DIR = SOFTWARE_DIR + 'paml44/'
+PAML_DIR = SOFTWARE_DIR + 'paml4.5/'
 CODEML = PAML_DIR + 'bin/codeml'
 
 
