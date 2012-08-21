@@ -76,7 +76,7 @@ def main():
     logging.info(_call_program(BLASTN, '-version'))
 
     #Life Science Grid Portal
-    logging.info('Life Science Grid Portal BLAST applications: ', LSGP_BLAST_VERSION)
+    logging.info('Life Science Grid Portal BLAST applications: ' + LSGP_BLAST_VERSION)
 
     #OrthoMCL & mcl
     logging.info('OrthoMCL: ' + _grep_version(ORTHOMCL_DIR + '../doc/OrthoMCLEngine/Main/UserGuide.txt') + '\n')
