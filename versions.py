@@ -19,6 +19,7 @@ BLASTP = NCBI_BLAST_DIR + 'blastp'
 BLASTN = NCBI_BLAST_DIR + 'blastn'
 
 #OrthoMCL
+MCL = SOFTWARE_DIR + 'mcl-12-135/src/shmcl/mcl'
 ORTHOMCL_DIR = SOFTWARE_DIR + 'orthomclSoftware-v2.0.3/bin/'
 ORTHOMCL_INSTALL_SCHEMA = ORTHOMCL_DIR + 'orthomclInstallSchema'
 ORTHOMCL_ADJUST_FASTA = ORTHOMCL_DIR + 'orthomclAdjustFasta'
@@ -28,7 +29,6 @@ ORTHOMCL_LOAD_BLAST = ORTHOMCL_DIR + 'orthomclLoadBlast'
 ORTHOMCL_PAIRS = ORTHOMCL_DIR + 'orthomclPairs'
 ORTHOMCL_DUMP_PAIRS_FILES = ORTHOMCL_DIR + 'orthomclDumpPairsFiles'
 ORTHOMCL_MCL_TO_GROUPS = ORTHOMCL_DIR + 'orthomclMclToGroups'
-MCL = SOFTWARE_DIR + 'mcl-10-201/src/shmcl/mcl'
 
 #Align & Trim
 TRANSLATORX = SOFTWARE_DIR + 'translatorx/translatorx_v1.1.pl'
@@ -74,7 +74,7 @@ def main():
     logging.info(_call_program(MCL, '--version'))
 
     #PAML codeml
-    logging.info('PAML codeml: ' + _grep_version(PAML_DIR + 'doc/pamlHistory.txt') + '\n')
+    logging.info('PAML codeml: ' + _grep_version(PAML_DIR + 'src/paml.h') + '\n')
 
     #PHYLIP dnadist & neighbor
     logging.info('PHYLIP dnadist: ' + _grep_version(PHYLIP_DIR + 'src/dnadist.c')[3:] + '\n')
