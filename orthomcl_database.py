@@ -17,7 +17,7 @@ __license__ = "MIT"
 def _get_root_credentials():
     """Retrieve MySQL credentials from orthomcl.config to an account that is allowed to create new databases."""
     config = SafeConfigParser()
-    config.read(resource_filename(__name__, 'orthomcl.cfg'))
+    config.read(resource_filename(__name__, 'credentials/orthomcl.cfg'))
     host = config.get('mysql', 'host')
     port = config.getint('mysql', 'port')
     user = config.get('mysql', 'user')
