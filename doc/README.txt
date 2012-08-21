@@ -1,33 +1,36 @@
- 
-1. Requirements:
-	sudo apt-get install \
-		python-dev \
-		python-setuptools \
-		python-mysqldb \
-		python-networkx \
-		python-nose \
-		python-lxml \
-		sloccount \
-		muscle;
-	sudo easy_install poster;  # For Life Science Grid Portal 
-	sudo easy_install coverage;
-	sudo easy_install pylint;
-		
-	#BioPython
-	sudo apt-get build-dep python-biopython; # Ubuntu 12.04 Precise has v1.58, which is fine 
-	#Download & install 1.54 <= biopython
+## Run requirements ##
+# Galaxy
+sudo apt-get install mercurial subversion
+sudo apt-get install postgresql-client
+# plotting requirements
+sudo apt-get install python-gnuplot python-rpy;
 
-	#Other software
-	MCL
-	OrthoMCL
-	NCBIBlast+
-	TranslatorX
-	PAML
-	PHYLIP
-	Galaxy
-	
-	#Galaxy plotting requirements
-	sudo apt-get install \
-	   python-gnuplot \
-	   python-rpy;
-	   
+# Python packages
+sudo apt-get install python-biopython  # For sequence wrangling
+sudo apt-get install python-lxml  # For download from MRS
+sudo apt-get install python-mysqldb  # For OrthoMCL
+sudo apt-get install python-poster  # For Life Science Grid Portal
+sudo apt-get install python-networkx  # For drawing Phylo trees
+
+# OrthoMCL
+sudo apt-get install libdbd-mysql-perl
+
+# TranslatorX
+sudo apt-get install muscle
+
+# Other software
+MCL
+NCBIBlast+
+PAML
+PHYLIP
+
+
+## Build requirements ##
+sudo apt-get install \
+	python-dev \
+	python-setuptools \
+	python-nose \
+	sloccount;
+
+sudo easy_install coverage;
+sudo easy_install pylint;
