@@ -3,6 +3,7 @@
 
 from divergence import concatenate
 from divergence.lsgp_client import run_application, submit_application_run, retrieve_run_result, send_request
+from divergence.versions import LSGP_MAKEBLASTDB, LSGP_BLASTN, LSGP_BLASTP
 import os
 import shutil
 import tempfile
@@ -11,10 +12,6 @@ __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
-
-MAKEBLASTDB = 'makeblastdb/2.2.25'
-BLASTN = 'blastn/2.2.25'
-BLASTP = 'blastp/2.2.25'
 
 
 def reciprocal_blast(good_proteins_fasta, fasta_files):
@@ -50,7 +47,7 @@ def _create_blast_database(fasta_file, nucleotide=False):
     #Run MAKEBLASTDB remotely
     params = {'dbtype': dbtype, 'out': db_name, 'portaldb': 1}
     files = {'in-file[]': fasta_file}
-    db_dir = run_application(MAKEBLASTDB, params=params, files=files, max_duration=60 * 30)
+    db_dir = run_application(LSGP_MAKEBLASTDB, params=params, files=files, max_duration=60 * 30)
 
     #Upload database back to LSG Portal
     with open(os.path.join(db_dir, 'db_url.txt')) as read_handle:
@@ -81,7 +78,7 @@ def _submit_blast_run(database_url, fasta_file, nucleotide=False):
     @param fasta_file:
     @param nucleotide:
     """
-    blast_app = BLASTN if nucleotide else BLASTP
+    blast_app = LSGP_BLASTN if nucleotide else LSGP_BLASTP
     # Determine output file name
     hits_file = os.path.splitext(os.path.split(fasta_file)[1])[0] + '-vs-all.tsv'
     # Run BLAST[P/N] remotely

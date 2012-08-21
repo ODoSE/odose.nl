@@ -18,6 +18,12 @@ MAKEBLASTDB = NCBI_BLAST_DIR + 'makeblastdb'
 BLASTP = NCBI_BLAST_DIR + 'blastp'
 BLASTN = NCBI_BLAST_DIR + 'blastn'
 
+#Life Science Grid Portal
+LSGP_BLAST_VERSION = '2.2.26'
+LSGP_MAKEBLASTDB = 'makeblastdb/' + LSGP_BLAST_VERSION
+LSGP_BLASTN = 'blastn/' + LSGP_BLAST_VERSION
+LSGP_BLASTP = 'blastp/' + LSGP_BLAST_VERSION
+
 #OrthoMCL
 MCL = SOFTWARE_DIR + 'mcl-12-135/src/shmcl/mcl'
 ORTHOMCL_DIR = SOFTWARE_DIR + 'orthomclSoftware-v2.0.3/bin/'
@@ -68,6 +74,9 @@ def main():
     logging.info(_call_program(MAKEBLASTDB, '-version'))
     logging.info(_call_program(BLASTP, '-version'))
     logging.info(_call_program(BLASTN, '-version'))
+
+    #Life Science Grid Portal
+    logging.info('Life Science Grid Portal BLAST applications: ', LSGP_BLAST_VERSION)
 
     #OrthoMCL & mcl
     logging.info('OrthoMCL: ' + _grep_version(ORTHOMCL_DIR + '../doc/OrthoMCLEngine/Main/UserGuide.txt') + '\n')
