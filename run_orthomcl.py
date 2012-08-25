@@ -43,7 +43,8 @@ def run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_po
     _step4_orthomcl_install_schema(run_dir, config_file)
 
     #Steps that occur in database, and thus do little to produce output files
-    _step9_orthomcl_load_blast(similar_sequences, config_file)
+    _step9_mysql_load_blast(similar_sequences, dbname)  # Workaround for Perl not being able to use load data local infile
+    #_step9_orthomcl_load_blast(similar_sequences, config_file)
     _step10_orthomcl_pairs(run_dir, config_file)
     mcl_input = _step11_orthomcl_dump_pairs(run_dir, config_file)[0]
 
@@ -262,7 +263,6 @@ def _step8_orthomcl_blast_parser(run_dir, blast_file, fasta_files_dir):
     return similar_sequences
 
 
-#Steps 9, 10 and 11 all use the same relational database, which could cause problems with simultaneous runs
 def _step9_orthomcl_load_blast(similar_seqs_file, config_file):
     """Load Blast results into an Oracle or Mysql database.
 
@@ -276,6 +276,20 @@ def _step9_orthomcl_load_blast(similar_seqs_file, config_file):
     """
     #Run orthomclLoadBlast
     command = [ORTHOMCL_LOAD_BLAST, config_file, similar_seqs_file]
+    log.info('Executing: %s', ' '.join(command))
+    check_call(command)
+    return
+
+
+def _step9_mysql_load_blast(similar_seqs_file, database):
+    """Directly load results using MySQL, as Perl MySQL connection does not allow for load data local infile."""
+    #Run orthomclLoadBlast
+    command = ['mysql',
+               '-h','192.168.122.1',
+               '-u','orthomcl',
+               '--password=pass',
+               '-e', 'LOAD DATA LOCAL INFILE "{0}" REPLACE INTO TABLE SimilarSequences FIELDS TERMINATED BY \'\\t\';'.format(similar_seqs_file),
+               database]
     log.info('Executing: %s', ' '.join(command))
     check_call(command)
     return

@@ -3,7 +3,7 @@
 sudo apt-get install mercurial subversion
 sudo apt-get install postgresql-client
 # plotting requirements
-sudo apt-get install python-gnuplot python-rpy;
+sudo apt-get install python-gnuplot python-rpy python-rpy2;
 
 # Python packages
 sudo apt-get install python-biopython  # For sequence wrangling
