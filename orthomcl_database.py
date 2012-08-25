@@ -7,6 +7,7 @@ from divergence import resource_filename
 import MySQLdb
 import logging as log
 import os.path
+import socket
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -29,17 +30,17 @@ def create_database():
     """Create database orthomcl_{random suffix}, grant rights to orthomcl user and return """
     #Build a unique URL using todays date
     dbname = 'orthomcl_{t.year}_{t.month}_{t.day}__{t.hour}_{t.minute}_{t.second}'.format(t=datetime.today())
-    host, port, user, passwd = _get_root_credentials()
-    db_connection = MySQLdb.connect(host=host, port=port, user=user, passwd=passwd)
+    dbhost, port, user, passwd = _get_root_credentials()
+    clhost = socket.gethostname()
+    db_connection = MySQLdb.connect(host=dbhost, port=port, user=user, passwd=passwd)
     cursor = db_connection.cursor()
     cursor.execute('CREATE DATABASE ' + dbname)
-    cursor.execute('GRANT SELECT,INSERT,UPDATE,DELETE,CREATE VIEW,CREATE,INDEX,DROP on {0}.* TO orthomcl@{1};'
-                   .format(dbname, host))
-    cursor.execute('set password for orthomcl@{host} = password(\'pass\');'.format(host=host))
+    cursor.execute('GRANT ALL on {0}.* TO orthomcl@{1};'.format(dbname, clhost))
+    cursor.execute('set password for orthomcl@{host} = password(\'pass\');'.format(host=clhost))
     db_connection.commit()
     cursor.close()
     db_connection.close()
-    log.info('Created database %s as %s on %s', dbname, user, host)
+    log.info('Created database %s as %s on %s', dbname, user, dbhost)
     return dbname
 
 
