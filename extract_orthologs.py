@@ -71,7 +71,7 @@ def extract_orthologs(run_dir, genomes, dna_files, groups_file, require_limiter=
     shared_single_copy, shared_multi_copy, accessory = _extract_shared_orthologs(genomes, groups_file, require_limiter)
 
     #Extract fasta files per orthologs
-    sico_files, muco_files, accessory_files, nr_of_seqs = \
+    sico_files, muco_files, accessory_files, nr_of_seqs, orfans_file = \
         _dna_file_per_sico(run_dir, dna_files, shared_single_copy, shared_multi_copy, accessory)
 
     #Produce heatmap
@@ -88,7 +88,7 @@ def extract_orthologs(run_dir, genomes, dna_files, groups_file, require_limiter=
     #Write statistics file
     stats_file = _write_statistics_file(run_dir, genomes, shared_single_copy, shared_multi_copy, accessory, nr_of_seqs)
 
-    return sico_files, muco_files, accessory_files, stats_file, heatmap_file
+    return sico_files, muco_files, accessory_files, stats_file, heatmap_file, orfans_file
 
 
 def _create_ortholog_dictionaries(groups_file):
@@ -158,23 +158,33 @@ def _dna_file_per_sico(run_dir, dna_files, shared_single_copy, shared_multi_copy
     sico_dir = create_directory('sico', inside_dir=run_dir)
     muco_dir = create_directory('muco', inside_dir=run_dir)
     subset_dir = create_directory('subset', inside_dir=run_dir)
+    orfans_file = os.path.join(run_dir, 'ORFans.ffn')
 
     #Loop over DNA files to extract SICO genes from each genome to file per SICO
     sico_files = set()
     muco_files = set()
     subset_files = set()
     number_of_sequences = 0
+
     for dna_file in dna_files:
         log.info('Extracting orthologous genes from %s', dna_file)
         for record in SeqIO.parse(dna_file, 'fasta'):
             number_of_sequences += 1
 
             #Find record in each list of dictionaries, to append it to the corresponding ortholog files
-            sico_files.update(_write_record_to_ortholog_file(sico_dir, shared_single_copy, record))
-            muco_files.update(_write_record_to_ortholog_file(muco_dir, shared_multi_copy, record))
-            subset_files.update(_write_record_to_ortholog_file(subset_dir, non_shared, record))
+            aff_sico_files = _write_record_to_ortholog_file(sico_dir, shared_single_copy, record)
+            sico_files.update(aff_sico_files)
+            aff_muco_files = _write_record_to_ortholog_file(muco_dir, shared_multi_copy, record)
+            muco_files.update(aff_muco_files)
+            aff_nonsha_files = _write_record_to_ortholog_file(subset_dir, non_shared, record)
+            subset_files.update(aff_nonsha_files)
 
-    return sorted(sico_files), sorted(muco_files), sorted(subset_files), number_of_sequences
+            #ORFans do not fall into any of the above three categories: Add them to a separate file
+            if not aff_sico_files and not aff_muco_files and not aff_nonsha_files:
+                with open(orfans_file, mode='a') as write_handle:
+                    SeqIO.write(record, write_handle, 'fasta')
+
+    return sorted(sico_files), sorted(muco_files), sorted(subset_files), number_of_sequences, orfans_file
 
 
 def _write_record_to_ortholog_file(directory, ortholog_dictionaries, record):
@@ -256,11 +266,12 @@ Usage: extract_orthologs.py
 --subset-zip=FILE    destination file path for archive of variable copy orthologous genes shared for a subset only
 --stats=FILE         destination file path for ortholog statistics file
 --heatmap=FILE       destination file path heatmap of orthologs and occurrences of ortholog per genome
+--orfans=FILE        destination file path ORFans
 """
     options = ['genomes', 'dna-zip', 'groups', 'require-limiter?',
-               'sico-zip', 'muco-zip=?', 'subset-zip=?', 'stats', 'heatmap']
+               'sico-zip', 'muco-zip=?', 'subset-zip=?', 'stats', 'heatmap', 'orfans']
     genome_ids_file, dna_zip, groups_file, require_limiter, \
-    target_sico, target_muco, target_subset, target_stats_path, target_heat = \
+    target_sico, target_muco, target_subset, target_stats_path, target_heat, target_orfans = \
     parse_options(usage, options, args)
 
     #Parse file extract GenBank Project IDs
@@ -275,8 +286,8 @@ Usage: extract_orthologs.py
     dna_files = extract_archive_of_files(dna_zip, temp_dir)
 
     #Actually run ortholog extraction
-    sico_files, muco_files, subset_files, stats_file, heatmap_file = extract_orthologs(run_dir, genomes, dna_files,
-                                                                                       groups_file, require_limiter)
+    sico_files, muco_files, subset_files, stats_file, heatmap_file, orfans_file = \
+        extract_orthologs(run_dir, genomes, dna_files, groups_file, require_limiter)
 
     #Move produced files to command line specified output paths
     create_archive_of_files(target_sico, sico_files)
@@ -286,6 +297,7 @@ Usage: extract_orthologs.py
         create_archive_of_files(target_subset, subset_files)
     shutil.move(stats_file, target_stats_path)
     shutil.move(heatmap_file, target_heat)
+    shutil.move(orfans_file, target_orfans)
 
     #Remove unused files to free disk space
     shutil.rmtree(run_dir)
