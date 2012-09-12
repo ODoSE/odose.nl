@@ -175,9 +175,11 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven=False):
 
     #Create files for all the odd codon alignments, so we can run PhiPack for them
     odd_alignments_dir = tempfile.mkdtemp(prefix='odd_codon_alignments_')
-    odd_files = dict((ortholog, AlignIO.write(alignmnt, os.path.join(odd_alignments_dir, ortholog + '.ffn'), 'fasta'))
-                     for ortholog, alignmnt in odd_split_alignments)
-    odd_phipack_vals = _phipack_values_for_sicos(odd_files)
+    odd_files = dict((ortholog, os.path.join(odd_alignments_dir, ortholog + '.ffn'))
+                     for ortholog, odd_x, odd_y in odd_split_alignments)
+    for ortholog, odd_x, odd_y in odd_split_alignments:
+        AlignIO.write([odd_x, odd_y], odd_files[ortholog], 'fasta')
+    odd_phipack_vals = _phipack_values_for_sicos(odd_files.items())
     shutil.rmtree(odd_alignments_dir)
 
     #Calculate tables for odd codon sico alignments
@@ -192,9 +194,11 @@ def calculate_tables(genome_ids_a, genome_ids_b, sico_files, oddeven=False):
 
     #Create files for all the odd codon alignments, so we can run PhiPack for them
     even_alignments_dir = tempfile.mkdtemp(prefix='even_codon_alignments_')
-    even_files = dict((ortholog, AlignIO.write(alignmnt, os.path.join(even_alignments_dir, ortholog + '.ffn'), 'fasta'))
-                     for ortholog, alignmnt in even_split_alignments)
-    even_phipack_vals = _phipack_values_for_sicos(even_files)
+    even_files = dict((ortholog, os.path.join(even_alignments_dir, ortholog + '.ffn'))
+                     for ortholog, even_x, even_y in even_split_alignments)
+    for ortholog, even_x, even_y in even_split_alignments:
+        AlignIO.write([even_x, even_y], even_files[ortholog], 'fasta')
+    even_phipack_vals = _phipack_values_for_sicos(even_files.items())
     shutil.rmtree(even_alignments_dir)
 
     #Calculate tables for even codon sico alignments
