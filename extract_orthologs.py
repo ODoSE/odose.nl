@@ -65,6 +65,19 @@ def _produce_heatmap(genome_ids, sico_files, muco_files, accessory_files):
     return heatmap
 
 
+def _append_orfans_to_heatmap(orfans_file, genomes, heatmap_file):
+    """
+    By popular request: Append the ORFans to the heatmap file so people can sum and divide orthologs vs orfans in Excel.
+    """
+    with open(heatmap_file, mode='a') as append_handle:
+        for seq in SeqIO.parse(orfans_file, 'fasta'):
+            genome, accession, gene, cog, product = seq.id.split('|')  #@UnusedVariable #pylint: disable=W0612
+            for gid in genomes:
+                append_handle.write('{}\t'.format(1 if gid == genome else 0))
+            append_handle.write('\t'.join((gene, cog if cog != 'None' else '', product)))
+            append_handle.write('\n')
+
+
 def extract_orthologs(run_dir, genomes, dna_files, groups_file, require_limiter=False):
     """Extract DNA sequences for SICO, MUCO & partially shared orthologs to a single file per ortholog."""
     #Subdivide orthologs into groups
@@ -288,6 +301,9 @@ Usage: extract_orthologs.py
     #Actually run ortholog extraction
     sico_files, muco_files, subset_files, stats_file, heatmap_file, orfans_file = \
         extract_orthologs(run_dir, genomes, dna_files, groups_file, require_limiter)
+
+    #Append the orfans to the heatmap file
+    _append_orfans_to_heatmap(orfans_file, genomes, heatmap_file)
 
     #Move produced files to command line specified output paths
     create_archive_of_files(target_sico, sico_files)
