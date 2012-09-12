@@ -6,6 +6,7 @@ from divergence import create_directory
 from lxml import etree
 import logging
 import os.path
+import re
 import time
 import urllib2
 
@@ -64,10 +65,17 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
             logging.warn('{0} file {1} missing for {2} because of: {3}'.format(databank, acc, project, str(ioerr)))
             continue
 
-        #Try to parse Bio.GenBank.Record to see if it contains any CDS feature records
+        #Try to parse Bio.GenBank.Record to see if it contains any CDS feature records and to ensure it has DNA seqs
         filetype = os.path.splitext(genbank_file)[1][1:]
-        features = SeqIO.read(genbank_file, filetype).features
-        if not any(feature.type == 'CDS' for feature in features):
+        gb_record = SeqIO.read(genbank_file, filetype)
+        str_seq = str(gb_record.seq)
+        if re.match('^N+$', str_seq) or re.match('^X+$', str_seq):
+            #Skip when genbank file does not contain any coding sequence features
+            logging.warn('GenBank file %s did not contain any DNA sequence', acc)
+            continue
+        if not any(gb_featr for gb_featr in gb_record.features
+                   #Skip any non coding sequence features or pseudo (non-functional version) CDS
+                   if gb_featr.type == 'CDS' and not 'pseudo' in gb_featr.qualifiers):
             #Skip when genbank file does not contain any coding sequence features
             logging.warn('GenBank file %s did not contain any coding sequence features', acc)
             continue
