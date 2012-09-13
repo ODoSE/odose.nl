@@ -62,7 +62,8 @@ def submit_application_run(application, params, files):
 def retrieve_run_result(jobid, max_duration=None):
     """
     Retrieve results for jobid. Returns directory containing results.
-    @param jobid:
+    @param jobid: id of the job to wait for
+    @param max_duration: the maximum number of seconds to wait for job completion
     """
     # Wait for job to finish
     wait_for_job(jobid, max_duration)

@@ -47,7 +47,7 @@ def _create_blast_database(fasta_file, nucleotide=False):
     #Run MAKEBLASTDB remotely
     params = {'dbtype': dbtype, 'out': db_name, 'portaldb': 1}
     files = {'in-file[]': fasta_file}
-    db_dir = run_application(LSGP_MAKEBLASTDB, params=params, files=files, max_duration=60 * 30)
+    db_dir = run_application(LSGP_MAKEBLASTDB, params=params, files=files, max_duration=60 * 90)
 
     #Upload database back to LSG Portal
     with open(os.path.join(db_dir, 'db_url.txt')) as read_handle:
