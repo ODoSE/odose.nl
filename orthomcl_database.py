@@ -29,7 +29,7 @@ def _get_root_credentials():
 def create_database():
     """Create database orthomcl_{random suffix}, grant rights to orthomcl user and return """
     #Build a unique URL using todays date
-    dbname = 'orthomcl_{t.year}_{t.month}_{t.day}__{t.hour}_{t.minute}_{t.second}'.format(t=datetime.today())
+    dbname = 'orthomcl_{t.year}-{t.month}-{t.day}_{t.hour}-{t.minute}-{t.second}'.format(t=datetime.today())
     dbhost, port, user, passwd = _get_root_credentials()
     clhost = socket.gethostname()
     db_connection = MySQLdb.connect(host=dbhost, port=port, user=user, passwd=passwd)
@@ -64,7 +64,7 @@ evalueExponentCutoff={evalue_exponent}
 oracleIndexTblSpc=NONE""".format(dbname=dbname, host=host, port=port, evalue_exponent=evalue_exponent)
 
     #Write to file & return file
-    config_file = os.path.join(run_dir, 'orthomcl_{0}.cfg'.format(dbname))
+    config_file = os.path.join(run_dir, '{0}.cfg'.format(dbname))
     with open(config_file, mode='w') as write_handle:
         write_handle.write(config)
     return config_file
