@@ -2,7 +2,9 @@
 """Module to keep track of paths and versions of other software used within the workflow at various intervals."""
 
 from subprocess import Popen, PIPE
+import divergence  # @UnusedImport # pylint: disable=W0611
 import Bio
+import getpass
 import logging
 
 __author__ = "Tim te Beek"
@@ -11,6 +13,8 @@ __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
 SOFTWARE_DIR = '/work/project/software/'
+if getpass.getuser() == 'tbeek':
+    SOFTWARE_DIR = '/data/projects/divergence/software/'
 
 #Blast
 NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.26+/bin/'
@@ -54,6 +58,7 @@ CODEML = PAML_DIR + 'bin/codeml'
 
 def _call_program(*command):
     """Execute command and return the standard output returned by the program. Standard error is caught and ignored."""
+    print ' '.join(command)
     process = Popen(command, stdout=PIPE, stderr=PIPE)
     process.wait()
     return process.communicate()[0]
