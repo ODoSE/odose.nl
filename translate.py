@@ -168,6 +168,10 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None):
                                #Skip any non coding sequence features or pseudo (non-functional version) CDS
                                if gb_featr.type == 'CDS' and not 'pseudo' in gb_featr.qualifiers]
 
+            #Remove duplicates while retaining order
+            seen = set()
+            coding_features = [x for x in coding_features if x not in seen and not seen.add(x)]
+
             #If there are no coding features, report this back to the user with a clear message rather than empty file
             if 0 == len(coding_features):
                 log.error('No coding sequences found in file %s. Require protein table files to prevent this.',
