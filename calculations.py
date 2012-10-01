@@ -551,6 +551,9 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
                          ) / sequence_lengths
 
     calc_values['Pi'] = _calc_pi(polymorpisms_sfs)
+    calc_values['Pi nonsyn'] = _calc_pi(non_synonymous_sfs)
+    calc_values['Pi syn'] = _calc_pi(synonymous_sfs)
+    calc_values['Pi 4-fold syn'] = _calc_pi(four_fold_syn_sfs)
 
     #Watterson's estimator of theta: S / (L * harmonic)
     #where the harmonic is Sum[ 1 / i, i from 1 to n - 1 ]
@@ -605,7 +608,11 @@ def _get_column_headers_in_sequence(max_nton):
     headers.extend(['PhiPack sites', 'Phi', 'Max Chi^2', 'NSS'])
 
     #Measures of nucleotide diversity per SICO
-    headers.extend(['Pi', 'Theta'])
+    headers.extend(['Pi',
+                    'Pi nonsyn',
+                    'Pi syn',
+                    'Pi 4-fold syn',
+                    'Theta'])
 
     #Hide the following columns in the output, but do calculate & pass their values
     headers.append('Ds*Pn/(Ps+Ds)')
