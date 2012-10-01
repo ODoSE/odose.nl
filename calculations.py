@@ -541,13 +541,16 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
     #where n is number of strains
     #and D(i) is the number of polymorphisms present in i of n strains
     #finally divide everything by the number of sites
-    calc_values['Pi'] = (nr_of_strains
+    def _calc_pi(site_freq_spec):
+        return (nr_of_strains
                          / (nr_of_strains - 1)
-                         * sum(polymorpisms_sfs.get(i, 0)
+                         * sum(site_freq_spec.get(i, 0)
                                * 2 * i / nr_of_strains
                                * (1 - i / nr_of_strains)
                                for i in range(1, nr_of_strains // 2 + 1))  # +1 as range excludes stop value
                          ) / sequence_lengths
+
+    calc_values['Pi'] = _calc_pi(polymorpisms_sfs)
 
     #Watterson's estimator of theta: S / (L * harmonic)
     #where the harmonic is Sum[ 1 / i, i from 1 to n - 1 ]
