@@ -8,7 +8,6 @@ from collections import deque
 from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
     CODON_TABLE_ID
 from divergence.versions import CODEML
-from multiprocessing import Pool
 from subprocess import check_call, STDOUT
 import logging as log
 import os.path
@@ -26,41 +25,40 @@ def run_codeml_for_sicos(codeml_dir, genome_ids_a, genome_ids_b, sico_files):
     """Run codeml for representatives of clades A and B in each of the SICO files, to calculate dN/dS."""
     log.info('Running codeml for {0} aligned and trimmed SICOs'.format(len(sico_files)))
 
-    pool = Pool()
-    future_files = []
+    codeml_files = []
     for sico_file in sico_files:
-        #Separate alignments for clade A & clade B genomes
+        # Separate alignments for clade A & clade B genomes
         ali = AlignIO.read(sico_file, 'fasta')
         alignment_a = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_a)
         alignment_b = MultipleSeqAlignment(seqr for seqr in ali if seqr.id.split('|')[0] in genome_ids_b)
 
-        #Create sub directory for this run based on sico_file name
+        # Create sub directory for this run based on sico_file name
         filename = os.path.split(sico_file)[1]
-        #Split off everything starting from the first dot
+        # Split off everything starting from the first dot
         base_name = filename[:filename.find('.')]
         sub_dir = create_directory(base_name, inside_dir=codeml_dir)
 
-        #Submit for asynchronous calculation
-        ft_codeml_file = pool.apply_async(run_codeml, (sub_dir, alignment_a, alignment_b))
-        future_files.append(ft_codeml_file)
+        # Submit for asynchronous calculation
+        codeml_file = run_codeml(sub_dir, alignment_a, alignment_b)
+        codeml_files.append(codeml_file)
 
-    return [ft_codeml_file.get() for ft_codeml_file in future_files]
+    return codeml_files
 
-#Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
+# Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11).
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(CODON_TABLE_ID)
 
 
 def run_codeml(sub_dir, alignment_a, alignment_b):
     """Run codeml from PAML for selected sequence records from sico_file, returning main nexus output file."""
-    #Note on whether or not I should be randomizing the below representative selection:
-    #"both alternatives have their advantages - just selecting one strain for the divergence calculation means that you
+    # Note on whether or not I should be randomizing the below representative selection:
+    # "both alternatives have their advantages - just selecting one strain for the divergence calculation means that you
     # know exactly which strains the divergence comes from - but if this strain is anomalous then you might get some
     # strange results. i think i would stick with a single strain" - AEW
 
-    #Select first sequences from each clade as representatives
+    # Select first sequences from each clade as representatives
     ab_alignment = MultipleSeqAlignment([alignment_a[0], alignment_b[0]])
 
-    #Codeml chokes when presented with an sequence containing stopcodons: strip those out
+    # Codeml chokes when presented with an sequence containing stopcodons: strip those out
     sequence_a = ''
     sequence_b = ''
     for index in range(0, len(ab_alignment[0]), 3):
@@ -70,17 +68,17 @@ def run_codeml(sub_dir, alignment_a, alignment_b):
             sequence_a += codon_a
             sequence_b += codon_b
 
-    #Write the representative sequence records out to file in codeml compatible format
+    # Write the representative sequence records out to file in codeml compatible format
     base_name = os.path.split(sub_dir)[1]
     nexus_file = os.path.join(sub_dir, base_name + '.nexus')
     _write_nexus_file(sequence_a, sequence_b, nexus_file)
 
-    #Generate codeml configuration file
+    # Generate codeml configuration file
     output_file = os.path.join(sub_dir, base_name + '.codeml')
     config_file = os.path.join(sub_dir, 'codeml.ctl')
     _write_config_file(nexus_file, output_file, config_file)
 
-    #Run codeml
+    # Run codeml
     command = [CODEML, os.path.split(config_file)[1]]
     check_call(command, cwd=sub_dir, stdout=open('/dev/null', mode='w'), stderr=STDOUT)
 
@@ -171,20 +169,20 @@ def _write_config_file(nexus_file, output_file, config_file):
 def parse_codeml_output(codeml_file):
     """Parse last line of codeml output file to read initial values, and calculate Dn & Ds as derived values."""
     with open(codeml_file) as read_handle:
-        #Extract & parse last line
+        # Extract & parse last line
         last_line = deque(read_handle).pop()
-        #Example lines:
-        #t=50.0000  S=    97.9  N=   328.1  dN/dS= 0.0113  dN= 0.7872  dS=69.8724
-        #t= 1.0569  S=   387.3  N=   950.7  dN/dS= 0.0236  dN= 0.0272  dS= 1.1503
+        # Example lines:
+        # t=50.0000  S=    97.9  N=   328.1  dN/dS= 0.0113  dN= 0.7872  dS=69.8724
+        # t= 1.0569  S=   387.3  N=   950.7  dN/dS= 0.0236  dN= 0.0272  dS= 1.1503
 
         iterator = iter(item.strip() for item in last_line.replace('=', ' ').split())
-        #Use the same above iterator twice in zip to create pairs from sequential items, which we can feed into dict
+        # Use the same above iterator twice in zip to create pairs from sequential items, which we can feed into dict
         value_dict = dict(zip(iterator, iterator))
 
         for key, value in value_dict.iteritems():
             value_dict[key] = float(value)
 
-        #Below calculations according to AEW to get large D values
+        # Below calculations according to AEW to get large D values
         value_dict['Dn'] = float(value_dict['dN']) * float(value_dict['N'])
         value_dict['Ds'] = float(value_dict['dS']) * float(value_dict['S'])
         return value_dict
@@ -192,13 +190,13 @@ def parse_codeml_output(codeml_file):
 
 def _write_dnds_per_ortholog(dnds_file, codeml_files):
     """For each codeml output file write dN, dS & dN/dS to single tab separated file, each on a new line."""
-    #Open file to write dN dS values to
+    # Open file to write dN dS values to
     with open(dnds_file, mode='w') as write_handle:
         write_handle.write('#Ortholog\tN\tdN\tDn\tS\tdS\tDs\tdN/dS\n')
-        #small d and p stand for numbers per site - dN or dn is the number of non-synonymous substitutions per site
-        #and Dn is the total number of non-synonymous substitutions
+        # small d and p stand for numbers per site - dN or dn is the number of non-synonymous substitutions per site
+        # and Dn is the total number of non-synonymous substitutions
 
-        #Write on each line: SICO file, N, dN, Dn, S, dS, Ds & dN/dS
+        # Write on each line: SICO file, N, dN, Dn, S, dS, Ds & dN/dS
         for codeml_file in codeml_files:
             sico = os.path.split(codeml_file)[1].split('.')[0]
             value_dict = parse_codeml_output(codeml_file)
@@ -220,31 +218,31 @@ Usage: run_codeml.py
     options = ['genomes-a', 'genomes-b', 'sico-zip', 'codeml-zip', 'dnds-stats']
     genome_a_ids_file, genome_b_ids_file, sico_zip, codeml_zip, dnds_file = parse_options(usage, options, args)
 
-    #Parse file to extract GenBank Project IDs
+    # Parse file to extract GenBank Project IDs
     with open(genome_a_ids_file) as read_handle:
         genome_ids_a = [line.split()[0] for line in read_handle]
     with open(genome_b_ids_file) as read_handle:
         genome_ids_b = [line.split()[0] for line in read_handle]
 
-    #Create run_dir to hold files relating to this run
+    # Create run_dir to hold files relating to this run
     run_dir = tempfile.mkdtemp(prefix='run_codeml_')
 
-    #Extract files from zip archive
+    # Extract files from zip archive
     sico_files = extract_archive_of_files(sico_zip, create_directory('sicos', inside_dir=run_dir))
 
-    #Actually run codeml
+    # Actually run codeml
     codeml_files = run_codeml_for_sicos(run_dir, genome_ids_a, genome_ids_b, sico_files)
 
-    #Write dnds values to single output file
+    # Write dnds values to single output file
     _write_dnds_per_ortholog(dnds_file, codeml_files)
 
-    #Write the produced files to command line argument filenames
+    # Write the produced files to command line argument filenames
     create_archive_of_files(codeml_zip, codeml_files)
 
-    #Remove unused files to free disk space
+    # Remove unused files to free disk space
     shutil.rmtree(run_dir)
 
-    #Exit after a comforting log message
+    # Exit after a comforting log message
     log.info("Produced: \n%s\n%s", codeml_zip, dnds_file)
 
 if __name__ == '__main__':
