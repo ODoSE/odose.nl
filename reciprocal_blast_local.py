@@ -3,7 +3,6 @@
 
 from divergence import create_directory, concatenate
 from divergence.versions import MAKEBLASTDB, BLASTN, BLASTP
-from multiprocessing import Pool
 from subprocess import check_call, STDOUT
 import logging as log
 import os
@@ -20,22 +19,17 @@ def reciprocal_blast(good_proteins_fasta, fasta_files):
     """Create blast database for good_proteins_fasta, blast all fasta_files against this database & return hits."""
     run_dir = tempfile.mkdtemp(prefix='reciprocal_blast_')
 
-    #Create blast database, retrieve path & name
+    # Create blast database, retrieve path & name
     db_dir, db_name = _create_blast_database(run_dir, good_proteins_fasta)
 
-    #Blast individual fasta files against the made blast databank, instead of the much larger good_proteins_fasta
-    pool = Pool()  # Pool size is initialized to multiprocessing.cpu_count(), or 1 if that fails.
+    # Blast individual fasta files against the made blast databank, instead of the much larger good_proteins_fasta
+    x_vs_all_hits = [_blast_file_against_database(db_dir, db_name, fasta) for fasta in fasta_files]
 
-    #Submit job for each fasta files, and store future result handles
-    submitted_jobs = [pool.apply_async(_blast_file_against_database, (db_dir, db_name, fasta)) for fasta in fasta_files]
-    #Retrieve blast result files from future result handles and store in x_vs_all_hits
-    x_vs_all_hits = (job.get() for job in submitted_jobs)
-
-    #Concatenate the individual blast result files into one
+    # Concatenate the individual blast result files into one
     allvsall = tempfile.mkstemp(suffix='.tsv', prefix='all-vs-all_')[1]
     concatenate(allvsall, x_vs_all_hits)
 
-    #Clean up
+    # Clean up
     shutil.rmtree(run_dir)
 
     return allvsall

@@ -7,7 +7,6 @@ from divergence import create_directory, extract_archive_of_files, create_archiv
     CODON_TABLE_ID
 from divergence.scatterplot import scatterplot
 from divergence.versions import TRANSLATORX
-from multiprocessing import Pool
 from operator import itemgetter
 from subprocess import check_call, STDOUT
 import logging as log
@@ -25,9 +24,8 @@ __license__ = "MIT"
 def _align_sicos(run_dir, sico_files):
     """Align all SICO files given as argument in parallel and return the resulting alignment files."""
     log.info('Aligning {0} SICO genes using TranslatorX & muscle.'.format(len(sico_files)))
-    #We'll multiplex this embarrassingly parallel task using a pool of workers
-    tuples = [(run_dir, sico_file) for sico_file in sico_files]
-    return Pool().map(_run_translatorx, tuples)
+    # We'll multiplex this embarrassingly parallel task using a pool of workers
+    return [_run_translatorx((run_dir, sico_file)) for sico_file in sico_files]
 
 
 def _run_translatorx((run_dir, sico_file), translation_table=CODON_TABLE_ID):
@@ -61,9 +59,8 @@ def _trim_alignments(run_dir, dna_alignments, retained_threshold, max_indel_leng
     #Create directory here, to prevent race-condition when folder does not exist, but is then created by another process
     trimmed_dir = create_directory('trimmed', inside_dir=run_dir)
 
-    #Use Pool().map again to scale trimming out over multiple cores. This requires tuple'd arguments however
-    trim_tpls = Pool().map(_trim_alignment, ((trimmed_dir, dna_alignment, max_indel_length)
-                                             for dna_alignment in dna_alignments))
+    # Trim all the alignments
+    trim_tpls = [_trim_alignment((trimmed_dir, dna_alignment, max_indel_length)) for dna_alignment in dna_alignments]
 
     remaining_percts = [tpl[3] for tpl in trim_tpls]
     trimmed_alignments = [tpl[0] for tpl in trim_tpls if retained_threshold <= tpl[3]]
