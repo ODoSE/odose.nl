@@ -11,7 +11,6 @@ from divergence.run_codeml import run_codeml, parse_codeml_output
 from divergence.run_phipack import run_phipack
 from divergence.select_taxa import select_genomes_by_ids
 from itertools import product
-from multiprocessing import Pool
 from operator import itemgetter
 from random import choice
 import logging as log
@@ -116,10 +115,7 @@ def _phipack_values_for_sicos(orth_files):
     """Calculate PhiPack values for each ortholog and return a dictionary mapping ortholog to the PhiPack values."""
     #Create temporary folder for PhiPack files
     phipack_dir = tempfile.mkdtemp(prefix='phipack_')
-    pool = Pool()
-    futures_per_orth = dict((ortholog, pool.apply_async(run_phipack, (phipack_dir, sico_file)))
-                           for ortholog, sico_file in orth_files)
-    values_per_orth = dict((ortholog, future.get()) for ortholog, future in futures_per_orth.iteritems())
+    values_per_orth = dict((ortholog, run_phipack(phipack_dir, sico_file)) for ortholog, sico_file in orth_files)
     #Remove phipack directory
     shutil.rmtree(phipack_dir)
     return values_per_orth
@@ -228,13 +224,10 @@ def _tables_for_split_alignments(split_ortholog_alignments, ortholog_gene_names,
     """Calculate full tables of values for """
     #Create temporary folder for codeml files
     codeml_dir = tempfile.mkdtemp(prefix='codeml_')
-    #Run codeml calculations per sico asynchronously for a significant speed up
-    pool = Pool()
-    async_values = dict((ortholog, pool.apply_async(_codeml_values_for_alignments, (codeml_dir, alignx, aligny)))
-                        for ortholog, alignx, aligny in split_ortholog_alignments)
-    #Retrieve asynchronously calculated values
-    for ortholog, async_value in async_values.iteritems():
-        orth_phipack_values[ortholog].update(async_value.get())
+    #Run codeml calculations per sico
+    for ortholog, alignx, aligny in split_ortholog_alignments:
+        values = _codeml_values_for_alignments(codeml_dir, alignx, aligny)
+        orth_phipack_values[ortholog].update(values)
     #Remove codeml_dir
     shutil.rmtree(codeml_dir)
 
@@ -424,7 +417,7 @@ def _perform_calculations(alignment, codeml_values):
                     _update_sfs_with_local_sfs(four_fold_syn_sfs, local_sfs)
                     #Increase the number of four_fold synonymous sites here as well
                     four_fold_synonymous_sites += 1
-        else:  # not synonymous
+        else:  #not synonymous
             if len(polymorph_site_usage) == len(translation_usage):
                 #If all polymorphisms encode for different AA, we have multiple non-synonymous polymorphisms, where:
                 #2 nucleotides = 1 polymorphism, 3 nucleotides = 2 polymorphisms, 4 nucleotides = 3 polymorphisms
