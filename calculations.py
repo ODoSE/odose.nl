@@ -452,6 +452,22 @@ def _perform_calculations(alignment, codeml_values):
     return computed_values
 
 
+def _calc_pi(nr_of_strains, sequence_lengths, site_freq_spec):
+    """
+    Pi: n/(n-1) * Sum[ D(i) * 2 i/n (1-i/n), i from 1 to RoundDown(n/2)]
+    where n is number of strains
+    and D(i) is the number of polymorphisms present in i of n strains
+    finally divide everything by the number of sites
+    """
+    return (nr_of_strains
+                     / (nr_of_strains - 1)
+                     * sum(site_freq_spec.get(i, 0)
+                           * 2 * i / nr_of_strains
+                           * (1 - i / nr_of_strains)
+                           for i in range(1, (nr_of_strains - 1) // 2 + 1))  #+1 as range excludes stop value
+                     ) / sequence_lengths
+
+
 def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_values,
                                     synonymous_sfs, non_synonymous_sfs, four_fold_syn_sfs, four_fold_synonymous_sites):
     """Compute values (mostly from the site frequency spectra) that we'll output according to provided formula's."""
@@ -530,23 +546,10 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
         #Merge values such that their values are added up when a conflicting key is found
         polymorpisms_sfs[key] = polymorpisms_sfs.get(key, 0) + value
 
-    #Pi: n/(n-1) * Sum[ D(i) * 2 i/n (1-i/n), i from 1 to RoundDown(n/2)]
-    #where n is number of strains
-    #and D(i) is the number of polymorphisms present in i of n strains
-    #finally divide everything by the number of sites
-    def _calc_pi(site_freq_spec):
-        return (nr_of_strains
-                         / (nr_of_strains - 1)
-                         * sum(site_freq_spec.get(i, 0)
-                               * 2 * i / nr_of_strains
-                               * (1 - i / nr_of_strains)
-                               for i in range(1, nr_of_strains // 2 + 1))  # +1 as range excludes stop value
-                         ) / sequence_lengths
-
-    calc_values['Pi'] = _calc_pi(polymorpisms_sfs)
-    calc_values['Pi nonsyn'] = _calc_pi(non_synonymous_sfs)
-    calc_values['Pi syn'] = _calc_pi(synonymous_sfs)
-    calc_values['Pi 4-fold syn'] = _calc_pi(four_fold_syn_sfs)
+    calc_values['Pi'] = _calc_pi(nr_of_strains, sequence_lengths, polymorpisms_sfs)
+    calc_values['Pi nonsyn'] = _calc_pi(nr_of_strains, sequence_lengths, non_synonymous_sfs)
+    calc_values['Pi syn'] = _calc_pi(nr_of_strains, sequence_lengths, synonymous_sfs)
+    calc_values['Pi 4-fold syn'] = _calc_pi(nr_of_strains, sequence_lengths, four_fold_syn_sfs)
 
     #Watterson's estimator of theta: S / (L * harmonic)
     #where the harmonic is Sum[ 1 / i, i from 1 to n - 1 ]
