@@ -39,9 +39,9 @@ def _bootstrap(comp_values_list):
         return samples
 
     #"to get the confident interval on this you need to boostrap by gene - i.e. if we have 1000 genes, we form a
-    # boostrap sample by resampling, with replacement 1000 genes from the original sample; recalculate NI and repeat
-    # 1000 times; the SE on the estimate is the standard deviation across bootstraps, and your 95% confidence
-    # interval van be obtained by sorting the values and taking the 25t and 975th values"
+    #boostrap sample by resampling, with replacement 1000 genes from the original sample; recalculate NI and repeat
+    #1000 times; the SE on the estimate is the standard deviation across bootstraps, and your 95% confidence
+    #interval van be obtained by sorting the values and taking the 25t and 975th values"
     ni_values = []
     while len(ni_values) < len(comp_values_list):
         samples = _sample_with_replacement(comp_values_list)
@@ -269,6 +269,7 @@ def _calculate_for_clade_alignments(alignments_x, ortholog_codeml_values, orthol
 
     #Run calculcations for each sico alignment
     for orthologname, alignment_x in alignments_x:
+        print '\n', orthologname
         #Retrieve ortholog codeml values from dictionary based on orthologname key
         codeml_values_dict = ortholog_codeml_values[orthologname]
 
@@ -454,11 +455,14 @@ def _perform_calculations(alignment, codeml_values):
 
 def _calc_pi(nr_of_strains, sequence_lengths, site_freq_spec):
     """
+    New, improved: n/(n-1) * Sum( Pj * 2 * j/n * (1-j/n), {i,1,Floor((n-1)/2)})
+    
     Pi: n/(n-1) * Sum[ D(i) * 2 i/n (1-i/n), i from 1 to RoundDown(n/2)]
     where n is number of strains
     and D(i) is the number of polymorphisms present in i of n strains
     finally divide everything by the number of sites
     """
+    print '\n', site_freq_spec
     return (nr_of_strains
                      / (nr_of_strains - 1)
                      * sum(site_freq_spec.get(i, 0)
@@ -546,15 +550,26 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
         #Merge values such that their values are added up when a conflicting key is found
         polymorpisms_sfs[key] = polymorpisms_sfs.get(key, 0) + value
 
+    #TODO Remove print statements here, and above
+    print 'nr_of_strains', nr_of_strains
+    print 'sequence_lengths', sequence_lengths
+
     calc_values['Pi'] = _calc_pi(nr_of_strains, sequence_lengths, polymorpisms_sfs)
+    print 'Pi', calc_values['Pi']
+
     calc_values['Pi nonsyn'] = _calc_pi(nr_of_strains, sequence_lengths, non_synonymous_sfs)
+    print 'Pi nonsyn', calc_values['Pi nonsyn']
+
     calc_values['Pi syn'] = _calc_pi(nr_of_strains, sequence_lengths, synonymous_sfs)
+    print 'Pi syn', calc_values['Pi syn']
+
     calc_values['Pi 4-fold syn'] = _calc_pi(nr_of_strains, sequence_lengths, four_fold_syn_sfs)
+    print '\n'  #print 'Pi 4-fold syn', calc_values['Pi 4-fold syn']
 
     #Watterson's estimator of theta: S / (L * harmonic)
     #where the harmonic is Sum[ 1 / i, i from 1 to n - 1 ]
     seg_sites = sum(polymorpisms_sfs.get(i, 0) for i in range(1, nr_of_strains // 2 + 1))
-    harmonic = sum(1 / i for i in range(1, nr_of_strains))  # Not +/-1 as range already excludes the stop value
+    harmonic = sum(1 / i for i in range(1, nr_of_strains))  #Not +/-1 as range already excludes the stop value
     calc_values['Theta'] = seg_sites / (sequence_lengths * harmonic)
 
     #These values will end up contributing to the Neutrality Index through NI = Sum(X) / Sum(Y)
@@ -659,7 +674,7 @@ def _prepend_table_header(table_file, genomes_x, common_prefix_x, genomes_y, com
             write_handle.write('#Second table contains calculations for odd codons only\n')
             write_handle.write('#Third table contains calculations for even codons only\n')
 
-        #Possible extension: # orthologs dropped in each step, # cut-off used to trim alignments, # of strains
+        #Possible extension: #orthologs dropped in each step, #cut-off used to trim alignments, #of strains
 
 
 def main(args):
