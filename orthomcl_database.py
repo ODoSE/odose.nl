@@ -7,6 +7,7 @@ from divergence import resource_filename
 import MySQLdb
 import logging as log
 import os.path
+import shutil
 import socket
 
 __author__ = "Tim te Beek"
@@ -17,8 +18,16 @@ __license__ = "MIT"
 
 def _get_root_credentials():
     """Retrieve MySQL credentials from orthomcl.config to an account that is allowed to create new databases."""
+    orthomcl_credentials_file = resource_filename(__name__, 'credentials/orthomcl.cfg')
+
+    # Copy template config file to actual search path when file can not be found
+    if not os.path.exists(orthomcl_credentials_file):
+        shutil.copy(orthomcl_credentials_file + '.sample', orthomcl_credentials_file)
+        log.info('Copied .sample file to %s', orthomcl_credentials_file)
+
+    # Parse configuration file
     config = SafeConfigParser()
-    config.read(resource_filename(__name__, 'credentials/orthomcl.cfg'))
+    config.read(orthomcl_credentials_file)
     host = config.get('mysql', 'host')
     port = config.getint('mysql', 'port')
     user = config.get('mysql', 'user')

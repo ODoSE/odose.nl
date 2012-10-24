@@ -11,6 +11,7 @@ from poster.streaminghttp import StreamingHTTPSHandler
 import base64
 import logging
 import os
+import shutil
 import tarfile
 import tempfile
 import time
@@ -32,6 +33,12 @@ def _load_lsg_credentials():
     #Get path to credential file
     from divergence import resource_filename
     lsgp_credentials_file = resource_filename(__name__, 'credentials/lsg-portal.cfg')
+
+    # Copy template config file to actual search path when file can not be found
+    if not os.path.exists(lsgp_credentials_file):
+        shutil.copy(lsgp_credentials_file + '.sample', lsgp_credentials_file)
+        logging.info('Copied .sample file to %s', lsgp_credentials_file)
+
     logging.info('Credentials not found on path: Reading credentials from %s', lsgp_credentials_file)
 
     #Parse credential file
