@@ -6,7 +6,7 @@ from datetime import datetime
 from divergence import resource_filename
 import MySQLdb
 import logging as log
-import os.path
+import os
 import shutil
 import socket
 
@@ -32,6 +32,11 @@ def _get_root_credentials():
     port = config.getint('mysql', 'port')
     user = config.get('mysql', 'user')
     passwd = config.get('mysql', 'pass')
+
+    # Fall back to environment value for password when available
+    if passwd == 'pass' and 'mysql_password' in os.environ:
+        passwd = os.environ['mysql_password']
+
     return host, port, user, passwd
 
 
