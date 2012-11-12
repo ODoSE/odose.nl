@@ -71,23 +71,23 @@ def _append_sums_and_dos_average(calculations_file, sfs_max_nton, comp_values_li
         if comp_values['DoS'] is not None:
             dos_list.append(comp_values['DoS'])
 
-    _append_statistics(calculations_file, 'sum', sum_comp_values, sfs_max_nton)
+    _append_statistics(calculations_file, '#sum', sum_comp_values, sfs_max_nton)
 
     #Calculate DoS average
     mean_values = dict((key, value / len(comp_values_list)) for key, value in sum_comp_values.iteritems())
     if dos_list:
         mean_values['DoS'] = sum(dos_list) / len(dos_list)
-    _append_statistics(calculations_file, 'mean', mean_values, sfs_max_nton)
+    _append_statistics(calculations_file, '#mean', mean_values, sfs_max_nton)
 
     #Neutrality Index = Sum(X = Ds*Pn/(Ps+Ds)) / Sum(Y = Dn*Ps/(Ps+Ds))
     if sum_comp_values['Dn*Ps/(Ps+Ds)']:
         neutrality_values = {'neutrality index': sum_comp_values['Ds*Pn/(Ps+Ds)'] / sum_comp_values['Dn*Ps/(Ps+Ds)']}
-        _append_statistics(calculations_file, 'NI', neutrality_values, sfs_max_nton)
+        _append_statistics(calculations_file, '#NI', neutrality_values, sfs_max_nton)
         #Find lower and upper limits within which 95% of values fall, by using bootstrapping statistics
         lower_95perc_limit, upper_95perc_limit = _bootstrap(comp_values_list)
-        _append_statistics(calculations_file, 'NI 95% lower limit',
+        _append_statistics(calculations_file, '#NI 95% lower limit',
                            {'neutrality index': lower_95perc_limit}, sfs_max_nton)
-        _append_statistics(calculations_file, 'NI 95% upper limit',
+        _append_statistics(calculations_file, '#NI 95% upper limit',
                            {'neutrality index': upper_95perc_limit}, sfs_max_nton)
 
 
@@ -639,7 +639,7 @@ def _get_column_headers_in_sequence(max_nton):
 def _write_output_file_header(calculations_file, max_nton):
     """Write header line for combined statistics file."""
     with open(calculations_file, mode='a') as append_handle:
-        append_handle.write('ortholog\t')
+        append_handle.write('#ortholog\t')
         append_handle.write('\t'.join(column for column in _get_column_headers_in_sequence(max_nton)
                                       #Hide the following columns in the output, but do calculate & pass their values
                                       if column not in ('Ds*Pn/(Ps+Ds)', 'Dn*Ps/(Ps+Ds)')))
