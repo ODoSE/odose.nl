@@ -6,15 +6,18 @@ import divergence  # @UnusedImport # pylint: disable=W0611
 import Bio
 import getpass
 import logging
+import os
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
-SOFTWARE_DIR = '/work/project/software/'
+SOFTWARE_DIR = '/work/odosenl/software/'
 if getpass.getuser() == 'tbeek':
     SOFTWARE_DIR = '/data/projects/divergence/software/'
+if not os.path.isdir(SOFTWARE_DIR):
+    raise 'Software directory is missing'
 
 #Blast
 NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.26+/bin/'
