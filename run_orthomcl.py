@@ -288,6 +288,7 @@ def _step9_mysql_load_blast(similar_seqs_file, database):
                '-h','192.168.122.1',
                '-u','orthomcl',
                '--password=pass',
+               '--local-infile=1',
                '-e', 'LOAD DATA LOCAL INFILE "{0}" REPLACE INTO TABLE SimilarSequences FIELDS TERMINATED BY \'\\t\';'.format(similar_seqs_file),
                database]
     log.info('Executing: %s', ' '.join(command))
