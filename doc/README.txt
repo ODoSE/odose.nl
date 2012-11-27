@@ -7,6 +7,7 @@ sudo apt-get install python-decorator
 sudo apt-get install python-gnuplot python-rpy python-rpy2;
 
 # Python packages
+sudo apt-get install mysql-client
 sudo apt-get install python-biopython  # For sequence wrangling
 sudo apt-get install python-lxml  # For download from MRS
 sudo apt-get install python-mysqldb  # For OrthoMCL
