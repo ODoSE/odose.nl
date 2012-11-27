@@ -2,6 +2,7 @@
 # Galaxy
 sudo apt-get install mercurial subversion
 sudo apt-get install postgresql-client
+sudo apt-get install python-decorator
 # plotting requirements
 sudo apt-get install python-gnuplot python-rpy python-rpy2;
 
