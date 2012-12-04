@@ -201,8 +201,7 @@ def wait_for_job(jobid, max_duration=None):
 
         # Raise an error when the maximum allotted time has arrived
         if max_duration:
-            if max_duration <= duration:
-                raise IOError('Job {1} overran allotted time: {0}{1}'.format(URL_JOBS, jobid))
+            assert duration < max_duration, 'Job {1} overran allotted time: {0}{1}'.format(URL_JOBS, jobid)
             duration += timetosleep
 
         #If we're still here: Sleep for up to two minutes before trying again
