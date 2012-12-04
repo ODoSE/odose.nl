@@ -120,9 +120,14 @@ def _step5_orthomcl_adjust_fasta(run_dir, proteome_files, id_field=3):
     adjusted_fasta_dir = create_directory('compliant_fasta', inside_dir=run_dir)
     adjusted_fasta_files = []
     for proteome_file in proteome_files:
+        taxon_code = None
         #Use first part of header of first entry as taxon code
-        record_iter = SeqIO.parse(proteome_file, 'fasta')
-        taxon_code = record_iter.next().id.split('|')[0]  # pylint: disable=E1101
+        for record in SeqIO.parse(proteome_file, 'fasta'):
+            taxon_code = record.id.split('|')[0]
+            break
+
+        # If we failed to extract a taxon_code, proteome file must have been empty
+        assert taxon_code, 'Proteome file appears empty: ' + proteome_file
 
         #Call orhtomclAdjustFasta
         command = [ORTHOMCL_ADJUST_FASTA, taxon_code, proteome_file, str(id_field)]
