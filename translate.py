@@ -48,11 +48,14 @@ def _map_protein_cog_and_gene(ptt_file):
     cog_mapping = {}
     product_mapping = {}
     with open(ptt_file) as read_handle:
-        #Line 1: Escherichia coli 536, complete genome - 1..4938920
-        read_handle.readline().strip()  # Intentionally ignored
-        #Line 2: 4619 proteins
-        line = read_handle.readline().strip()
-        assert line.endswith(" proteins")
+        # Skip past either the first line, or first two lines, as NCBI can't seem to stick to any single one convention
+        while True:
+            # Line 1: Escherichia coli 536, complete genome - 1..4938920
+            # Line 2: 4619 proteins
+            line = read_handle.readline().strip()
+            if line.endswith(' proteins'):
+                break
+
         #Line 3: Location    Strand    Length    PID    Gene    Synonym    Code    COG    Product
         line = read_handle.readline().strip()
         columns = line.split("\t")
