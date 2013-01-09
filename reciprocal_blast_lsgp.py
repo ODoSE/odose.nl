@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Module for the reciprocal blast step using the SARA Life Science Grid Portal."""
 
+from datetime import timedelta
 from divergence import concatenate
 from divergence.lsgp_client import run_application, submit_application_run, retrieve_run_result, send_request
 from divergence.versions import LSGP_MAKEBLASTDB, LSGP_BLASTN, LSGP_BLASTP
@@ -47,7 +48,10 @@ def _create_blast_database(fasta_file, nucleotide=False):
     #Run MAKEBLASTDB remotely
     params = {'dbtype': dbtype, 'out': db_name, 'portaldb': 1}
     files = {'in-file[]': fasta_file}
-    db_dir = run_application(LSGP_MAKEBLASTDB, params=params, files=files, max_duration=60 * 90)
+    db_dir = run_application(LSGP_MAKEBLASTDB,
+                             params=params,
+                             files=files,
+                             max_duration=timedelta(hours=4).total_seconds())
 
     #Upload database back to LSG Portal
     with open(os.path.join(db_dir, 'db_url.txt')) as read_handle:
@@ -84,7 +88,9 @@ def _submit_blast_run(database_url, fasta_file, nucleotide=False):
     # Run BLAST[P/N] remotely
     params = {'db[]': database_url, 'out': hits_file, 'outfmt': 6}
     files = {'query': fasta_file}
-    jobid = submit_application_run(blast_app, params=params, files=files)
+    jobid = submit_application_run(blast_app,
+                                   params=params,
+                                   files=files)
     return jobid, hits_file
 
 
@@ -95,7 +101,8 @@ def _retrieve_blast_hits(jobid, hits_file):
     @param hits_file: name of the created BLAST hits file to retrieve
     """
     #Wait for job to complete and retrieve results
-    results_dir = retrieve_run_result(jobid, max_duration=8 * 60 * 60)
+    results_dir = retrieve_run_result(jobid,
+                                      max_duration=timedelta(hours=8).total_seconds())
 
     # Construct the likely path to the local file
     local_path = os.path.join(results_dir, hits_file)
