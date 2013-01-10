@@ -244,6 +244,15 @@ Usage: select_taxa.py
         #Download files here, but ignore returned files: These can be retrieved from cache during extraction/translation
         download_genome_files(genome, genomes_file, require_ptt=require_ptt)
 
+    # Post check after translation to see if more than one genome actually had some genomic contents
+    with open(genomes_file) as read_handle:
+        genome_ids = [line.split()[0] for line in read_handle]
+        # If some genomes were skipped, ensure at least two genomes remain
+        if len([gid for gid in genome_ids if gid.startswith('#')]):
+            assert 2 <= len([gid for gid in genome_ids if not gid.startswith('#')]), \
+                "Some genomes were skipped, leaving us with less than two genomes to operate on; " \
+                "Inspect messages in Project ID list and reevaluate genome selection"
+
     #Exit after a comforting log message
     log.info("Produced: \n%s", genomes_file)
 
