@@ -3,7 +3,7 @@
 
 from Bio import SeqIO
 from divergence import create_directory, extract_archive_of_files, parse_options
-from divergence.orthomcl_database import create_database, get_configuration_file, delete_database
+from divergence.orthomcl_database import create_database, get_configuration_file, delete_database, _get_root_credentials
 from divergence.translate import translate_fasta_coding_regions
 from divergence.upload_genomes import format_fasta_genome_headers
 from divergence.versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
@@ -294,10 +294,13 @@ def _step9_orthomcl_load_blast(similar_seqs_file, config_file):
 
 def _step9_mysql_load_blast(similar_seqs_file, database):
     """Directly load results using MySQL, as Perl MySQL connection does not allow for load data local infile."""
+    host, port, user, passwd = _get_root_credentials()
+    
     #Run orthomclLoadBlast
     command = ['mysql',
-               '-h','192.168.122.1',
+               '-h',host,
                '-u','orthomcl',
+               '--port='+str(port),
                '--password=pass',
                '--local-infile=1',
                '-e', 'LOAD DATA LOCAL INFILE "{0}" REPLACE INTO TABLE SimilarSequences FIELDS TERMINATED BY \'\\t\';'.format(similar_seqs_file),
