@@ -105,6 +105,9 @@ def _parse_genomes_table(require_refseq=False):
         #Append genome to list of genomes
         genomes.append(genome)
 
+    #Filter out incomplete genomes
+    genomes = [genome for genome in genomes if genome['Status'] == 'Complete']
+
     #Filter out records not containing a refseq entry
     if require_refseq:
         genomes = [genome for genome in genomes if genome['Chromosomes/RefSeq']]
