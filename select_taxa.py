@@ -115,6 +115,12 @@ def _parse_genomes_table(require_refseq=False):
     #Filter out all genomes that do not have any chromosomes
     genomes = [genome for genome in genomes if genome['Chromosomes/RefSeq'] or genome['Chromosomes/INSDC']]
 
+    #Filter out genomes without any genes or Proteins
+    genomes = [genome for genome in genomes if genome['Genes'] != '-' and genome['Proteins'] != '-']
+
+    #Filter out genomes with less than 100 Proteins
+    genomes = [genome for genome in genomes if int(genome['Proteins']) > 100]
+
     #Return the genome dictionaries
     return tuple(genomes)
 
@@ -261,3 +267,4 @@ Usage: select_taxa.py
 
 if __name__ == '__main__':
     main(sys.argv[1:])
+    #print len(tuple(get_complete_genomes()))
