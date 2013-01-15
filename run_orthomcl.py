@@ -4,7 +4,6 @@
 from Bio import SeqIO
 from divergence import create_directory, extract_archive_of_files, parse_options
 from divergence.orthomcl_database import create_database, get_configuration_file, delete_database
-from divergence.reciprocal_blast_lsgp import reciprocal_blast  # Remove _lsgp suffix to using local BLAST instead
 from divergence.translate import translate_fasta_coding_regions
 from divergence.upload_genomes import format_fasta_genome_headers
 from divergence.versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
@@ -224,8 +223,15 @@ def _step7_blast_all_vs_all(good_proteins_file, fasta_files):
 
     Time estimate: highly dependent on your data and hardware
     """
-    #Handled by reciprocal blast module
-    return reciprocal_blast(good_proteins_file, fasta_files)
+    if 2 < len(fasta_files):
+        # Send anything concerning more than two genomes to SARA.
+        from divergence.reciprocal_blast_lsgp import reciprocal_blast
+        return reciprocal_blast(good_proteins_file, fasta_files)
+    else:
+        #Run two genomes ourselves locally.
+        from divergence.reciprocal_blast_local import reciprocal_blast
+        return reciprocal_blast(good_proteins_file, fasta_files)
+    
 
 
 def _step8_orthomcl_blast_parser(run_dir, blast_file, fasta_files_dir):
