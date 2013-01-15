@@ -51,7 +51,7 @@ def _create_blast_database(fasta_file, nucleotide=False):
     db_dir = run_application(LSGP_MAKEBLASTDB,
                              params=params,
                              files=files,
-                             max_duration=timedelta(hours=4).total_seconds())
+                             max_duration=timedelta(days=1).total_seconds())
 
     #Upload database back to LSG Portal
     with open(os.path.join(db_dir, 'db_url.txt')) as read_handle:
@@ -102,7 +102,7 @@ def _retrieve_blast_hits(jobid, hits_file):
     """
     #Wait for job to complete and retrieve results
     results_dir = retrieve_run_result(jobid,
-                                      max_duration=timedelta(hours=8).total_seconds())
+                                      max_duration=timedelta(hours=5).total_seconds())
 
     # Construct the likely path to the local file
     local_path = os.path.join(results_dir, hits_file)
