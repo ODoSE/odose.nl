@@ -55,7 +55,7 @@ NEIGHBOR = PHYLIP_DIR + 'exe/neighbor'
 PHIPACK = SOFTWARE_DIR + 'PhiPack/Phi'
 
 #Calculation
-PAML_DIR = SOFTWARE_DIR + 'paml4.5/'
+PAML_DIR = SOFTWARE_DIR + 'paml4.6/'
 CODEML = PAML_DIR + 'bin/codeml'
 
 
