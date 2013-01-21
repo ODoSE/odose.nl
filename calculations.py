@@ -642,7 +642,7 @@ def _write_output_file_header(calculations_file, max_nton):
         append_handle.write('#ortholog\t')
         append_handle.write('\t'.join(column for column in _get_column_headers_in_sequence(max_nton)
                                       #Hide the following columns in the output, but do calculate & pass their values
-                                      if column not in ('Ds*Pn/(Ps+Ds)', 'Dn*Ps/(Ps+Ds)')))
+                                      if column not in ('Ds*Pn/(Ps+Ds)', 'Dn*Ps/(Ps+Ds)', 'N', 'S')))
         append_handle.write('\n')
 
 
@@ -653,7 +653,7 @@ def _append_statistics(calculations_file, orthologname, comp_values, max_nton):
         append_handle.write('\t'.join(str(comp_values.get(column, ''))
                                       for column in _get_column_headers_in_sequence(max_nton)
                                       #Hide the following columns in the output, but do calculate & pass their values
-                                      if column not in ('Ds*Pn/(Ps+Ds)', 'Dn*Ps/(Ps+Ds)')))
+                                      if column not in ('Ds*Pn/(Ps+Ds)', 'Dn*Ps/(Ps+Ds)', 'N', 'S')))
         append_handle.write('\n')
 
 
