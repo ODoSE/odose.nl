@@ -82,7 +82,7 @@ def _calc_pi(nr_of_strains, sequence_lengths, site_freq_spec):
     and D(i) is the number of polymorphisms present in i of n strains
     finally divide everything by the number of sites
     """
-    print '\n', site_freq_spec
+    print site_freq_spec
     return (nr_of_strains
                      / (nr_of_strains - 1)
                      * sum(site_freq_spec.get(i, 0)
@@ -131,6 +131,13 @@ FOUR_FOLD_DEGENERATE_PATTERN = '|'.join(_four_fold_degenerate_patterns())
 def _codon_site_freq_spec(clade_calcs):
     ''''''
     multiple_site_polymorphisms = 0
+    mixed_synonymous_polymorphisms = 0
+    
+    global_sfs = defaultdict(int)
+
+    synonymous_sfs = defaultdict(int)
+    non_synonymous_sfs = defaultdict(int)
+    four_fold_syn_sfs = defaultdict(int)
 
     # Calculate sequence_lengths here so we can handle alignments that are not multiples of three
     sequence_lengths = clade_calcs.sequence_lengths - clade_calcs.sequence_lengths % 3
@@ -146,7 +153,7 @@ def _codon_site_freq_spec(clade_calcs):
             continue
 
         # As per AEW: Skip codons with gaps, and codons with unresolved bases: Basically anything but ACGT
-        if 0 < len(''.join(codons).translate(None, deletions='ACGTactg')):
+        if 0 < len(''.join(codons).translate(None, 'ACGTactg')):
             continue
 
         # Skip codons where any of the alignment codons is a stopcodon, same as in codeml
@@ -179,10 +186,39 @@ def _codon_site_freq_spec(clade_calcs):
             else:
                 local_sfs[counts] += 1
 
+        def add_dict_to_dict(target, source):
+            '''Add values from source to target'''
+            for key, value in source.iteritems():
+                target[key] += value
+
+        # Global SFS takes it values from the local SFS, no further filtering applied
+        add_dict_to_dict(global_sfs, local_sfs)
+
         # Retrieve translations of codons now that inconclusive & stop-codons have been removed
         translations = Counter(BACTERIAL_CODON_TABLE.forward_table.get(codon) for codon in codons)
 
+        if len(translations) == 1:
+            # All mutations are synonymous
+            add_dict_to_dict(synonymous_sfs, local_sfs)
+        else:
+            if len(translations) == len(polymorph_site_usage):
+                # Multiple translations, one per change in base
+                add_dict_to_dict(non_synonymous_sfs, local_sfs)
+            else:
+                # Number of translations & number of different bases do not match: Both syn and non syn changes found
+                mixed_synonymous_polymorphisms += 1
 
+
+    print 'Global'
+    print _calc_pi(clade_calcs.nr_of_strains, clade_calcs.sequence_lengths, global_sfs)
+
+    print '\nSyn'
+    print _calc_pi(clade_calcs.nr_of_strains, clade_calcs.sequence_lengths, synonymous_sfs)
+
+    print '\nNon Syn'
+    print _calc_pi(clade_calcs.nr_of_strains, clade_calcs.sequence_lengths, non_synonymous_sfs)
+
+    print '\nMultiple site poly', multiple_site_polymorphisms
 
 
 class clade_calcs(object):
