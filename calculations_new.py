@@ -15,6 +15,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from collections import Counter, defaultdict
 from divergence import CODON_TABLE_ID, find_cogs_in_sequence_records
 from itertools import product
+import logging
 import os
 import re
 import sys
@@ -89,14 +90,19 @@ def _calc_pi(nr_of_strains, sequence_lengths, site_freq_spec):
     and D(i) is the number of polymorphisms present in i of n strains
     finally divide everything by the number of sites
     """
-    print site_freq_spec
-    return (nr_of_strains
+    pi = (nr_of_strains
                      / (nr_of_strains - 1)
                      * sum(site_freq_spec.get(i, 0)
                            * 2 * i / nr_of_strains
                            * (1 - i / nr_of_strains)
                            for i in range(1, (nr_of_strains - 1) // 2 + 1))  # +1 as range excludes stop value
                      ) / sequence_lengths
+    logging.debug('Arguments:\n\tnr of strains: %s,\n\tsequence lengths: %s,\n\tsfs: %s',
+                  nr_of_strains,
+                  sequence_lengths,
+                  site_freq_spec)
+    logging.debug('Gave a Pi value of: %s', pi)
+    return pi
 
 def _site_freq_spec(clade_calcs):
     '''Add the full site frequency spectrum to a clade_calcs instance.'''
@@ -232,31 +238,32 @@ def _codon_site_freq_spec(clade_calcs):
 
         # Implicitly continue with next iteration
 
-    # Log debug statistics
-    print 'stop_codons', stop_codons
-    print 'codons_with_unresolved_bases', codons_with_unresolved_bases
-
     # Add calculations to values dictionary
-    print 'SFS', PI
+    logging.debug('%s SFS: %s', PI, global_sfs)
     clade_calcs.values[PI] = _calc_pi(clade_calcs.nr_of_strains, clade_calcs.sequence_lengths, global_sfs)
 
-    print 'SFS', PI_SYN
+    logging.debug('%s SFS: %s', PI_SYN, synonymous_sfs)
     clade_calcs.values[PI_SYN] = _calc_pi(clade_calcs.nr_of_strains, clade_calcs.sequence_lengths, synonymous_sfs)
     clade_calcs.values[SYNONYMOUS_POLYMORPHISMS] = sum(synonymous_sfs.values())
 
-    print 'SFS', PI_NONSYN
+    logging.debug('%s SFS: %s', PI_NONSYN, non_synonymous_sfs)
     clade_calcs.values[PI_NONSYN] = _calc_pi(clade_calcs.nr_of_strains, clade_calcs.sequence_lengths, non_synonymous_sfs)
     clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS] = sum(non_synonymous_sfs.values())
 
-    print 'SFS', PI_4_FOLD_SYN
+    logging.debug('%s SFS: %s', PI_4_FOLD_SYN, four_fold_syn_sfs)
     clade_calcs.values[PI_4_FOLD_SYN] = _calc_pi(clade_calcs.nr_of_strains, clade_calcs.sequence_lengths, four_fold_syn_sfs)
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_POLYMORPHISMS] = sum(four_fold_syn_sfs.values())
+
+    # TODO Also add the SINGLETON, DOUBLETON, TRIPLETON, etc values here
 
     # Add tallies to values dictionary
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_SITES] = four_fold_synonymous_sites
     clade_calcs.values[MULTIPLE_SITE_POLYMORPHISMS] = multiple_site_polymorphisms
     clade_calcs.values[COMPLEX_CODONS] = mixed_synonymous_polymorphisms
 
+    # Log debug statistics
+    logging.debug('stop_codons: %s', stop_codons)
+    logging.debug('codons_with_unresolved_bases: %s', codons_with_unresolved_bases)
 
 
 class clade_calcs(object):
@@ -275,6 +282,33 @@ class clade_calcs(object):
 
         # The most basic calculation added to the output file
         clade_calcs.values[CODONS] = self.sequence_lengths // 3
+
+        # TODO extract product for most recent gene
+
+
+def run_calculations(genomes_a_file,
+                     genomes_b_file,
+                     sicozip_file,
+                     table_a_dest,
+                     table_b_dest,
+                     append_odd_even=False):
+    ''''''
+    # TODO All stubs below
+    # parse genomes in genomes_x_files
+
+    # extract ortholog files from sicozip
+    # loop over orthologs
+    # # calculate phipack values for combined aligments
+    # # split alignments
+    # # # calculate codeml values
+    # # # COG digits and letters
+    # # # SFS related values
+    # # # additional calculations: theta, ni, DoS
+    # # # bootstrapping NI
+
+    # odd even tables
+
+
 
 
 def main(argv=None):  # IGNORE:C0111
@@ -302,20 +336,31 @@ USAGE
         parser = ArgumentParser(description=program_usage, formatter_class=RawDescriptionHelpFormatter)
         parser.add_argument("-v", "--verbose", dest="verbose", action="count", help="set verbosity level [default: %(default)s]")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
-        parser.add_argument(dest="paths", help="paths to folder(s) with source file(s) [default: %(default)s]", metavar="path", nargs='+')
+
+        # Arguments specific to calculations
+        parser.add_argument('genomes_a')
+        parser.add_argument('genomes_b')
+        parser.add_argument('sicozip')
+        parser.add_argument('table_a')
+        parser.add_argument('table_b')
+
+        parser.add_argument('-a', '--append-odd-even', action='store_true',
+                            help='append separate tables calculated for odd and even codons of ortholog alignments (default: False)')
 
         # Process arguments
         args = parser.parse_args()
 
-        paths = args.paths
-        verbose = args.verbose
-
-        if verbose > 0:
+        if args.verbose > 0:
             print("Verbose mode on")
+            logging.root.setLevel(logging.DEBUG)
 
-        for inpath in paths:
-            ### do something with inpath ###
-            print(inpath)
+        run_calculations(args.genomes_a,
+                         args.genomes_b,
+                         args.sicozip,
+                         args.table_a,
+                         args.table_b,
+                         args.append_odd_even)
+
         return 0
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###
@@ -332,5 +377,4 @@ if __name__ == "__main__":
     if DEBUG:
         sys.argv.append("-h")
         sys.argv.append("-v")
-        sys.argv.append("-r")
     sys.exit(main())
