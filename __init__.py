@@ -155,7 +155,8 @@ def get_most_recent_gene_name(genomes, sequence_records):
         values = record.id.split('|')
         genome = values[0]
         gene_name = values[4]
-        ortholog_products[genome] = gene_name
+        if gene_name != 'hypothetical_protein':
+            ortholog_products[genome] = gene_name
 
     #If there's only a single gene name, look no further
     if len(set(ortholog_products.values())) == 1:
