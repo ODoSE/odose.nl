@@ -70,7 +70,7 @@ def _phipack_for_all_orthologs(run_dir, aligned_files, stats_file):
 
 
 def run_phipack(phipack_dir, dna_file):
-    """Run PhiPack and return ortholog name, the number of informative sites, PHI, Max Chi^2 and NSS."""
+    """Run PhiPack and return the number of informative sites, PHI, Max Chi^2 and NSS."""
     #Create directory for PhiPack to run in, so files get created there
     orth_name = os.path.split(dna_file)[1].split('.')[0]
     rundir = create_directory(orth_name, inside_dir=phipack_dir)

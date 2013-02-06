@@ -564,7 +564,7 @@ def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_valu
     print 'Pi syn', calc_values['Pi syn']
 
     calc_values['Pi 4-fold syn'] = _calc_pi(nr_of_strains, sequence_lengths, four_fold_syn_sfs)
-    print '\n'  #print 'Pi 4-fold syn', calc_values['Pi 4-fold syn']
+    print 'Pi 4-fold syn', calc_values['Pi 4-fold syn']
 
     #Watterson's estimator of theta: S / (L * harmonic)
     #where the harmonic is Sum[ 1 / i, i from 1 to n - 1 ]
