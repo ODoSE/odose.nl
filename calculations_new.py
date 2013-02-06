@@ -10,10 +10,13 @@ divergence.calculations_new is a module to calculate values for SICOs
 '''
 
 from __future__ import division
+from Bio import AlignIO
+from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from collections import Counter, defaultdict
-from divergence import CODON_TABLE_ID, find_cogs_in_sequence_records, get_most_recent_gene_name
+from divergence import CODON_TABLE_ID, find_cogs_in_sequence_records, get_most_recent_gene_name, \
+    extract_archive_of_files, create_directory
 from divergence.run_codeml import run_codeml, parse_codeml_output
 from divergence.select_taxa import select_genomes_by_ids
 from itertools import product
@@ -46,13 +49,17 @@ PRODUCT = 'product'
 COG_DIGITS = 'cog digits'
 COG_LETTERS = 'cog letters'
 CODONS = 'codons'
+PI = 'Pi'
 GLOBAL_SFS = 'global sfs'
+NON_SYNONYMOUS_PI = 'Pi nonsyn'
 NON_SYNONYMOUS_SFS = 'non-synonymous sfs'
-NON_SYNONYMOUS_SITES = 'non-synonymous sites'
+# NON_SYNONYMOUS_SITES = 'non-synonymous sites'
 NON_SYNONYMOUS_POLYMORPHISMS = 'non-synonymous polymorphisms'
+SYNONYMOUS_PI = 'Pi syn'
 SYNONYMOUS_SFS = 'synonymous sfs'
-SYNONYMOUS_SITES = 'synonymous sites'
+# SYNONYMOUS_SITES = 'synonymous sites'
 SYNONYMOUS_POLYMORPHISMS = 'synonymous polymorphisms'
+FOUR_FOLD_SYNONYMOUS_PI = 'Pi 4-fold syn'
 FOUR_FOLD_SYNONYMOUS_SFS = '4-fold synonymous sfs'
 FOUR_FOLD_SYNONYMOUS_SITES = '4-fold synonymous sites'
 FOUR_FOLD_SYNONYMOUS_POLYMORPHISMS = '4-fold synonymous polymorphisms'
@@ -64,10 +71,6 @@ PHIPACK_SITES = 'PhiPack sites'
 PHI = 'Phi'
 MAX_CHI_2 = 'Max Chi^2'
 NSS = 'NSS'
-PI = 'Pi'
-PI_NONSYN = 'Pi nonsyn'
-PI_SYN = 'Pi syn'
-PI_4_FOLD_SYN = 'Pi 4-fold syn'
 THETA = 'Theta'
 NEUTRALITY_INDEX = 'neutrality index'
 DOS = 'DoS'
@@ -122,29 +125,6 @@ def _calc_pi(nr_of_strains, nr_of_sites, site_freq_spec):
     return pi
 
 
-def _site_freq_spec(clade_calcs):
-    '''Add the full site frequency spectrum to a clade_calcs instance.'''
-    site_freq_spec = defaultdict(int)
-
-    # Loop over every position in alignment to determine the bases present
-    for pos in range(clade_calcs.sequence_lengths):
-        counts = Counter(clade_calcs.alignment[:, pos])
-
-        # If we only find a single base, we can ignore this site
-        if len(counts) == 1:
-            continue
-
-        # Remove the most prevalent base from the counts
-        most_prevalent = max(counts.keys(), key=lambda x: counts[x])
-        del counts[most_prevalent]
-
-        # Update SFS with the remaining bases
-        for occurrences in counts.values():
-            site_freq_spec[occurrences] += 1
-
-    clade_calcs.values[PI] = _calc_pi(clade_calcs.nr_of_strains, clade_calcs.sequence_lengths, site_freq_spec)
-
-
 # Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11)
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(CODON_TABLE_ID)
 
@@ -191,8 +171,8 @@ def _codon_site_freq_spec(clade_calcs):
         # Skip when all codons are the same
         if len(set(codons)) == 1:
             # Increase number of four fold synonymous sites if the codons match; No SFS to add as all codons are equal
-            # TODO ??? if re.match(FOUR_FOLD_DEGENERATE_PATTERN, codons[0]):
-            #    four_fold_synonymous_sites += 1
+            if re.match(FOUR_FOLD_DEGENERATE_PATTERN, codons[0]):
+                four_fold_synonymous_sites += 1
             continue
 
         # As per AEW: Skip codons with gaps, and codons with unresolved bases: Basically anything but ACGT
@@ -262,24 +242,30 @@ def _codon_site_freq_spec(clade_calcs):
 
         # Implicitly continue with next iteration
 
-    # Add calculations to values dictionary
-    logging.debug('%s SFS: %s', PI, global_sfs)
+    # Add SFS & Pi calculations to values dictionary
     clade_calcs.values[GLOBAL_SFS] = global_sfs
     clade_calcs.values[PI] = _calc_pi(clade_calcs.nr_of_strains, clade_calcs.sequence_lengths, global_sfs)
 
-    logging.debug('%s SFS: %s', PI_SYN, synonymous_sfs)
     clade_calcs.values[SYNONYMOUS_SFS] = synonymous_sfs
     clade_calcs.values[SYNONYMOUS_POLYMORPHISMS] = sum(synonymous_sfs.values())
+    clade_calcs.values[SYNONYMOUS_PI] = _calc_pi(clade_calcs.nr_of_strains,
+                                                 clade_calcs.values['S'],
+                                                 synonymous_sfs)
 
-    logging.debug('%s SFS: %s', PI_NONSYN, non_synonymous_sfs)
     clade_calcs.values[NON_SYNONYMOUS_SFS] = non_synonymous_sfs
     clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS] = sum(non_synonymous_sfs.values())
+    clade_calcs.values[NON_SYNONYMOUS_PI] = _calc_pi(clade_calcs.nr_of_strains,
+                                                     clade_calcs.values['N'],
+                                                     non_synonymous_sfs)
 
-    logging.debug('%s SFS: %s', PI_4_FOLD_SYN, four_fold_syn_sfs)
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_SFS] = four_fold_syn_sfs
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_POLYMORPHISMS] = sum(four_fold_syn_sfs.values())
+    clade_calcs.values[FOUR_FOLD_SYNONYMOUS_PI] = _calc_pi(clade_calcs.nr_of_strains,
+                                                           clade_calcs.values[FOUR_FOLD_SYNONYMOUS_SITES],
+                                                           four_fold_syn_sfs)
 
     # TODO Also add the SINGLETON, DOUBLETON, TRIPLETON, etc values here
+
 
     # Add tallies to values dictionary
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_SITES] = four_fold_synonymous_sites
@@ -290,6 +276,52 @@ def _codon_site_freq_spec(clade_calcs):
     logging.debug('stop_codons: %s', stop_codons)
     logging.debug('codons_with_unresolved_bases: %s', codons_with_unresolved_bases)
 
+
+def _extract_genome_ids_and_common_prefix(genomes_file):
+    '''From a genome ids file extract the genome ids and the common name prefix for all genomes.'''
+    with open(genomes_file) as read_handle:
+        lines = [line.strip() for line in read_handle]
+        genome_ids = [line.split()[0] for line in lines]
+        common_prefix = os.path.commonprefix([line.split('\t')[1] for line in lines]).strip()
+        return genome_ids, common_prefix
+
+
+def _add_combined_calculations(clade_calcs):
+    '''Add additional deduced calculations: theta, ni, DoS...'''
+
+    # 16. Direction of selection = Dn/(Dn+Ds) - Pn/(Pn+Ps)
+    paml_total_substitutions = clade_calcs.values[DN] + clade_calcs.values[DS]
+    total_polymorphisms = clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS] + clade_calcs.values[SYNONYMOUS_POLYMORPHISMS]
+    # Prevent divide by zero by checking both values above are not null
+    if paml_total_substitutions != 0 and total_polymorphisms != 0:
+        clade_calcs.values[DOS] = (clade_calcs.values[DN] / paml_total_substitutions
+                                                 - clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS] / total_polymorphisms)
+    else:
+        # "the direction of selection is undefined if either Dn+Ds or Pn+Ps are zero": None or Not a Number?
+        clade_calcs.values[DOS] = None
+
+    # Theta
+    # Watterson's estimator of theta: S / (L * harmonic)
+    # where the harmonic is Sum[ 1 / i, i from 1 to n - 1 ]
+    harmonic = sum(1 / i for i in range(1, clade_calcs.nr_of_strains))
+    clade_calcs.values[THETA] = sum(clade_calcs.values[GLOBAL_SFS].values()) / (clade_calcs.sequence_lengths
+                                                                                * harmonic)
+
+    # NI (parts)
+    # These values will end up contributing to the Neutrality Index through NI = Sum(X) / Sum(Y)
+    ps_plus_ds = (clade_calcs.values[SYNONYMOUS_POLYMORPHISMS] + clade_calcs.values[DS])
+    if ps_plus_ds:
+        # X = Ds*Pn/(Ps+Ds)
+        clade_calcs.values['Ds*Pn/(Ps+Ds)'] = (clade_calcs.values[DS]
+                                               * clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS]
+                                               / ps_plus_ds)
+        # Y = Dn*Ps/(Ps+Ds)
+        clade_calcs.values['Dn*Ps/(Ps+Ds)'] = (clade_calcs.values[DN]
+                                               * clade_calcs.values[SYNONYMOUS_POLYMORPHISMS]
+                                               / ps_plus_ds)
+    else:
+        clade_calcs.values['Ds*Pn/(Ps+Ds)'] = None
+        clade_calcs.values['Dn*Ps/(Ps+Ds)'] = None
 
 class clade_calcs(object):
     '''Perform the calculations specific a single clade.'''
@@ -324,20 +356,52 @@ def run_calculations(genomes_a_file,
                      table_b_dest,
                      append_odd_even=False):
     ''''''
-    # TODO All stubs below
     # parse genomes in genomes_x_files
+    genome_ids_a, common_prefix_a = _extract_genome_ids_and_common_prefix(genomes_a_file)
+    genome_ids_b, common_prefix_b = _extract_genome_ids_and_common_prefix(genomes_b_file)
 
     # extract ortholog files from sicozip
-    # loop over orthologs
-    # # calculate phipack values for combined aligments
-    # # split alignments
-    # # # calculate codeml values
-    # # # COG digits and letters
-    # # # SFS related values
-    # # # additional calculations: theta, ni, DoS
-    # # # bootstrapping NI
+    rundir = tempfile.mkdtemp(prefix='calculations_')
+    sico_files = extract_archive_of_files(sicozip_file, create_directory('sicos', inside_dir=rundir))
 
-    # odd even tables
+    # TODO calculate phipack values for combined aligments
+
+    # loop over orthologs
+    for sico_file in sico_files:
+        # parse alignment
+        alignment = AlignIO.read(sico_file, 'fasta')
+
+        # split alignments
+        alignment_a = MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_a)
+        alignment_b = MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_b)
+
+        # calculate codeml values
+        codeml_values = _get_codeml_values(alignment_a, alignment_b)
+
+        # TODO separate calculations for table a and table b
+
+        # create gathering instance of clade_calcs
+        instance = clade_calcs(alignment_a)
+
+        # add codeml_values to clade_calcs instance values
+        instance.values.update(codeml_values)
+
+        # add COG digits and letters
+        _extract_cog_digits_and_letters(instance)
+
+        # add SFS related values
+        _codon_site_freq_spec(instance)
+
+        # add additional deduced calculation
+        _add_combined_calculations(instance)
+
+    # TODO All stubs below
+    # bootstrapping NI
+
+    # separate calculations for odd and even tables
+
+    # clean up
+    shutil.rmtree(rundir)
 
 
 def main(argv=None):  # IGNORE:C0111
