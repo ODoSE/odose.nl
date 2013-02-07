@@ -139,6 +139,7 @@ def _get_column_headers(max_nton):
 
 def _write_to_file(table_a_dest,
                    genome_ids_a,
+                   genome_ids_b,
                    common_prefix_a,
                    common_prefix_b,
                    calculations):
@@ -159,10 +160,21 @@ def _write_to_file(table_a_dest,
 
     with open(table_a_dest, 'a') as write_handle:
 
-        # Print column headers
+        # Print introduction about the strain comparison
+        write_handle.write('#{} {} strains compared with {} {} strains\n'.format(len(genome_ids_a),
+                                                                                 common_prefix_a,
+                                                                                 len(genome_ids_b),
+                                                                                 common_prefix_b))
+        # Print the genome IDs involved in each of the strains
+        write_handle.write('#IDs {}: {}\n'.format(common_prefix_a,
+                                                  ', '.join(genome_ids_a)))
+        write_handle.write('#IDs {}: {}\n'.format(common_prefix_b,
+                                                  ', '.join(genome_ids_b)))
+
+        # Print column headers for the data to come
         max_nton = len(genome_ids_a) // 2
         headers = _get_column_headers(max_nton)
-        write_handle.write('\t'.join(headers))
+        write_handle.write('#' + '\t'.join(headers))
         write_handle.write('\n')
 
         # Print data rows
@@ -511,7 +523,10 @@ def run_calculations(genomes_a_file,
     # bootstrapping NI
 
     # write output to file
-    _write_to_file(table_a_dest, genome_ids_a, common_prefix_a, common_prefix_b, calculations)
+    _write_to_file(table_a_dest,
+                   genome_ids_a, genome_ids_b,
+                   common_prefix_a, common_prefix_b,
+                   calculations)
 
     if append_odd_even:
         pass  # TODO # separate calculations for odd and even tables
