@@ -53,11 +53,11 @@ PI = 'Pi'
 GLOBAL_SFS = 'global sfs'
 NON_SYNONYMOUS_PI = 'Pi nonsyn'
 NON_SYNONYMOUS_SFS = 'non-synonymous sfs'
-# NON_SYNONYMOUS_SITES = 'non-synonymous sites'
+NON_SYNONYMOUS_SITES = 'non-synonymous sites'
 NON_SYNONYMOUS_POLYMORPHISMS = 'non-synonymous polymorphisms'
 SYNONYMOUS_PI = 'Pi syn'
 SYNONYMOUS_SFS = 'synonymous sfs'
-# SYNONYMOUS_SITES = 'synonymous sites'
+SYNONYMOUS_SITES = 'synonymous sites'
 SYNONYMOUS_POLYMORPHISMS = 'synonymous polymorphisms'
 FOUR_FOLD_SYNONYMOUS_PI = 'Pi 4-fold syn'
 FOUR_FOLD_SYNONYMOUS_SFS = '4-fold synonymous sfs'
@@ -74,6 +74,106 @@ NSS = 'NSS'
 THETA = 'Theta'
 NEUTRALITY_INDEX = 'neutrality index'
 DOS = 'DoS'
+
+
+def _get_nton_name(nton, prefix=''):
+    """Given the number of strains in which a polymorphism/substitution is found, give the appropriate SFS name."""
+    named = {1: 'single', 2: 'double', 3: 'triple', 4: 'quadruple', 5: 'quintuple'}
+    middle = named.get(nton, str(nton) + '-')
+    return prefix + middle + 'tons'
+
+
+def _get_column_headers(max_nton):
+    '''Get the column headers in the order they need to appear in the output data file.'''
+
+    def _write_sfs_column_names(prefix):
+        '''Return named columns for SFS singleton, doubleton, tripleton, etc.. upto max_nton.'''
+        for number in range(1, max_nton + 1):
+            yield _get_nton_name(number, prefix)
+
+    headers = [
+               # Ortholog is first
+               ORTHOLOG,
+
+               # Gene name is captured as product of the orthologous DNA sequence
+               PRODUCT,
+
+               # Split COG into first part with numbers and second part with letters
+               COG_DIGITS, COG_LETTERS,
+               # Some initial values
+               CODONS]
+
+    # Non_synonymous
+    headers.extend([NON_SYNONYMOUS_SITES, NON_SYNONYMOUS_POLYMORPHISMS])
+    headers.extend(_write_sfs_column_names(NON_SYNONYMOUS_SFS + ' '))
+
+    # synonymous
+    headers.extend([SYNONYMOUS_SITES, SYNONYMOUS_POLYMORPHISMS])
+    headers.extend(_write_sfs_column_names(SYNONYMOUS_SFS + ' '))
+
+    # 4-fold synonymous
+    headers.extend([FOUR_FOLD_SYNONYMOUS_SITES, FOUR_FOLD_SYNONYMOUS_POLYMORPHISMS])
+    headers.extend(_write_sfs_column_names(FOUR_FOLD_SYNONYMOUS_SFS + ' '))
+
+    headers.extend([
+                    # Miscellaneous additional statistics
+                    MULTIPLE_SITE_POLYMORPHISMS,
+                    COMPLEX_CODONS,
+                    # PAML
+                    DN, DS,
+                    # PhiPack
+                    PHIPACK_SITES, PHI, MAX_CHI_2, NSS,
+
+                    # Measures of nucleotide diversity per SICO
+                    PI,
+                    NON_SYNONYMOUS_PI,
+                    SYNONYMOUS_PI,
+                    FOUR_FOLD_SYNONYMOUS_PI,
+                    THETA,
+
+                    # Final _two_ values here are ignored when calculation sums over complete table
+                    NEUTRALITY_INDEX,
+                    DOS])
+    return headers
+
+
+def _write_to_file(table_a_dest,
+                   genome_ids_a,
+                   common_prefix_a,
+                   common_prefix_b,
+                   calculations):
+    '''
+
+    :param table_a_dest:
+    :type table_a_dest: filename
+    :param genome_ids_a:
+    :type genome_ids_a: list or genome ids
+    :param common_prefix_a:
+    :type common_prefix_a: string
+    :param common_prefix_b:
+    :type common_prefix_b: string
+    :param calculations:
+    :type calculations: list of clade_calcs instances
+    '''
+    # TODO Print file header that shows common prefixes
+
+    with open(table_a_dest, 'a') as write_handle:
+
+        # Print column headers
+        max_nton = len(genome_ids_a) // 2
+        headers = _get_column_headers(max_nton)
+        write_handle.write('\t'.join(headers))
+        write_handle.write('\n')
+
+        # Print data rows
+        format_str = '\t'.join('{{{}}}'.format(key) for key in headers)
+        from string import Formatter
+        formatter = Formatter().vformat
+        for clade_calcs in calculations:
+            write_handle.write(formatter(format_str, None, clade_calcs.values))
+            write_handle.write('\n')
+
+    # TODO actually write to output file
 
 
 def _extract_cog_digits_and_letters(clade_calcs):
@@ -98,6 +198,11 @@ def _get_codeml_values(alignment_a, alignment_b):
     codeml_file = run_codeml(subdir, alignment_a, alignment_b)
     codeml_values_dict = parse_codeml_output(codeml_file)
     shutil.rmtree(subdir)
+
+    # convert poorly legible keys to better ones
+    codeml_values_dict[NON_SYNONYMOUS_SITES] = codeml_values_dict['N']
+    codeml_values_dict[SYNONYMOUS_SITES] = codeml_values_dict['S']
+
     return codeml_values_dict
 
 
@@ -144,8 +249,6 @@ FOUR_FOLD_DEGENERATE_PATTERN = '({onetwo})[{three}]'.format(onetwo='|'.join(sort
 
 def _codon_site_freq_spec(clade_calcs):
     '''Site frequency spectrum calculations for full, syn, non-syn and 4-fold syn sites.'''
-    synonymous_sites = 0
-    non_synonymous_sites = 0
     four_fold_synonymous_sites = 0
     multiple_site_polymorphisms = 0
     mixed_synonymous_polymorphisms = 0
@@ -224,7 +327,6 @@ def _codon_site_freq_spec(clade_calcs):
 
         if len(translations) == 1:
             # All mutations are synonymous
-            synonymous_sites += 1
             add_dict_to_dict(synonymous_sfs, local_sfs)
 
             # Check if these codons also match the four fold synonymous pattern
@@ -234,7 +336,6 @@ def _codon_site_freq_spec(clade_calcs):
         else:
             if len(translations) == len(polymorph_site_usage):
                 # Multiple translations, one per change in base
-                non_synonymous_sites += 1
                 add_dict_to_dict(non_synonymous_sfs, local_sfs)
             else:
                 # Number of translations & number of different bases do not match: Both syn and non syn changes found
@@ -249,19 +350,19 @@ def _codon_site_freq_spec(clade_calcs):
     clade_calcs.values[SYNONYMOUS_SFS] = synonymous_sfs
     clade_calcs.values[SYNONYMOUS_POLYMORPHISMS] = sum(synonymous_sfs.values())
     clade_calcs.values[SYNONYMOUS_PI] = _calc_pi(clade_calcs.nr_of_strains,
-                                                 clade_calcs.values['S'],
+                                                 clade_calcs.values[SYNONYMOUS_SITES],
                                                  synonymous_sfs)
 
     clade_calcs.values[NON_SYNONYMOUS_SFS] = non_synonymous_sfs
     clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS] = sum(non_synonymous_sfs.values())
     clade_calcs.values[NON_SYNONYMOUS_PI] = _calc_pi(clade_calcs.nr_of_strains,
-                                                     clade_calcs.values['N'],
+                                                     clade_calcs.values[NON_SYNONYMOUS_SITES],
                                                      non_synonymous_sfs)
 
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_SFS] = four_fold_syn_sfs
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_POLYMORPHISMS] = sum(four_fold_syn_sfs.values())
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_PI] = _calc_pi(clade_calcs.nr_of_strains,
-                                                           clade_calcs.values[FOUR_FOLD_SYNONYMOUS_SITES],
+                                                           four_fold_synonymous_sites,
                                                            four_fold_syn_sfs)
 
     # TODO Also add the SINGLETON, DOUBLETON, TRIPLETON, etc values here
@@ -330,7 +431,7 @@ class clade_calcs(object):
     nr_of_strains = None
     sequence_lengths = None
 
-    values = {}
+    values = defaultdict()
 
     def __init__(self, alignment):
         self.alignment = alignment
@@ -346,7 +447,6 @@ class clade_calcs(object):
 
         # Get the most recent gene name for the strains in a given clade_calcs instance
         clade_calcs.values[PRODUCT] = get_most_recent_gene_name(genomes, self.alignment)
-
 
 
 def run_calculations(genomes_a_file,
@@ -366,14 +466,20 @@ def run_calculations(genomes_a_file,
 
     # TODO calculate phipack values for combined aligments
 
+    # dictionary to hold the values calculated per file
+    calculations = []
+
     # loop over orthologs
     for sico_file in sico_files:
+        # get ortholog name from filename
+        ortholog = os.path.splitext(os.path.basename(sico_file))[0]
+
         # parse alignment
         alignment = AlignIO.read(sico_file, 'fasta')
 
         # split alignments
         alignment_a = MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_a)
-        alignment_b = MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_b)
+        alignment_b = MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] not in genome_ids_a)
 
         # calculate codeml values
         codeml_values = _get_codeml_values(alignment_a, alignment_b)
@@ -382,6 +488,9 @@ def run_calculations(genomes_a_file,
 
         # create gathering instance of clade_calcs
         instance = clade_calcs(alignment_a)
+
+        # store ortholog name
+        instance.values[ORTHOLOG] = ortholog
 
         # add codeml_values to clade_calcs instance values
         instance.values.update(codeml_values)
@@ -395,12 +504,19 @@ def run_calculations(genomes_a_file,
         # add additional deduced calculation
         _add_combined_calculations(instance)
 
+        # store the clade_calc values
+        calculations.append(instance)
+
     # TODO All stubs below
     # bootstrapping NI
 
-    # separate calculations for odd and even tables
+    # write output to file
+    _write_to_file(table_a_dest, genome_ids_a, common_prefix_a, common_prefix_b, calculations)
 
-    # clean up
+    if append_odd_even:
+        pass  # TODO # separate calculations for odd and even tables
+
+    # clean up # XXX move this up as close to the point where we don't need the files anymore as possible
     shutil.rmtree(rundir)
 
 
