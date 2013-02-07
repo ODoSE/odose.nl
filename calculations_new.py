@@ -21,6 +21,7 @@ from divergence.run_codeml import run_codeml, parse_codeml_output
 from divergence.select_taxa import select_genomes_by_ids
 from itertools import product
 from numpy import mean
+from random import choice
 import logging
 import os
 import re
@@ -438,29 +439,83 @@ def _add_combined_calculations(clade_calcs):
         clade_calcs.values['Dn*Ps/(Ps+Ds)'] = None
 
 
+class Statistic(object):
+    '''Helper class for general statistics that mimics the characterics of clade_calcs.'''
+    def __init__(self, name):
+        '''The name argument is stored as ORTHOLOG in the values defaultdict, so it shows up correctly in output.'''
+        self.values = defaultdict()
+        self.values[ORTHOLOG] = name
+
+
 def _calculcate_mean_and_averages(calculations, max_nton):
-    '''TODO document'''
+    '''Calculate the sum and mean data rows for a subset of numerical data columns, and append them to calculations.'''
     headers = _get_column_headers(max_nton)
 
-    class Statistic(object):
-        def __init__(self):
-            self.values = defaultdict()
-
     # calculate the sum for a subset of headers
-    sum_stats = Statistic()
-    sum_stats.values[ORTHOLOG] = 'sum'
+    sum_stats = Statistic('sum')
     for header in headers[5:-2]:
         sum_stats.values[header] = sum(clade_calcs.values[header] for clade_calcs in calculations)
 
     # calculate the average for a subset of headers
-    mean_stats = Statistic()
-    mean_stats.values[ORTHOLOG] = 'mean'
+    mean_stats = Statistic('mean')
     for header in headers[5:-2] + [DOS]:
         mean_stats.values[header] = mean([clade_calcs.values[header] for clade_calcs in calculations])
 
     # append statistics now that we're no longer looping over them
-    calculations.append(sum_stats)
-    calculations.append(mean_stats)
+    return sum_stats, mean_stats
+
+
+def _bootstrap(sum_dspn, sum_dnps):
+    """Bootstrap by gene to get to confidence scores for Neutrality Index."""
+
+    def _sample_with_replacement(sample_set, sample_size=None):
+        """Sample sample_size items from sample_set, or len(sample_set) items if sample_size is None (default)."""
+        if sample_size is None:
+            sample_size = len(sample_set)
+        samples = []
+        while len(samples) < sample_size:
+            samples.append(choice(sample_set))
+        return samples
+
+    # "to get the confident interval on this you need to boostrap by gene - i.e. if we have 1000 genes, we form a
+    # boostrap sample by resampling, with replacement 1000 genes from the original sample; recalculate NI and repeat
+    # 1000 times; the SE on the estimate is the standard deviation across bootstraps, and your 95% confidence
+    # interval van be obtained by sorting the values and taking the 25t and 975th values"
+    ni_values = []
+    while len(ni_values) < len(sum_dspn):
+        ni_values.append(sum(_sample_with_replacement(sum_dspn)) /
+                         sum(_sample_with_replacement(sum_dnps)))
+
+    # 95 percent of values fall between n*.025th element & n*.975th element when NI values are sorted
+    ni_values = sorted(ni_values)
+    lower_limit = int(round(0.025 * (len(ni_values) - 1)))
+    upper_limit = int(round(0.975 * (len(ni_values) - 1)))
+    return ni_values[lower_limit], ni_values[upper_limit]
+
+
+def _neutrality_indices(calculations):
+    # Neutrality Index = Sum(X = Ds*Pn/(Ps+Ds)) / Sum(Y = Dn*Ps/(Ps+Ds))
+    x_values = [clade_calcs.values['Ds*Pn/(Ps+Ds)'] for clade_calcs in calculations]
+    y_values = [clade_calcs.values['Dn*Ps/(Ps+Ds)'] for clade_calcs in calculations]
+
+    sum_x = sum(x_values)
+    sum_y = sum(y_values)
+
+    if sum_y:
+        ni_stats = Statistic('NI')
+        ni_stats.values[NEUTRALITY_INDEX] = sum_x / sum_y
+
+        # Find lower and upper limits within which 95% of values fall, by using bootstrapping statistics
+        lower_95perc_limit, upper_95perc_limit = _bootstrap(x_values, y_values)
+
+        ni_lower_stats = Statistic('NI 95% lower limit')
+        ni_lower_stats.values[NEUTRALITY_INDEX] = lower_95perc_limit
+
+        ni_upper_stats = Statistic('NI 95% upper limit')
+        ni_upper_stats.values[NEUTRALITY_INDEX] = upper_95perc_limit
+
+        return ni_stats, ni_lower_stats, ni_upper_stats
+
 
 class clade_calcs(object):
     '''Perform the calculations specific a single clade.'''
