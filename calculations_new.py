@@ -20,6 +20,7 @@ from divergence import CODON_TABLE_ID, find_cogs_in_sequence_records, get_most_r
 from divergence.run_codeml import run_codeml, parse_codeml_output
 from divergence.select_taxa import select_genomes_by_ids
 from itertools import product
+from numpy import mean
 import logging
 import os
 import re
@@ -436,6 +437,31 @@ def _add_combined_calculations(clade_calcs):
         clade_calcs.values['Ds*Pn/(Ps+Ds)'] = None
         clade_calcs.values['Dn*Ps/(Ps+Ds)'] = None
 
+
+def _calculcate_mean_and_averages(calculations, max_nton):
+    '''TODO document'''
+    headers = _get_column_headers(max_nton)
+
+    class Statistic(object):
+        def __init__(self):
+            self.values = defaultdict()
+
+    # calculate the sum for a subset of headers
+    sum_stats = Statistic()
+    sum_stats.values[ORTHOLOG] = 'sum'
+    for header in headers[5:-2]:
+        sum_stats.values[header] = sum(clade_calcs.values[header] for clade_calcs in calculations)
+
+    # calculate the average for a subset of headers
+    mean_stats = Statistic()
+    mean_stats.values[ORTHOLOG] = 'mean'
+    for header in headers[5:-2] + [DOS]:
+        mean_stats.values[header] = mean([clade_calcs.values[header] for clade_calcs in calculations])
+
+    # append statistics now that we're no longer looping over them
+    calculations.append(sum_stats)
+    calculations.append(mean_stats)
+
 class clade_calcs(object):
     '''Perform the calculations specific a single clade.'''
 
@@ -491,7 +517,7 @@ def run_calculations(genomes_a_file,
 
         # split alignments
         alignment_a = MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_a)
-        alignment_b = MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] not in genome_ids_a)
+        alignment_b = MultipleSeqAlignment(seqr for seqr in alignment if seqr.id.split('|')[0] in genome_ids_b)
 
         # calculate codeml values
         codeml_values = _get_codeml_values(alignment_a, alignment_b)
@@ -519,8 +545,12 @@ def run_calculations(genomes_a_file,
         # store the clade_calc values
         calculations.append(instance)
 
-    # TODO All stubs below
-    # bootstrapping NI
+    # calculcate mean and averages
+    max_nton = genome_ids_a // 2
+    _calculcate_mean_and_averages(calculations, max_nton)
+
+    # TODO bootstrapping NI
+
 
     # write output to file
     _write_to_file(table_a_dest,
