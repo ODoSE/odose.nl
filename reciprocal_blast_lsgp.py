@@ -102,7 +102,7 @@ def _retrieve_blast_hits(jobid, hits_file):
     """
     #Wait for job to complete and retrieve results
     results_dir = retrieve_run_result(jobid,
-                                      max_duration=timedelta(hours=5).total_seconds())
+                                      max_duration=timedelta(hours=12).total_seconds())
 
     # Construct the likely path to the local file
     local_path = os.path.join(results_dir, hits_file)
