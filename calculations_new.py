@@ -74,6 +74,8 @@ PHI = 'Phi'
 MAX_CHI_2 = 'Max Chi^2'
 NSS = 'NSS'
 THETA = 'Theta'
+DS_PN_PS_DS = 'Ds*Pn/(Ps+Ds)'
+DN_PS_PS_DS = 'Dn*Ps/(Ps+Ds)'
 NEUTRALITY_INDEX = 'neutrality index'
 DOS = 'DoS'
 
@@ -158,10 +160,7 @@ def _write_to_file(table_a_dest,
     :param calculations:
     :type calculations: list of clade_calcs instances
     '''
-    # TODO Print file header that shows common prefixes
-
     with open(table_a_dest, 'a') as write_handle:
-
         # Print introduction about the strain comparison
         write_handle.write('#{} {} strains compared with {} {} strains\n'.format(len(genome_ids_a),
                                                                                  common_prefix_a,
@@ -182,12 +181,10 @@ def _write_to_file(table_a_dest,
         # Print data rows
         format_str = '\t'.join('{{{}}}'.format(key) for key in headers)
         from string import Formatter
-        formatter = Formatter().vformat
+        formatter = Formatter()
         for clade_calcs in calculations:
-            write_handle.write(formatter(format_str, None, clade_calcs.values))
+            write_handle.write(formatter.vformat(format_str, None, clade_calcs.values))
             write_handle.write('\n')
-
-    # TODO actually write to output file
 
 
 def _extract_cog_digits_and_letters(clade_calcs):
@@ -358,6 +355,7 @@ def _codon_site_freq_spec(clade_calcs):
         # Implicitly continue with next iteration
 
     # Add SFS & Pi calculations to values dictionary
+    # Synonymous
     clade_calcs.values[GLOBAL_SFS] = global_sfs
     clade_calcs.values[PI] = _calc_pi(clade_calcs.nr_of_strains, clade_calcs.sequence_lengths, global_sfs)
 
@@ -366,20 +364,26 @@ def _codon_site_freq_spec(clade_calcs):
     clade_calcs.values[SYNONYMOUS_PI] = _calc_pi(clade_calcs.nr_of_strains,
                                                  clade_calcs.values[SYNONYMOUS_SITES],
                                                  synonymous_sfs)
+    for nton, value in synonymous_sfs.items():
+        clade_calcs.values[_get_nton_name(nton, SYNONYMOUS_SFS + ' ')] = value
 
+    # Non synonymous
     clade_calcs.values[NON_SYNONYMOUS_SFS] = non_synonymous_sfs
     clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS] = sum(non_synonymous_sfs.values())
     clade_calcs.values[NON_SYNONYMOUS_PI] = _calc_pi(clade_calcs.nr_of_strains,
                                                      clade_calcs.values[NON_SYNONYMOUS_SITES],
                                                      non_synonymous_sfs)
+    for nton, value in non_synonymous_sfs.items():
+        clade_calcs.values[_get_nton_name(nton, NON_SYNONYMOUS_SFS + ' ')] = value
 
+    # 4-fold synonymous
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_SFS] = four_fold_syn_sfs
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_POLYMORPHISMS] = sum(four_fold_syn_sfs.values())
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_PI] = _calc_pi(clade_calcs.nr_of_strains,
                                                            four_fold_synonymous_sites,
                                                            four_fold_syn_sfs)
-
-    # TODO Also add the SINGLETON, DOUBLETON, TRIPLETON, etc values here
+    for nton, value in four_fold_syn_sfs.items():
+        clade_calcs.values[_get_nton_name(nton, FOUR_FOLD_SYNONYMOUS_SFS + ' ')] = value
 
 
     # Add tallies to values dictionary
@@ -427,23 +431,23 @@ def _add_combined_calculations(clade_calcs):
     ps_plus_ds = (clade_calcs.values[SYNONYMOUS_POLYMORPHISMS] + clade_calcs.values[DS])
     if ps_plus_ds:
         # X = Ds*Pn/(Ps+Ds)
-        clade_calcs.values['Ds*Pn/(Ps+Ds)'] = (clade_calcs.values[DS]
+        clade_calcs.values[DS_PN_PS_DS] = (clade_calcs.values[DS]
                                                * clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS]
                                                / ps_plus_ds)
         # Y = Dn*Ps/(Ps+Ds)
-        clade_calcs.values['Dn*Ps/(Ps+Ds)'] = (clade_calcs.values[DN]
+        clade_calcs.values[DN_PS_PS_DS] = (clade_calcs.values[DN]
                                                * clade_calcs.values[SYNONYMOUS_POLYMORPHISMS]
                                                / ps_plus_ds)
     else:
-        clade_calcs.values['Ds*Pn/(Ps+Ds)'] = None
-        clade_calcs.values['Dn*Ps/(Ps+Ds)'] = None
+        clade_calcs.values[DS_PN_PS_DS] = None
+        clade_calcs.values[DN_PS_PS_DS] = None
 
 
 class Statistic(object):
     '''Helper class for general statistics that mimics the characterics of clade_calcs.'''
     def __init__(self, name):
         '''The name argument is stored as ORTHOLOG in the values defaultdict, so it shows up correctly in output.'''
-        self.values = defaultdict()
+        self.values = defaultdict(lambda:'')
         self.values[ORTHOLOG] = name
 
 
@@ -454,12 +458,14 @@ def _calculcate_mean_and_averages(calculations, max_nton):
     # calculate the sum for a subset of headers
     sum_stats = Statistic('sum')
     for header in headers[5:-2]:
-        sum_stats.values[header] = sum(clade_calcs.values[header] for clade_calcs in calculations)
+        sum_stats.values[header] = sum(clade_calcs.values[header]
+                                       for clade_calcs in calculations)
 
     # calculate the average for a subset of headers
     mean_stats = Statistic('mean')
     for header in headers[5:-2] + [DOS]:
-        mean_stats.values[header] = mean([clade_calcs.values[header] for clade_calcs in calculations])
+        mean_stats.values[header] = mean([clade_calcs.values[header]
+                                          for clade_calcs in calculations])
 
     # append statistics now that we're no longer looping over them
     return sum_stats, mean_stats
@@ -494,9 +500,11 @@ def _bootstrap(sum_dspn, sum_dnps):
 
 
 def _neutrality_indices(calculations):
+    '''Return the statistics for Neutrality index. It adds the actual value, and two bootstrapped 95% values.'''
     # Neutrality Index = Sum(X = Ds*Pn/(Ps+Ds)) / Sum(Y = Dn*Ps/(Ps+Ds))
-    x_values = [clade_calcs.values['Ds*Pn/(Ps+Ds)'] for clade_calcs in calculations]
-    y_values = [clade_calcs.values['Dn*Ps/(Ps+Ds)'] for clade_calcs in calculations]
+
+    x_values = [clade_calcs.values[DS_PN_PS_DS] for clade_calcs in calculations]
+    y_values = [clade_calcs.values[DN_PS_PS_DS] for clade_calcs in calculations]
 
     sum_x = sum(x_values)
     sum_y = sum(y_values)
@@ -515,6 +523,7 @@ def _neutrality_indices(calculations):
         ni_upper_stats.values[NEUTRALITY_INDEX] = upper_95perc_limit
 
         return ni_stats, ni_lower_stats, ni_upper_stats
+    return 0, 0, 0
 
 
 class clade_calcs(object):
@@ -524,22 +533,24 @@ class clade_calcs(object):
     nr_of_strains = None
     sequence_lengths = None
 
-    values = defaultdict()
+    values = None
 
     def __init__(self, alignment):
         self.alignment = alignment
         self.nr_of_strains = len(alignment)
         self.sequence_lengths = len(alignment[0])
 
+        self.values = defaultdict(int)
+
         # The most basic calculation added to the output file
-        clade_calcs.values[CODONS] = self.sequence_lengths // 3
+        self.values[CODONS] = self.sequence_lengths // 3
 
         # Get the genomes for this alignment
         genome_ids = [seqr.id.split('|')[0] for seqr in alignment]
         genomes = select_genomes_by_ids(genome_ids).values()
 
         # Get the most recent gene name for the strains in a given clade_calcs instance
-        clade_calcs.values[PRODUCT] = get_most_recent_gene_name(genomes, self.alignment)
+        self.values[PRODUCT] = get_most_recent_gene_name(genomes, self.alignment)
 
 
 def run_calculations(genomes_a_file,
@@ -601,11 +612,14 @@ def run_calculations(genomes_a_file,
         calculations.append(instance)
 
     # calculcate mean and averages
-    max_nton = genome_ids_a // 2
-    _calculcate_mean_and_averages(calculations, max_nton)
+    max_nton = len(genome_ids_a) // 2
+    sum_stats, mean_stats = _calculcate_mean_and_averages(calculations, max_nton)
 
-    # TODO bootstrapping NI
+    # bootstrapping NI
+    ni_stats, ni_lower_stats, ni_upper_stats = _neutrality_indices(calculations)
 
+    # append statistics so they show up in file
+    calculations.extend((sum_stats, mean_stats, ni_stats, ni_lower_stats, ni_upper_stats))
 
     # write output to file
     _write_to_file(table_a_dest,
