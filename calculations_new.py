@@ -142,6 +142,14 @@ def _get_column_headers(max_nton):
     return headers
 
 
+def _write_intro_to_file(table_a_dest):
+    '''Explain the presence of three tables in one file if we're also calculating odd & even codons'''
+    with open(table_a_dest, 'w') as write_handle:
+        write_handle.write('''#First table contains calculations for all codon
+#Second table contains calculations for odd codons only
+#Third table contains calculations for even codons only''')
+
+
 def _write_to_file(table_a_dest,
                    genome_ids_a,
                    genome_ids_b,
@@ -460,13 +468,15 @@ def _calculcate_mean_and_averages(calculations, max_nton):
     sum_stats = Statistic('sum')
     for header in headers[5:-2]:
         sum_stats.values[header] = sum(clade_calcs.values[header]
-                                       for clade_calcs in calculations)
+                                       for clade_calcs in calculations
+                                       if clade_calcs.values[header] != None)
 
     # calculate the average for a subset of headers
     mean_stats = Statistic('mean')
     for header in headers[5:-2] + [DOS]:
         mean_stats.values[header] = mean([clade_calcs.values[header]
-                                          for clade_calcs in calculations])
+                                          for clade_calcs in calculations
+                                          if clade_calcs.values[header] != None])
 
     # append statistics now that we're no longer looping over them
     return sum_stats, mean_stats
@@ -474,7 +484,7 @@ def _calculcate_mean_and_averages(calculations, max_nton):
 
 def _bootstrap(sum_dspn, sum_dnps):
     """Bootstrap by gene to get to confidence scores for Neutrality Index."""
-
+    # FIXME I highly suspect this bootstrapping is not yet correct, as the values are way off for small datasets
     def _sample_with_replacement(sample_set, sample_size=None):
         """Sample sample_size items from sample_set, or len(sample_set) items if sample_size is None (default)."""
         if sample_size is None:
@@ -554,35 +564,12 @@ class clade_calcs(object):
         self.values[PRODUCT] = get_most_recent_gene_name(genomes, self.alignment)
 
 
-def run_calculations(genomes_a_file,
-                     genomes_b_file,
-                     sicozip_file,
-                     table_a_dest,
-                     table_b_dest,
-                     append_odd_even=False):
-    ''''''
-    # parse genomes in genomes_x_files
-    genome_ids_a, common_prefix_a = _extract_genome_ids_and_common_prefix(genomes_a_file)
-    genome_ids_b, common_prefix_b = _extract_genome_ids_and_common_prefix(genomes_b_file)
-
-    # extract ortholog files from sicozip
-    rundir = tempfile.mkdtemp(prefix='calculations_')
-    sico_files = extract_archive_of_files(sicozip_file, create_directory('sicos', inside_dir=rundir))
-
-    # calculate phipack values for combined aligments once
-    phipack_dir = create_directory('phipack', rundir)
-    phipack_values = {sico_file:
-                      run_phipack(phipack_dir, sico_file)
-                      for sico_file in sico_files}
-
+def _table_calculations(genome_ids_a, genome_ids_b, sico_files, phipack_values):
+    '''Perform calculations for comparsion of genome_ids_a with genome_ids_b.'''
     # dictionary to hold the values calculated per file
     calculations = []
-
     # loop over orthologs
     for sico_file in sico_files:
-        # get ortholog name from filename
-        ortholog = os.path.splitext(os.path.basename(sico_file))[0]
-
         # parse alignment
         alignment = AlignIO.read(sico_file, 'fasta')
 
@@ -593,12 +580,11 @@ def run_calculations(genomes_a_file,
         # calculate codeml values
         codeml_values = _get_codeml_values(alignment_a, alignment_b)
 
-        # TODO separate calculations for table a and table b
-
         # create gathering instance of clade_calcs
         instance = clade_calcs(alignment_a)
 
-        # store ortholog name
+        # store ortholog name retrieved from filename
+        ortholog = os.path.splitext(os.path.basename(sico_file))[0]
         instance.values[ORTHOLOG] = ortholog
 
         # add codeml_values to clade_calcs instance values
@@ -623,24 +609,121 @@ def run_calculations(genomes_a_file,
     max_nton = len(genome_ids_a) // 2
     sum_stats, mean_stats = _calculcate_mean_and_averages(calculations, max_nton)
 
-    # bootstrapping NI
+    # neutrality index calculation and bootstrapping
     ni_stats, ni_lower_stats, ni_upper_stats = _neutrality_indices(calculations)
 
-    # append statistics so they show up in file
+    # finally append statistics to calculations so they show up in file
     calculations.extend((sum_stats, mean_stats, ni_stats, ni_lower_stats, ni_upper_stats))
 
-    # write output to file
-    _write_to_file(table_a_dest,
-                   genome_ids_a, genome_ids_b,
-                   common_prefix_a, common_prefix_b,
-                   calculations)
+    return calculations
 
+
+def run_calculations(genomes_a_file,
+                     genomes_b_file,
+                     sico_files,
+                     table_a_dest,
+                     table_b_dest):
+    '''Perform all calculations as requested through command line arguments'''
+    # parse genomes in genomes_x_files
+    genome_ids_a, common_prefix_a = _extract_genome_ids_and_common_prefix(genomes_a_file)
+    genome_ids_b, common_prefix_b = _extract_genome_ids_and_common_prefix(genomes_b_file)
+
+    # calculate phipack values for combined aligments once
+    phipack_dir = tempfile.mkdtemp(prefix='phipack_')
+    phipack_values = {sico_file:
+                      run_phipack(phipack_dir, sico_file)
+                      for sico_file in sico_files}
+    shutil.rmtree(phipack_dir)
+
+    # per table calculations
+    if 1 < len(genome_ids_a):
+        calculations_ab = _table_calculations(genome_ids_a, genome_ids_b, sico_files, phipack_values)
+        _write_to_file(table_a_dest,
+                       genome_ids_a, genome_ids_b,
+                       common_prefix_a, common_prefix_b,
+                       calculations_ab)
+
+    if 1 < len(genome_ids_b):
+        calculations_ba = _table_calculations(genome_ids_b, genome_ids_a, sico_files, phipack_values)
+        _write_to_file(table_b_dest,
+                       genome_ids_b, genome_ids_a,
+                       common_prefix_b, common_prefix_a,
+                       calculations_ba)
+
+
+def _every_other_codon_alignments(alignment):
+    """Separate alignment into separate alignments per codon, to get independent axis when graphing data."""
+    # Calculate sequence_length to use when splitting MSA into codons
+    sequence_lengths = len(alignment[0]) - len(alignment[0]) % 3
+    alignment_codons = [alignment[:, index:index + 3] for index in range(0, sequence_lengths, 3)]
+
+    def _concat_codons_to_alignment(codons):
+        """Concatenate codons as Bio.Align.MultipleSeqAlignment to one another to create a composed MSA."""
+        alignment = codons[0]
+        for codon in codons[1:]:
+            alignment += codon
+        return alignment
+
+    # Odd alignments are the sum of the odd codons
+    ali_odd = _concat_codons_to_alignment([codon for index, codon in enumerate(alignment_codons, 1) if index % 2 == 1])
+    # Even alignments are the sum of the even codons
+    ali_even = _concat_codons_to_alignment([codon for index, codon in enumerate(alignment_codons, 1) if index % 2 == 0])
+    return ali_odd, ali_even
+
+
+def _split_by_odd_even_codons(sico_files):
+    '''Split each sequence in each sico file by odd and even codons and write them out to separate files.'''
+    odd_sico_files = []
+    even_sico_files = []
+
+    for sico_file in sico_files:
+        # split alignments and store them in separate files
+        alignment = AlignIO.read(sico_file, 'fasta')
+        odd_alignment, even_alignment = _every_other_codon_alignments(alignment)
+
+        # compose new unique filenames
+        dirname, basename = os.path.split(sico_file)
+        odd_file = os.path.join(dirname, 'odd_' + basename)
+        even_file = os.path.join(dirname, 'even_' + basename)
+
+        # store the split alignments in separate files
+        AlignIO.write(odd_alignment, odd_file, 'fasta')
+        AlignIO.write(even_alignment, even_file, 'fasta')
+
+        # safe the references to the new files
+        odd_sico_files.append(odd_file)
+        even_sico_files.append(even_file)
+
+    return odd_sico_files, even_sico_files
+
+
+def _prepare_calculations(genomes_a_file,
+                          genomes_b_file,
+                          sicozip_file,
+                          table_a_dest,
+                          table_b_dest,
+                          append_odd_even=False):
+    '''Unzip sico_files, and if needed create temporary files for the odd/even only codons.'''
     if append_odd_even:
-        pass  # TODO # separate calculations for odd and even tables
+        # prepend file makeup when odd/even table are also added
+        _write_intro_to_file(table_a_dest)
+        _write_intro_to_file(table_b_dest)
 
-    # clean up # XXX move this up as close to the point where we don't need the files anymore as possible
+    # extract ortholog files from sicozip
+    rundir = tempfile.mkdtemp(prefix='calculations_')
+    sico_files = extract_archive_of_files(sicozip_file, create_directory('sicos', inside_dir=rundir))
+
+    # perform normal calculation
+    run_calculations(genomes_a_file, genomes_b_file, sico_files, table_a_dest, table_b_dest)
+
+    # separate calculations for odd and even tables
+    if append_odd_even:
+        odd_sico_files, even_sico_files = _split_by_odd_even_codons(sico_files)
+        run_calculations(genomes_a_file, genomes_b_file, odd_sico_files, table_a_dest, table_b_dest)
+        run_calculations(genomes_a_file, genomes_b_file, even_sico_files, table_a_dest, table_b_dest)
+
+    # clean up
     shutil.rmtree(rundir)
-
 
 def main(argv=None):  # IGNORE:C0111
     '''Command line options.'''
@@ -685,12 +768,13 @@ USAGE
             print("Verbose mode on")
             logging.root.setLevel(logging.DEBUG)
 
-        run_calculations(args.genomes_a,
-                         args.genomes_b,
-                         args.sicozip,
-                         args.table_a,
-                         args.table_b,
-                         args.append_odd_even)
+        # perform the calculations
+        _prepare_calculations(args.genomes_a,
+                              args.genomes_b,
+                              args.sicozip,
+                              args.table_a,
+                              args.table_b,
+                              args.append_odd_even)
 
         return 0
     except KeyboardInterrupt:
