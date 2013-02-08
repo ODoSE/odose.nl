@@ -28,6 +28,7 @@ import re
 import shutil
 import sys
 import tempfile
+from divergence.run_phipack import run_phipack
 
 
 __all__ = []
@@ -568,7 +569,11 @@ def run_calculations(genomes_a_file,
     rundir = tempfile.mkdtemp(prefix='calculations_')
     sico_files = extract_archive_of_files(sicozip_file, create_directory('sicos', inside_dir=rundir))
 
-    # TODO calculate phipack values for combined aligments
+    # calculate phipack values for combined aligments once
+    phipack_dir = create_directory('phipack', rundir)
+    phipack_values = {sico_file:
+                      run_phipack(phipack_dir, sico_file)
+                      for sico_file in sico_files}
 
     # dictionary to hold the values calculated per file
     calculations = []
@@ -598,6 +603,9 @@ def run_calculations(genomes_a_file,
 
         # add codeml_values to clade_calcs instance values
         instance.values.update(codeml_values)
+
+        # add phipack values for this file
+        instance.values.update(phipack_values[sico_file])
 
         # add COG digits and letters
         _extract_cog_digits_and_letters(instance)
