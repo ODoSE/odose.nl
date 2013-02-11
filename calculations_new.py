@@ -647,6 +647,9 @@ def run_calculations(genomes_a_file,
                        genome_ids_a, genome_ids_b,
                        common_prefix_a, common_prefix_b,
                        calculations_ab)
+    else:
+        with open(table_b_dest, 'w') as write_handle:
+            write_handle.write('#At least two genomes are needed to calculate diversity, not ' + str(len(genome_ids_a)))
 
     if 1 < len(genome_ids_b):
         calculations_ba = _table_calculations(genome_ids_b, genome_ids_a, sico_files, phipack_values)
@@ -654,6 +657,9 @@ def run_calculations(genomes_a_file,
                        genome_ids_b, genome_ids_a,
                        common_prefix_b, common_prefix_a,
                        calculations_ba)
+    else:
+        with open(table_b_dest, 'w') as write_handle:
+            write_handle.write('#At least two genomes are needed to calculate diversity, not ' + str(len(genome_ids_b)))
 
 
 def _every_other_codon_alignments(alignment):
