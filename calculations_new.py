@@ -13,11 +13,12 @@ from __future__ import division
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from argparse import ArgumentParser, RawDescriptionHelpFormatter, ArgumentTypeError
 from collections import Counter, defaultdict
 from divergence import CODON_TABLE_ID, find_cogs_in_sequence_records, get_most_recent_gene_name, \
     extract_archive_of_files, create_directory
 from divergence.run_codeml import run_codeml, parse_codeml_output
+from divergence.run_phipack import run_phipack
 from divergence.select_taxa import select_genomes_by_ids
 from itertools import product
 from numpy import mean
@@ -28,15 +29,14 @@ import re
 import shutil
 import sys
 import tempfile
-from divergence.run_phipack import run_phipack
 
 
 __all__ = []
 __version__ = 0.1
 __date__ = '2013-01-16'
-__updated__ = '2013-01-16'
+__updated__ = '2013-02-11'
 
-DEBUG = 1
+DEBUG = 0
 
 # Premise
 # - Some duplication is OK if it helps clarity
@@ -730,14 +730,12 @@ def main(argv=None):  # IGNORE:C0111
 
     if argv is None:
         argv = sys.argv
-    else:
-        sys.argv.extend(argv)
 
     program_name = os.path.basename(sys.argv[0])
     program_version = "v%s" % __version__
     program_build_date = str(__updated__)
     program_version_message = '%%(prog)s %s (%s)' % (program_version, program_build_date)
-    program_shortdesc = __import__('__main__').__doc__.split("\n")[1]
+    program_shortdesc = __doc__.split("\n")[1]
     program_usage = '''%s
 
   Created by Tim te Beek on %s.
@@ -751,42 +749,47 @@ USAGE
         parser.add_argument("-v", "--verbose", dest="verbose", action="count", help="set verbosity level [default: %(default)s]")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
 
+        def test_file_readable(argument, mode=os.R_OK):
+            if os.access(argument, mode):
+                return argument
+            raise ArgumentTypeError('File {} is not {}'.format(argument, mode))
+        def test_file_writeable(argument):
+            test_file_readable(argument, mode=os.W_OK)
+
         # Arguments specific to calculations
-        parser.add_argument('genomes_a')
-        parser.add_argument('genomes_b')
-        parser.add_argument('sicozip')
-        parser.add_argument('table_a')
-        parser.add_argument('table_b')
+        parser.add_argument('--genomes-a', nargs=1, type=test_file_readable, required=True,
+                            help='Tab separated values file with Genome IDs of clade A')
+        parser.add_argument('--genomes-b', nargs=1, type=test_file_readable, required=True,
+                            help='Tab separated values file with Genome IDs of clade B')
+        parser.add_argument('--sico-zip', nargs=1, type=test_file_readable, required=True,
+                            help='Zip archive containing Single Copy Ortholog files')
+        parser.add_argument('--table-a', nargs=1, type=test_file_writeable, default='table-a.tsv',
+                            help='Destination output file path for comparison of clade A with clade B')
+        parser.add_argument('--table-b', nargs=1, type=test_file_writeable, default='table-b.tsv',
+                            help='Destination output file path for comparison of clade B with clade A')
 
         parser.add_argument('-a', '--append-odd-even', action='store_true',
                             help='append separate tables calculated for odd and even codons of ortholog alignments (default: False)')
 
         # Process arguments
-        args = parser.parse_args()
+        args = parser.parse_args(argv)
 
         if args.verbose > 0:
             print("Verbose mode on")
             logging.root.setLevel(logging.DEBUG)
 
         # perform the calculations
-        _prepare_calculations(args.genomes_a,
-                              args.genomes_b,
-                              args.sicozip,
-                              args.table_a,
-                              args.table_b,
+        _prepare_calculations(args.genomes_a[0],
+                              args.genomes_b[0],
+                              args.sico_zip[0],
+                              args.table_a[0],
+                              args.table_b[0],
                               args.append_odd_even)
 
         return 0
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###
         return 0
-    except Exception, e:
-        if DEBUG:
-            raise(e)
-        indent = len(program_name) * " "
-        sys.stderr.write(program_name + ": " + repr(e) + "\n")
-        sys.stderr.write(indent + "  for help use --help")
-        return 2
 
 if __name__ == "__main__":
     if DEBUG:
