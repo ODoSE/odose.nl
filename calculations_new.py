@@ -484,7 +484,6 @@ def _calculcate_mean_and_averages(calculations, max_nton):
 
 def _bootstrap(sum_dspn, sum_dnps):
     """Bootstrap by gene to get to confidence scores for Neutrality Index."""
-    # FIXME I highly suspect this bootstrapping is not yet correct, as the values are way off for small datasets
     def _sample_with_replacement(sample_set, sample_size=None):
         """Sample sample_size items from sample_set, or len(sample_set) items if sample_size is None (default)."""
         if sample_size is None:
@@ -563,7 +562,7 @@ class clade_calcs(object):
 def _table_calculations(genome_ids_a, genome_ids_b, sico_files, phipack_values):
     '''Perform calculations for comparsion of genome_ids_a with genome_ids_b.'''
     # retrieve genomes once for both
-    genomes_a = select_genomes_by_ids(genome_ids_a)
+    genomes_a = select_genomes_by_ids(genome_ids_a).values()
 
     # dictionary to hold the values calculated per file
     calculations = []
