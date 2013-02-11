@@ -523,21 +523,24 @@ def _neutrality_indices(calculations):
     sum_x = sum(x_values)
     sum_y = sum(y_values)
 
+    ni_stats = Statistic('NI')
+    ni_lower_stats = Statistic('NI 95% lower limit')
+    ni_upper_stats = Statistic('NI 95% upper limit')
+
     if sum_y:
-        ni_stats = Statistic('NI')
         ni_stats.values[NEUTRALITY_INDEX] = sum_x / sum_y
 
         # Find lower and upper limits within which 95% of values fall, by using bootstrapping statistics
         lower_95perc_limit, upper_95perc_limit = _bootstrap(x_values, y_values)
-
-        ni_lower_stats = Statistic('NI 95% lower limit')
         ni_lower_stats.values[NEUTRALITY_INDEX] = lower_95perc_limit
-
-        ni_upper_stats = Statistic('NI 95% upper limit')
         ni_upper_stats.values[NEUTRALITY_INDEX] = upper_95perc_limit
+    else:
+        # We could not calculate Neutrality index because Sum(Y = Dn*Ps/(Ps+Ds)) was zero
+        msg = 'Failed to calculate Neutrality index because divisor Sum(Dn*Ps/(Ps+Ds)) was zero'
+        logging.warn(msg)
+        ni_stats.values[NEUTRALITY_INDEX] = msg
 
-        return ni_stats, ni_lower_stats, ni_upper_stats
-    return 0, 0, 0
+    return ni_stats, ni_lower_stats, ni_upper_stats
 
 
 class clade_calcs(object):
