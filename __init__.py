@@ -149,6 +149,10 @@ def parse_options(usage, options, args):
 
 def get_most_recent_gene_name(genomes, sequence_records):
     """Return gene name annotation for most recently updated genome from sequence records in ortholog."""
+    # Special handling of the common annotation: 'hypothetical_protein'
+    hypo_skipped = False
+    hypothetical = 'hypothetical_protein'
+
     ortholog_products = {}
     for record in sequence_records:
         #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|some gene name
@@ -157,6 +161,12 @@ def get_most_recent_gene_name(genomes, sequence_records):
         gene_name = values[4]
         if gene_name != 'hypothetical_protein':
             ortholog_products[genome] = gene_name
+        else:
+            hypo_skipped = True
+
+    # Handle the special case where all annotations were 'hypothetical_protein'
+    if len(ortholog_products) == 0 and hypo_skipped:
+        return hypothetical
 
     #If there's only a single gene name, look no further
     if len(set(ortholog_products.values())) == 1:
