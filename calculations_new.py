@@ -757,8 +757,6 @@ USAGE
             if os.access(argument, mode):
                 return argument
             raise ArgumentTypeError('File {} is not {}'.format(argument, mode))
-        def test_file_writeable(argument):
-            return test_file_readable(argument, mode=os.W_OK)
 
         # Arguments specific to calculations
         parser.add_argument('--genomes-a', nargs=1, type=test_file_readable, required=True,
@@ -767,9 +765,9 @@ USAGE
                             help='Tab separated values file with Genome IDs of clade B')
         parser.add_argument('--sico-zip', nargs=1, type=test_file_readable, required=True,
                             help='Zip archive containing Single Copy Ortholog files')
-        parser.add_argument('--table-a', nargs=1, type=test_file_writeable, default='table-a.tsv',
+        parser.add_argument('--table-a', nargs=1, default='table-a.tsv',
                             help='Destination output file path for comparison of clade A with clade B')
-        parser.add_argument('--table-b', nargs=1, type=test_file_writeable, default='table-b.tsv',
+        parser.add_argument('--table-b', nargs=1, default='table-b.tsv',
                             help='Destination output file path for comparison of clade B with clade A')
 
         parser.add_argument('-a', '--append-odd-even', action='store_true',
