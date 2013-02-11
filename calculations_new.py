@@ -546,7 +546,7 @@ class clade_calcs(object):
 
     values = None
 
-    def __init__(self, alignment):
+    def __init__(self, alignment, genomes):
         self.alignment = alignment
         self.nr_of_strains = len(alignment)
         self.sequence_lengths = len(alignment[0])
@@ -556,16 +556,15 @@ class clade_calcs(object):
         # The most basic calculation added to the output file
         self.values[CODONS] = self.sequence_lengths // 3
 
-        # Get the genomes for this alignment
-        genome_ids = [seqr.id.split('|')[0] for seqr in alignment]
-        genomes = select_genomes_by_ids(genome_ids).values()
-
         # Get the most recent gene name for the strains in a given clade_calcs instance
         self.values[PRODUCT] = get_most_recent_gene_name(genomes, self.alignment)
 
 
 def _table_calculations(genome_ids_a, genome_ids_b, sico_files, phipack_values):
     '''Perform calculations for comparsion of genome_ids_a with genome_ids_b.'''
+    # retrieve genomes once for both
+    genomes_a = select_genomes_by_ids(genome_ids_a)
+
     # dictionary to hold the values calculated per file
     calculations = []
     # loop over orthologs
@@ -581,10 +580,10 @@ def _table_calculations(genome_ids_a, genome_ids_b, sico_files, phipack_values):
         codeml_values = _get_codeml_values(alignment_a, alignment_b)
 
         # create gathering instance of clade_calcs
-        instance = clade_calcs(alignment_a)
+        instance = clade_calcs(alignment_a, genomes_a)
 
         # store ortholog name retrieved from filename
-        ortholog = os.path.splitext(os.path.basename(sico_file))[0]
+        ortholog = os.path.basename(sico_file).split('.')[0]
         instance.values[ORTHOLOG] = ortholog
 
         # add codeml_values to clade_calcs instance values
@@ -731,7 +730,6 @@ def main(argv=None):  # IGNORE:C0111
     if argv is None:
         argv = sys.argv[1:]
 
-    program_name = os.path.basename(sys.argv[0])
     program_version = "v%s" % __version__
     program_build_date = str(__updated__)
     program_version_message = '%%(prog)s %s (%s)' % (program_version, program_build_date)
@@ -754,7 +752,7 @@ USAGE
                 return argument
             raise ArgumentTypeError('File {} is not {}'.format(argument, mode))
         def test_file_writeable(argument):
-            test_file_readable(argument, mode=os.W_OK)
+            return test_file_readable(argument, mode=os.W_OK)
 
         # Arguments specific to calculations
         parser.add_argument('--genomes-a', nargs=1, type=test_file_readable, required=True,
