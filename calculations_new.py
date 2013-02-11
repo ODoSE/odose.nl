@@ -513,8 +513,12 @@ def _neutrality_indices(calculations):
     '''Return the statistics for Neutrality index. It adds the actual value, and two bootstrapped 95% values.'''
     # Neutrality Index = Sum(X = Ds*Pn/(Ps+Ds)) / Sum(Y = Dn*Ps/(Ps+Ds))
 
-    x_values = [clade_calcs.values[DS_PN_PS_DS] for clade_calcs in calculations]
-    y_values = [clade_calcs.values[DN_PS_PS_DS] for clade_calcs in calculations]
+    x_values = [clade_calcs.values[DS_PN_PS_DS]
+                for clade_calcs in calculations
+                if clade_calcs.values[DS_PN_PS_DS] != None]
+    y_values = [clade_calcs.values[DN_PS_PS_DS]
+                for clade_calcs in calculations
+                if clade_calcs.values[DN_PS_PS_DS] != None]
 
     sum_x = sum(x_values)
     sum_y = sum(y_values)
