@@ -729,7 +729,7 @@ def main(argv=None):  # IGNORE:C0111
     '''Command line options.'''
 
     if argv is None:
-        argv = sys.argv
+        argv = sys.argv[1:]
 
     program_name = os.path.basename(sys.argv[0])
     program_version = "v%s" % __version__
