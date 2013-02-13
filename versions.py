@@ -33,7 +33,7 @@ LSGP_BLASTP = 'blastp/' + LSGP_BLAST_VERSION
 
 #OrthoMCL
 MCL = SOFTWARE_DIR + 'mcl-12-135/src/shmcl/mcl'
-ORTHOMCL_DIR = SOFTWARE_DIR + 'orthomclSoftware-v2.0.4/bin/'
+ORTHOMCL_DIR = SOFTWARE_DIR + 'orthomclSoftware-v2.0.5/bin/'
 ORTHOMCL_INSTALL_SCHEMA = ORTHOMCL_DIR + 'orthomclInstallSchema'
 ORTHOMCL_ADJUST_FASTA = ORTHOMCL_DIR + 'orthomclAdjustFasta'
 ORTHOMCL_FILTER_FASTA = ORTHOMCL_DIR + 'orthomclFilterFasta'
