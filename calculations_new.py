@@ -634,11 +634,17 @@ def run_calculations(genomes_a_file,
     genome_ids_b, common_prefix_b = _extract_genome_ids_and_common_prefix(genomes_b_file)
 
     # calculate phipack values for combined aligments once
-    phipack_dir = tempfile.mkdtemp(prefix='phipack_')
-    phipack_values = {sico_file:
-                      run_phipack(phipack_dir, sico_file)
-                      for sico_file in sico_files}
-    shutil.rmtree(phipack_dir)
+    if DEBUG:
+        # PhiPack is SLOW, so when debugging just return zero
+        phipack_values = {sico_file:
+                          defaultdict(int)
+                          for sico_file in sico_files}
+    else:
+        phipack_dir = tempfile.mkdtemp(prefix='phipack_')
+        phipack_values = {sico_file:
+                          run_phipack(phipack_dir, sico_file)
+                          for sico_file in sico_files}
+        shutil.rmtree(phipack_dir)
 
     # per table calculations
     if 1 < len(genome_ids_a):
@@ -648,7 +654,7 @@ def run_calculations(genomes_a_file,
                        common_prefix_a, common_prefix_b,
                        calculations_ab)
     else:
-        with open(table_b_dest, 'w') as write_handle:
+        with open(table_a_dest, 'w') as write_handle:
             write_handle.write('#At least two genomes are needed to calculate diversity, not ' + str(len(genome_ids_a)))
 
     if 1 < len(genome_ids_b):
@@ -800,7 +806,4 @@ USAGE
         return 0
 
 if __name__ == "__main__":
-    if DEBUG:
-        sys.argv.append("-h")
-        sys.argv.append("-v")
     sys.exit(main())
