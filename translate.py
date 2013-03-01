@@ -111,7 +111,7 @@ def _translate_genome(tuples_of_gbk_and_ptt_files):
     return dna_concatemer, protein_concatemer
 
 
-def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None):
+def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None, filetype=None):
     """Translate genbank DNA to protein and return resulting fasta files."""
     #Determine filenames for temporary and cache destination output files
     file_root = os.path.splitext(genbank_file)[0]
@@ -145,9 +145,10 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None):
     with open(aa_tmp, mode='w') as aa_wrtr:
         with open(dna_tmp, mode='w') as dna_wrtr:
             #Determine filetype by looking at extension, which should be either genbank or embl
-            filetype = os.path.splitext(genbank_file)[1][1:]
-            if filetype == 'gbk':
-                filetype = 'genbank'
+            if filetype == None:
+                filetype = os.path.splitext(genbank_file)[1][1:]
+                if filetype == 'gbk':
+                    filetype = 'genbank'
 
             #Bio.GenBank.Record
             gb_recrd = SeqIO.read(genbank_file, filetype)
