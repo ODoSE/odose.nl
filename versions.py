@@ -20,7 +20,7 @@ if not os.path.isdir(SOFTWARE_DIR):
     raise 'Software directory is missing'
 
 #Blast
-NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.27+/bin/'
+NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.28+/bin/'
 MAKEBLASTDB = NCBI_BLAST_DIR + 'makeblastdb'
 BLASTP = NCBI_BLAST_DIR + 'blastp'
 BLASTN = NCBI_BLAST_DIR + 'blastn'
@@ -33,7 +33,7 @@ LSGP_BLASTP = 'blastp/' + LSGP_BLAST_VERSION
 
 #OrthoMCL
 MCL = SOFTWARE_DIR + 'mcl-12-135/src/shmcl/mcl'
-ORTHOMCL_DIR = SOFTWARE_DIR + 'orthomclSoftware-v2.0.5/bin/'
+ORTHOMCL_DIR = SOFTWARE_DIR + 'orthomclSoftware-v2.0.7/bin/'
 ORTHOMCL_INSTALL_SCHEMA = ORTHOMCL_DIR + 'orthomclInstallSchema'
 ORTHOMCL_ADJUST_FASTA = ORTHOMCL_DIR + 'orthomclAdjustFasta'
 ORTHOMCL_FILTER_FASTA = ORTHOMCL_DIR + 'orthomclFilterFasta'
@@ -55,7 +55,7 @@ NEIGHBOR = PHYLIP_DIR + 'exe/neighbor'
 PHIPACK = SOFTWARE_DIR + 'PhiPack/Phi'
 
 #Calculation
-PAML_DIR = SOFTWARE_DIR + 'paml4.6/'
+PAML_DIR = SOFTWARE_DIR + 'paml4.7/'
 CODEML = PAML_DIR + 'bin/codeml'
 
 
