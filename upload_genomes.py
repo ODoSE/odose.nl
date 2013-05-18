@@ -39,7 +39,7 @@ def format_fasta_genome_headers(label, nucl_fasta_file):
             #protein_id = 'protein_{0}:{1}...({2})'.format(index, str(nucl_sequence)[:12], len(nucl_sequence))
 
             #Remove gap codons from input nucleotide fasta file in complete codons only
-            nucl_sequence_str = str(nucl_seqrecord.seq).replace('---', '')
+            nucl_sequence_str = str(nucl_seqrecord.seq).replace('---', '').upper()
             nucl_sequence = Seq(nucl_sequence_str)
 
             #Write out fasta. Header format as requested: >project_id|genbank_ac|protein_id|cog|source
