@@ -235,6 +235,10 @@ def _calc_pi(nr_of_strains, nr_of_sites, site_freq_spec):
     and D(i) is the number of polymorphisms present in i of n strains
     finally divide everything by the number of sites
     """
+    logging.debug('Arguments:\n\tnr of strains: %s,\n\tsequence lengths: %s,\n\tsfs: %s',
+                  nr_of_strains,
+                  nr_of_sites,
+                  site_freq_spec)
     pi = (nr_of_strains
                      / (nr_of_strains - 1)
                      * sum(site_freq_spec.get(i, 0)
@@ -242,10 +246,6 @@ def _calc_pi(nr_of_strains, nr_of_sites, site_freq_spec):
                            * (1 - i / nr_of_strains)
                            for i in range(1, (nr_of_strains - 1) // 2 + 1))  # +1 as range excludes stop value
                      ) / nr_of_sites
-    logging.debug('Arguments:\n\tnr of strains: %s,\n\tsequence lengths: %s,\n\tsfs: %s',
-                  nr_of_strains,
-                  nr_of_sites,
-                  site_freq_spec)
     logging.debug('Gave a Pi value of: %s', pi)
     return pi
 
