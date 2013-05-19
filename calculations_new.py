@@ -235,7 +235,9 @@ def _calc_pi(nr_of_strains, nr_of_sites, site_freq_spec):
     and D(i) is the number of polymorphisms present in i of n strains
     finally divide everything by the number of sites
     """
-    logging.debug('Arguments:\n\tnr of strains: %s,\n\tsequence lengths: %s,\n\tsfs: %s',
+    if not site_freq_spec:
+        return 0.0
+    logging.debug('args:\tstrains: %s,\tseqlen: %s,\tsfs: %s',
                   nr_of_strains,
                   nr_of_sites,
                   site_freq_spec)
