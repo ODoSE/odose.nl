@@ -115,6 +115,7 @@ def _run_dna_dist(run_dir, aligned_file):
 
         for seq_record in alignment:
             name = seq_record.id.split('|')[0]
+            name = name if len(name) < 10 else name[:10]
             write_handle.write('{0:10}{1}\n'.format(name, seq_record.seq))
 
     #Actually run the dnadist program in the correct directory, and send input to it for the first prompt

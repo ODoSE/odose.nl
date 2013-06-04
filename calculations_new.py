@@ -403,8 +403,10 @@ def _codon_site_freq_spec(clade_calcs):
     clade_calcs.values[COMPLEX_CODONS] = mixed_synonymous_polymorphisms
 
     # Log debug statistics
-    logging.debug('stop_codons: %s', stop_codons)
-    logging.debug('codons_with_unresolved_bases: %s', codons_with_unresolved_bases)
+    if stop_codons:
+        logging.debug('stop_codons: %s', stop_codons)
+    if codons_with_unresolved_bases:
+        logging.debug('codons_with_unresolved_bases: %s', codons_with_unresolved_bases)
 
 
 def _extract_genome_ids_and_common_prefix(genomes_file):
@@ -476,6 +478,7 @@ def _calculcate_mean_and_averages(calculations, max_nton):
     # calculate the average for a subset of headers
     mean_stats = Statistic('mean')
     for header in headers[5:-2] + [DOS]:
+        # XXX fromnumeric.py:37: RuntimeWarning: invalid value encountered in double_scalars
         mean_stats.values[header] = mean([clade_calcs.values[header]
                                           for clade_calcs in calculations
                                           if clade_calcs.values[header] != None])
