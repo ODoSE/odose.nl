@@ -170,7 +170,10 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None, 
             #Select only the coding sequences from all feature records
             coding_features = [gb_featr for gb_featr in gb_recrd.features
                                #Skip any non coding sequence features or pseudo (non-functional version) CDS
-                               if gb_featr.type == 'CDS' and not 'pseudo' in gb_featr.qualifiers]
+                               if (gb_featr.type == 'CDS'
+                                   and not 'pseudo' in gb_featr.qualifiers
+                                   and not 'pseudogene' in gb_featr.qualifiers
+                                   )]
 
             #Remove duplicates while retaining order
             seen = set()
