@@ -15,9 +15,8 @@ __license__ = "MIT"
 
 SOFTWARE_DIR = '/work/odosenl/software/'
 if getpass.getuser() == 'tbeek':
-    SOFTWARE_DIR = '/data/projects/divergence/software/'
-if not os.path.isdir(SOFTWARE_DIR):
-    raise 'Software directory is missing'
+    SOFTWARE_DIR = '/data/projects/odosenl/software/'
+assert os.path.isdir(SOFTWARE_DIR), 'Software directory is missing'
 
 #Blast
 NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.28+/bin/'
