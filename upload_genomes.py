@@ -28,9 +28,8 @@ def format_fasta_genome_headers(label, nucl_fasta_file):
             #Try to retain user specified protein identifiers, hoping they stuck to this guideline:
             #http://www.ncbi.nlm.nih.gov/books/NBK7183/?rendertype=table&id=ch_demo.T5
             #But do throw in a little counter to make sure the generated IDs are actually unique
-            user_record_id_line = nucl_seqrecord.id.replace('|', '_').split(' ', 1)
-            original_id = user_record_id_line[0]
-            original_extra = user_record_id_line[-1]
+            original_id = nucl_seqrecord.id.replace('|', '_')
+            original_extra = nucl_seqrecord.description.replace('|', '_').split(None, 1)[-1]
             protein_id = '{0:06}_{1}'.format(index, original_id)
 
             #OrthoMCL has the nasty habit of truncating label|protein_id to 60 characters, which leads to mismatches
@@ -46,10 +45,10 @@ def format_fasta_genome_headers(label, nucl_fasta_file):
             nucl_sequence = Seq(nucl_sequence_str)
 
             #Write out fasta. Header format as requested: >project_id|genbank_ac|protein_id|cog|source
-            header = '{0}|{1}|{2}|{3}|{4}'.format(label, filename, protein_id, None, original_extra)
+            header = '{0}|{1}|{2}|{3}|'.format(label, filename, protein_id, None)
 
             #Create protein sequence record and write it to file
-            formatted_seqrecord = SeqRecord(nucl_sequence, id=header, description='')
+            formatted_seqrecord = SeqRecord(nucl_sequence, id=header, description=original_extra)
             SeqIO.write(formatted_seqrecord, write_handle, 'fasta')
     return formatted_fasta_file
 
