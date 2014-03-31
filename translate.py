@@ -8,7 +8,8 @@ from Bio.Data.CodonTable import TranslationError
 from Bio.SeqRecord import SeqRecord
 from divergence import create_directory, concatenate, create_archive_of_files, parse_options, \
     extract_archive_of_files, CODON_TABLE_ID
-from divergence.select_taxa import download_genome_files, select_genomes_by_ids
+from divergence.select_taxa import select_genomes_by_ids
+from divergence.download_taxa_mrs import download_genome_files, download_plasmid_files
 from multiprocessing import Pool
 from operator import itemgetter
 import logging as log
@@ -81,6 +82,7 @@ def translate_genomes(genomes):
     #Use a pool to download files in the background while translating
     pool = Pool()
     futures = [pool.apply_async(download_genome_files, (genome,)) for genome in genomes]
+    futures.extend([pool.apply_async(download_plasmid_files, (genome,)) for genome in genomes])
     dna_aa_pairs = [_translate_genome(gbk_ptt_pairs.get()) for gbk_ptt_pairs in futures if gbk_ptt_pairs.get() != None]
 
     #Extract DNA & Protein files separately from dna_aa_pairs

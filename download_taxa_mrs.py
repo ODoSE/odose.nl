@@ -18,7 +18,11 @@ __license__ = "MIT"
 BASE_URL = 'http://mrs.cmbi.ru.nl/mrs-5/download?db={db}&id={id}'
 
 
-def download_genome_files(genome, download_log=None, require_ptt=False):
+def download_plasmid_files(genome):
+    return download_genome_files(genome, refseq_column='Plasmids/RefSeq', embl_column='Plasmids/INSDC')
+
+
+def download_genome_files(genome, download_log=None, require_ptt=False, refseq_column='Chromosomes/RefSeq', embl_column='Chromosomes/INSDC'):
     """
     Download genome .gbk & .ptt files from MRS and return tuples containing project, genbank file & ptt file per
     accessioncode.
@@ -29,13 +33,13 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     """
     project = genome['BioProject ID']
     #Try RefSeq accessions
-    if genome['Chromosomes/RefSeq']:
-        accessioncodes = genome['Chromosomes/RefSeq']
+    if genome[refseq_column]:
+        accessioncodes = genome[refseq_column]
         databank = 'refseq'
         ptt_available = True
     else:
         #Use embl accessions
-        accessioncodes = genome['Chromosomes/INSDC']
+        accessioncodes = genome[embl_column]
         databank = 'embl'
         ptt_available = False
 
