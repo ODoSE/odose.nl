@@ -4,14 +4,17 @@
 from collections import defaultdict
 from csv import DictReader
 from datetime import datetime, timedelta
-from divergence import create_directory, parse_options
-from download_taxa_mrs import download_genome_files
 from ftplib import FTP
-from operator import itemgetter
 import logging
+from operator import itemgetter
 import os
+import re
 import sys
 import time
+
+from divergence import create_directory, parse_options
+from download_taxa_mrs import download_genome_files
+
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -116,6 +119,9 @@ def _parse_genomes_table(require_refseq=False):
             genome['Modify Date'] = datetime.strptime(genome['Modify Date'], '%Y/%m/%d')
         else:
             genome['Modify Date'] = None
+
+        # Trim unique Assembly Accession to shorter values for older tools
+        genome['Assembly Accession'] = re.sub('^GCA_0*', '', genome['Assembly Accession'])
 
         #Append genome to list of genomes
         genomes.append(genome)
