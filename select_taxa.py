@@ -5,10 +5,10 @@ from collections import defaultdict
 from csv import DictReader
 from datetime import datetime, timedelta
 from divergence import create_directory, parse_options
-from divergence.download_taxa_mrs import download_genome_files
+from download_taxa_mrs import download_genome_files
 from ftplib import FTP
 from operator import itemgetter
-import logging as log
+import logging
 import os
 import sys
 import time
@@ -30,7 +30,7 @@ def select_genomes_by_ids(genome_ids):
     #See if we matched all genomes, else log a warning
     for queryid in genome_ids:
         if queryid not in matches:
-            log.warning('Could not find genome with BioProject ID %s in complete genomes table', queryid)
+            logging.warning('Could not find genome with BioProject ID %s in complete genomes table', queryid)
 
     return matches
 
@@ -46,7 +46,7 @@ def _download_genomes_table():
     if not os.path.isfile(output_file) or os.path.getmtime(output_file) < time.time() - time_between_downloads:
         #Login to FTP site
         ftp = FTP('ftp.ncbi.nlm.nih.gov')
-        ftp.login(passwd='brs@nbic.nl')
+        ftp.login(passwd='timtebeek+odose@gmail.com')
 
         #Download ftp://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt
         from download_taxa_ncbi import _download_genome_file
@@ -63,9 +63,10 @@ def _parse_genomes_table(require_refseq=False):
     genomes = []
 
     #We expect the following columns:
-    #Organism/Name    BioProject    Group    SubGroup    Size (Mb)    GC%    Chromosomes/RefSeq    Chromosomes/INSDC
-    #Plasmids/RefSeq    Plasmids/INSDC    WGS    Scaffolds    Genes    Proteins    Release Date    Modify Date
-    #Status    Center
+    #Organism/Name    TaxID    BioProject Accession    BioProject ID    Group    SubGroup  Size (Mb)    GC%
+    #Chromosomes/RefSeq    Chromosomes/INSDC    Plasmids/RefSeq    Plasmids/INSDC    WGS    Scaffolds    Genes
+    #Proteins    Release Date    Modify Date    Status    Center    BioSample Accession    Assembly Accession
+    #Reference    FTP Path    Pubmed ID
 
     #Split file into individual lines
     contents = _parse_genomes_table.complete_genome_table
@@ -90,6 +91,20 @@ def _parse_genomes_table(require_refseq=False):
             value = genome[column]
             genome[column] = [] if len(value) in (0, 1) else value.split(separator)
 
+        # Any gaps might influence the core gene set
+        if genome['Status'] != 'Gapless Chromosome':
+            continue
+
+        # Skip any genomes that don't point to chromosome files
+        if not (genome['Chromosomes/RefSeq'] or genome['Chromosomes/INSDC']):
+            logging.debug('Missing chromosomes identifiers for: %s', genome)
+            continue
+
+        # Skip any genomes that do not provide an FTP path to download
+        if genome['FTP Path'] == '-':
+            logging.debug('Missing FTP path for: %s', genome)
+            continue
+
         #Convert date columns to actual dates
         #Released date 2009/01/27
         if genome['Release Date'] != '-':
@@ -105,21 +120,20 @@ def _parse_genomes_table(require_refseq=False):
         #Append genome to list of genomes
         genomes.append(genome)
 
-    #Filter out incomplete genomes
-    genomes = [genome for genome in genomes if genome['Status'] == 'Complete']
+    logging.debug('%d genomes initially', len(genomes))
 
     #Filter out records not containing a refseq entry
     if require_refseq:
         genomes = [genome for genome in genomes if genome['Chromosomes/RefSeq']]
-
-    #Filter out all genomes that do not have any chromosomes
-    genomes = [genome for genome in genomes if genome['Chromosomes/RefSeq'] or genome['Chromosomes/INSDC']]
+        logging.debug('%d genomes have refseq identifiers', len(genomes))
 
     #Filter out genomes without any genes or Proteins
     genomes = [genome for genome in genomes if genome['Genes'] != '-' and genome['Proteins'] != '-']
+    logging.debug('%d genomes have genes and proteins', len(genomes))
 
     #Filter out genomes with less than 100 Proteins
     genomes = [genome for genome in genomes if int(genome['Proteins']) > 100]
+    logging.debug('%d genomes have more than 100 proteins', len(genomes))
 
     #Return the genome dictionaries
     return tuple(genomes)
@@ -238,7 +252,7 @@ Usage: select_taxa.py
     maximum = 100
     #TODO Move this test to translate, where we can see how many translations succeeded + how many externals there are
     if  maximum < len(genome_ids):
-        log.error('Expected between two and {0} selected genomes, but was {1}'.format(maximum, len(genome_ids)))
+        logging.error('Expected between two and {0} selected genomes, but was {1}'.format(maximum, len(genome_ids)))
         sys.exit(1)
 
     #Retrieve genome dictionaries to get to Organism Name
@@ -263,7 +277,7 @@ Usage: select_taxa.py
                 "Inspect messages in Project ID list and reevaluate genome selection"
 
     #Exit after a comforting log message
-    log.info("Produced: \n%s", genomes_file)
+    logging.info("Produced: \n%s", genomes_file)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
