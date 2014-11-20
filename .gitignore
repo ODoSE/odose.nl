@@ -46,6 +46,7 @@ docs/_build/
 # Eclipse
 .project
 .pydevproject
+.settings/
 
 # ODoSE.nl
 cache/
