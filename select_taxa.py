@@ -99,8 +99,8 @@ def _parse_genomes_table(require_refseq=False):
             continue
 
         # Skip any genomes that don't point to chromosome files
-        if not (genome['Chromosomes/RefSeq'] or genome['Chromosomes/INSDC']):
-            logging.debug('Missing chromosomes identifiers for: %s', genome)
+        if not genome['Chromosomes/RefSeq']:
+            logging.debug('Missing Chromosomes/RefSeq identifiers for: %s', genome)
             continue
 
         # Skip any genomes that do not provide an FTP path to download
