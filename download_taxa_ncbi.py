@@ -21,77 +21,63 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     #ftp://ftp.ncbi.nih.gov/genbank/genomes/Bacteria/Sulfolobus_islandicus_M_14_25_uid18871/CP001400.ffn
     #Download using FTP
     ftp = FTP('ftp.ncbi.nlm.nih.gov')
-    ftp.login(passwd='brs@nbic.nl')
+    ftp.login(passwd='timtebeek+odose@gmail.com')
 
     #Try to find project directory in RefSeq curated listing
-    projectid = genome['BioProject ID']
-    base_dir = '/genomes/Bacteria'
-    project_dir = _find_project_dir(ftp, base_dir, projectid)
-    if project_dir:
-        accessioncodes = genome['Chromosomes/RefSeq']
-        target_dir = create_directory('refseq/' + projectid)
-    else:
-        if projectid:
-            log.warn('Genome directory not found under %s%s for %s', ftp.host, base_dir, projectid)
+    projectid = genome['Assembly Accession']
+    folder = '/genomes/ASSEMBLY_BACTERIA/{}'.format(genome['FTP Path'])
+    accessioncodes = genome['Chromosomes/RefSeq']
+    target_dir = create_directory('genomes/' + projectid)
 
-        #Try instead to find project directory in GenBank originals listing
-        base_dir = '/genbank/genomes/Bacteria'
-        project_dir = _find_project_dir(ftp, base_dir, projectid)
-        if project_dir:
-            accessioncodes = genome['Chromosomes/INSDC']
-            target_dir = create_directory('genbank/' + projectid)
-        else:
-            log.warn('Genome directory not found under %s%s for %s', ftp.host, base_dir, projectid)
-
-    #Determine ast modified date to see if we should redownload the file following changes
+    #Determine last modified date to see if we should redownload the file following changes
     last_change_date = genome['Modify Date'] if genome['Modify Date'] else genome['Release Date']
 
     #Download .gbk & .ptt files for all genome accessioncodes and append them to this list as tuples of gbk + ptt
     genome_files = []
 
-    #Occasionally we can not find a folder, meaning we will have to skip this genome as well
-    if project_dir:
-        for acc in accessioncodes:
-            #Try genbank file, which is always required
-            try:
-                gbk_file = _download_genome_file(ftp, project_dir, acc + '.gbk', target_dir, last_change_date)
+    for acc in accessioncodes:
+        # Remove version suffixes to accessioncodes, such as NC_0012345.2
+        acc = acc.split('.')[0]
+        
+        #Try genbank file, which is always required
+        try:
+            gbk_file = _download_genome_file(ftp, folder, acc + '.gbk', target_dir, last_change_date)
 
-                #Try to parse Bio.GenBank.Record to see if it contains more than five (arbitrary) feature records
-                features = SeqIO.read(gbk_file, 'genbank').features
-                if not any(feature.type == 'CDS' for feature in features):
-                    #Skip when genbank file does not contain any coding sequence features
-                    log.warn('GenBank file %s did not contain any coding sequence features', acc)
-                    continue
-            except error_perm as err:
-                if 'No such file or directory' not in str(err):
-                    raise err
-                log.warn(err)
-                log.warn('GenBank file %s missing for %s', acc, projectid)
+            #Try to parse Bio.GenBank.Record to see if it contains more than five (arbitrary) feature records
+            features = SeqIO.read(gbk_file, 'genbank').features
+            if not any(feature.type == 'CDS' for feature in features):
+                #Skip when genbank file does not contain any coding sequence features
+                log.warn('GenBank file %s did not contain any coding sequence features', acc)
                 continue
-            except IOError as err:
-                if 'Target file was empty after download' not in str(err):
-                    raise err
-                log.warn(err)
-                continue
+        except error_perm as err:
+            if 'No such file or directory' not in str(err):
+                raise err
+            log.warn(err)
+            log.warn('GenBank file %s missing for %s', acc, projectid)
+            continue
+        except IOError as err:
+            if 'Target file was empty after download' not in str(err):
+                raise err
+            log.warn(err)
+            continue
 
-            #Try protein table file, which could be optional
-            try:
-                ptt_file = _download_genome_file(ftp, project_dir, acc + '.ptt', target_dir, last_change_date)
-            except error_perm as err:
-                if 'No such file or directory' not in str(err):
-                    raise err
-                log.warn(err)
-                if require_ptt:
-                    log.warn('Protein table file %s missing for %s: Probably no coding sequences', acc, projectid)
-                    continue
-                else:
-                    ptt_file = None
-            except IOError as err:
-                if 'Target file was empty after download' not in str(err):
-                    raise err
-                log.warn(err)
+        #Try protein table file, which could be optional
+        ptt_file = None
+        try:
+            ptt_file = _download_genome_file(ftp, folder, acc + '.ptt', target_dir, last_change_date)
+        except error_perm as err:
+            if 'No such file or directory' not in str(err):
+                raise err
+            log.warn(err)
+            if require_ptt:
+                log.warn('Protein table file %s missing for %s: Probably no coding sequences', acc, projectid)
                 continue
-            genome_files.append((projectid, gbk_file, ptt_file))
+        except IOError as err:
+            if 'Target file was empty after download' not in str(err):
+                raise err
+            log.warn(err)
+            continue
+        genome_files.append((projectid, gbk_file, ptt_file))
 
     #Be nice and close the connection
     ftp.close()
@@ -113,7 +99,7 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     #This file could coincidentally also serve as genome ID file for extract taxa
     if download_log:
         with open(download_log, mode='a') as append_handle:
-            append_handle.write('{0}\t{1}\t{2}{3}\n'.format(projectid, genome['Organism/Name'], ftp.host, project_dir))
+            append_handle.write('{0}\t{1}\t{2}{3}\n'.format(projectid, genome['Organism/Name'], ftp.host, folder))
 
     #Return genome files
     return genome_files
@@ -151,12 +137,8 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_dat
         log.info('Retrieving genome file %s%s/%s to %s', ftp.host, remote_dir, filename, target_dir)
 
         #Write retrieved contents to file
-        with open(tmp_file, mode='wb') as write_file:
-            #Write contents of file to shared experiment sra_lite
-            def download_callback(block):
-                """ftp.retrbinary requires a callback method"""
-                write_file.write(block)
-            ftp.retrbinary('RETR {0}/{1}'.format(remote_dir, filename), download_callback)
+        with open(tmp_file, mode='wb') as writer:
+            ftp.retrbinary('RETR {0}/{1}'.format(remote_dir, filename), writer.write)
 
         #Assert file was actually written to
         if not os.path.isfile(tmp_file) or 0 == os.path.getsize(tmp_file):
