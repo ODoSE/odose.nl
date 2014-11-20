@@ -35,7 +35,7 @@ assert 1.54 <= float(Bio.__version__), 'BioPython version 1.54 or higher is requ
 CODON_TABLE_ID = 11
 
 #Base output dir
-BASE_OUTPUT_PATH = '../divergence-cache/'
+BASE_OUTPUT_PATH = './cache/'
 
 
 def create_directory(dirname, inside_dir=BASE_OUTPUT_PATH):
