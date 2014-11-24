@@ -192,7 +192,7 @@ def _write_dnds_per_ortholog(dnds_file, codeml_files):
     """For each codeml output file write dN, dS & dN/dS to single tab separated file, each on a new line."""
     # Open file to write dN dS values to
     with open(dnds_file, mode='w') as write_handle:
-        write_handle.write('#Ortholog\tN\tdN\tDn\tS\tdS\tDs\tdN/dS\n')
+        write_handle.write('# Ortholog\tN\tdN\tDn\tS\tdS\tDs\tdN/dS\n')
         # small d and p stand for numbers per site - dN or dn is the number of non-synonymous substitutions per site
         # and Dn is the total number of non-synonymous substitutions
 

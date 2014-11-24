@@ -15,26 +15,26 @@ __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
-#Configure logging LOG_FORMAT
+# Configure logging LOG_FORMAT
 LOG_FORMAT = '%(levelname)s\t%(asctime)s %(module)s.%(funcName)s:%(lineno)d\t%(message)s'
 LOG_DATE_FORMAT = '%H:%M:%S'
 
-#Logs WARNING messages and anything above to sys.stdout
+# Logs WARNING messages and anything above to sys.stdout
 logging.basicConfig(level=logging.INFO, stream=sys.stdout, format=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
 
-#Log ERROR messages to stderr separately; these will fail a tool run in Galaxy
+# Log ERROR messages to stderr separately; these will fail a tool run in Galaxy
 STDERR_HANDLER = logging.StreamHandler(sys.stderr)
 STDERR_HANDLER.setLevel(logging.ERROR)
 STDERR_HANDLER.setFormatter(logging.Formatter(fmt=LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
 logging.root.addHandler(STDERR_HANDLER)
 
-#Require at least version 1.53 op BioPython
+# Require at least version 1.53 op BioPython
 assert 1.54 <= float(Bio.__version__), 'BioPython version 1.54 or higher is required'
 
-#Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11)
+# Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11)
 CODON_TABLE_ID = 11
 
-#Base output dir
+# Base output dir
 BASE_OUTPUT_PATH = './cache/'
 
 
@@ -43,11 +43,11 @@ def create_directory(dirname, inside_dir=BASE_OUTPUT_PATH):
 
     Return directory if directory already exists, raise error if file by that name already exists."""
     filename = os.path.join(inside_dir, dirname)
-    #For non-absolute paths, get filename relative to this module
+    # For non-absolute paths, get filename relative to this module
     if filename[0] != '/':
         filename = resource_filename(__name__, filename)
 
-    #If file exists and is a directory, return the existing directory unaltered
+    # If file exists and is a directory, return the existing directory unaltered
     if os.path.exists(filename):
         if os.path.isdir(filename):
             return filename
@@ -102,48 +102,48 @@ def parse_options(usage, options, args):
     args -- Command line arguments supplied
     """
 
-    #Extract flags from options
+    # Extract flags from options
     flags = [opt[:-1] for opt in options if opt[-1] == '?']
 
     try:
-        #Add postfix '=' for options that require an argument & add flags without postfix
+        # Add postfix '=' for options that require an argument & add flags without postfix
         long_options = [opt + '=' for opt in options if opt[-1] != '?']
         long_options += flags
 
-        #Call getopt with long arguments only
+        # Call getopt with long arguments only
         tuples, remainder = getopt.getopt(args, '', long_options)
-        #If there's a remainder, not all arguments were recognized
+        # If there's a remainder, not all arguments were recognized
         if remainder:
             print '\n'.join(args)
             raise getopt.GetoptError('Unrecognized argument(s) passed: ' + str(remainder), remainder)
         arguments = dict((opt[2:], value) for opt, value in tuples)
     except getopt.GetoptError as err:
-        #Print error & usage information to stderr
+        # Print error & usage information to stderr
         print >> sys.stderr, str(err)
         print >> sys.stderr, usage
         sys.exit(1)
 
-    #Remove postfixes '=?' and '?' from options, and '=' postfix from flags
+    # Remove postfixes '=?' and '?' from options, and '=' postfix from flags
     options = [opt[:-2] if opt[-2:] == '=?' else opt[:-1] if opt[-1] == '?' else opt for opt in options]
     flags = [flag[:-1] if flag[-1] == '=' else flag for flag in flags]
 
-    #Correctly set True/False values for flags, regardless of whether flag was already passed as argument or not
+    # Correctly set True/False values for flags, regardless of whether flag was already passed as argument or not
     for flag in flags:
         if flag in arguments:
-            #Only overwrite with True if value is empty, as optional arguments (flags) can have values as well
+            # Only overwrite with True if value is empty, as optional arguments (flags) can have values as well
             if not arguments[flag]:
                 arguments[flag] = True
         else:
             arguments[flag] = False
 
-    #Ensure all arguments were provided
+    # Ensure all arguments were provided
     for opt in options:
         if opt not in arguments:
             print >> sys.stderr, 'Mandatory argument {0} not provided'.format(opt)
             print >> sys.stderr, usage
             sys.exit(1)
 
-    #Retrieve & return file paths from dictionary in order of options
+    # Retrieve & return file paths from dictionary in order of options
     return [arguments[option] for option in options]
 
 
@@ -155,7 +155,7 @@ def get_most_recent_gene_name(genomes, sequence_records):
 
     ortholog_products = {}
     for record in sequence_records:
-        #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|some gene name
+        # Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|some gene name
         values = record.id.split('|')
         genome = values[0]
         gene_name = values[4]
@@ -168,21 +168,21 @@ def get_most_recent_gene_name(genomes, sequence_records):
     if len(ortholog_products) == 0 and hypo_skipped:
         return hypothetical
 
-    #If there's only a single gene name, look no further
+    # If there's only a single gene name, look no further
     if len(set(ortholog_products.values())) == 1:
         return ortholog_products.values()[0]
 
-    #When no genomes are found, for instance when all genomes are external genomes, just return the first annotation
+    # When no genomes are found, for instance when all genomes are external genomes, just return the first annotation
     if not genomes:
         return ortholog_products.values()[0]
 
-    #Determine which genome is the most recent by looking at the modification & release dates of published genomes
-    #Starting at the newest genomes, return the first gene name annotation we find
+    # Determine which genome is the most recent by looking at the modification & release dates of published genomes
+    # Starting at the newest genomes, return the first gene name annotation we find
     for genome in sorted(genomes, key=lambda x: x['Modify Date'] or x['Release Date'], reverse=True):
         if genome['BioProject ID'] in ortholog_products:
             return ortholog_products[genome['BioProject ID']]
 
-    #Shouldn't really happen, but write this clause anyhow
+    # Shouldn't really happen, but write this clause anyhow
     logging.warn('Could not retrieve gene name annotation based on date; returning first gene name annotation instead')
     return ortholog_products.values()[0]
 
@@ -191,7 +191,7 @@ def find_cogs_in_sequence_records(sequence_records, include_none=False):
     """Find unique COG annotations assigned to sequences within a single alignment."""
     cogs = set()
     for record in sequence_records:
-        #Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
+        # Sample header line: >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
         cog = record.id.split('|')[3]
         if cog in cogs:
             continue

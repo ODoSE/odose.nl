@@ -44,7 +44,7 @@ Usage: compare_taxa.py
     options = ['unfiltered-taxon-a', 'unfiltered-taxon-b', 'filtered-taxon-a', 'filtered-taxon-b']
     unfiltered_a_file, unfiltered_b_file, filtered_a_file, filtered_b_file = parse_options(usage, options, args)
 
-    #Parse ID files to extract GenBank Project IDs & Organism Name
+    # Parse ID files to extract GenBank Project IDs & Organism Name
     with open(unfiltered_a_file) as read_handle:
         unfiltered_a = dict((line.split('\t')[0], line.strip().split('\t')[1]) for line in read_handle)
     with open(unfiltered_b_file) as read_handle:
@@ -54,7 +54,7 @@ Usage: compare_taxa.py
     with open(filtered_b_file) as read_handle:
         filtered_b = dict((line.split('\t')[0], line.strip().split('\t')[1]) for line in read_handle)
 
-    #Otherwise fail after
+    # Otherwise fail after
     if unfiltered_a.keys()[0] in filtered_a:
         if not (set(unfiltered_a.keys()) == set(filtered_a.keys())
                 and set(unfiltered_b.keys()) == set(filtered_b.keys())):
@@ -64,7 +64,7 @@ Usage: compare_taxa.py
                 and set(unfiltered_b.keys()) == set(filtered_a.keys())):
             fail(unfiltered_a, unfiltered_b, filtered_b, filtered_a)
 
-    #Else: no problems were found
+    # Else: no problems were found
     log.info('Succes: Unfiltered & filtered tree clustering did not result in different taxa.')
 
 if __name__ == '__main__':

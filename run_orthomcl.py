@@ -25,38 +25,38 @@ __license__ = "MIT"
 
 def run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_poor_proteins_file, target_groups_file):
     """Run all the steps in the orthomcl pipeline, starting with a set of proteomes and ending up with groups.txt."""
-    #Delete orthomcl directory to prevent lingering files from previous runs to influence new runs
+    # Delete orthomcl directory to prevent lingering files from previous runs to influence new runs
     run_dir = tempfile.mkdtemp(prefix='orthomcl_run_')
 
-    #Steps leading up to and performing the reciprocal blast, as well as minor post processing
+    # Steps leading up to and performing the reciprocal blast, as well as minor post processing
     adjusted_fasta_dir, fasta_files = _step5_orthomcl_adjust_fasta(run_dir, proteome_files)
     good, poor = _step6_orthomcl_filter_fasta(run_dir, adjusted_fasta_dir, min_length=poor_protein_length)
     allvsall = _step7_blast_all_vs_all(good, fasta_files)
     similar_sequences = _step8_orthomcl_blast_parser(run_dir, allvsall, adjusted_fasta_dir)
-    #Clean up all vs all blast results file
+    # Clean up all vs all blast results file
     os.remove(allvsall)
 
-    #Create new database and install database schema in it, so individual runs do not interfere with each other
+    # Create new database and install database schema in it, so individual runs do not interfere with each other
     dbname = create_database()
     config_file = get_configuration_file(run_dir, dbname, evalue_exponent)
     _step4_orthomcl_install_schema(run_dir, config_file)
 
-    #Steps that occur in database, and thus do little to produce output files
+    # Steps that occur in database, and thus do little to produce output files
     _step9_mysql_load_blast(similar_sequences, dbname)  # Workaround for Perl not being able to use load data local infile
-    #_step9_orthomcl_load_blast(similar_sequences, config_file)
+    # _step9_orthomcl_load_blast(similar_sequences, config_file)
     _step10_orthomcl_pairs(run_dir, config_file)
     mcl_input = _step11_orthomcl_dump_pairs(run_dir, config_file)[0]
 
-    #Trash database now that we're done with it
+    # Trash database now that we're done with it
     delete_database(dbname)
 
-    #MCL related steps: run MCL on mcl_input resulting in the groups.txt file
+    # MCL related steps: run MCL on mcl_input resulting in the groups.txt file
     groups = _step12_mcl(run_dir, mcl_input)
 
-    #Move poor proteins file & groups file outside run_dir ahead of removing run_dir
+    # Move poor proteins file & groups file outside run_dir ahead of removing run_dir
     shutil.move(poor, target_poor_proteins_file)
     shutil.move(groups, target_groups_file)
-    #Remove run_dir to free disk space
+    # Remove run_dir to free disk space
     shutil.rmtree(run_dir)
 
     return target_groups_file, target_poor_proteins_file
@@ -115,12 +115,12 @@ def _step5_orthomcl_adjust_fasta(run_dir, proteome_files, id_field=3):
 
     EXAMPLE: orthomclSoftware/bin/orthomclAdjustFasta hsa Homo_sapiens.NCBI36.53.pep.all.fa 1
     """
-    #Create directory to hold compliant fasta
+    # Create directory to hold compliant fasta
     adjusted_fasta_dir = create_directory('compliant_fasta', inside_dir=run_dir)
     adjusted_fasta_files = []
     for proteome_file in proteome_files:
         taxon_code = None
-        #Use first part of header of first entry as taxon code
+        # Use first part of header of first entry as taxon code
         for record in SeqIO.parse(proteome_file, 'fasta'):
             taxon_code = record.id.split('|')[0]
             break
@@ -128,16 +128,16 @@ def _step5_orthomcl_adjust_fasta(run_dir, proteome_files, id_field=3):
         # If we failed to extract a taxon_code, proteome file must have been empty
         assert taxon_code, 'Proteome file appears empty: ' + proteome_file
 
-        #Call orhtomclAdjustFasta
+        # Call orhtomclAdjustFasta
         command = [ORTHOMCL_ADJUST_FASTA, taxon_code, proteome_file, str(id_field)]
         log.info('Executing: %s', ' '.join(command))
         check_call(command)
-        #Move resulting fasta file to compliantFasta directory
+        # Move resulting fasta file to compliantFasta directory
         adjusted_fasta_file = taxon_code + '.fasta'
         fasta_file_destination = os.path.join(adjusted_fasta_dir, adjusted_fasta_file)
         shutil.move(adjusted_fasta_file, fasta_file_destination)
         adjusted_fasta_files.append(fasta_file_destination)
-    #Return path to directory containing compliantFasta
+    # Return path to directory containing compliantFasta
     return adjusted_fasta_dir, adjusted_fasta_files
 
 
@@ -168,7 +168,7 @@ def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length=10, max_percent_
 
     EXAMPLE: orthomclSoftware/bin/orthomclFilterFasta my_orthomcl_dir/compliantFasta 10 20
     """
-    #Run orthomclFilterFasta
+    # Run orthomclFilterFasta
     out_dir = create_directory('filtered_fasta', inside_dir=run_dir)
     report = os.path.join(out_dir, 'filter_report.log')
     with open(report, mode='w') as report_file:
@@ -176,30 +176,30 @@ def _step6_orthomcl_filter_fasta(run_dir, input_dir, min_length=10, max_percent_
         log.info('Executing: %s', ' '.join(command))
         check_call(command, stdout=report_file, stderr=STDOUT)
 
-    #Move output files to out directory
+    # Move output files to out directory
     good = os.path.join(out_dir, 'good_proteins.fasta')
     poor = os.path.join(out_dir, 'poor_proteins.fasta')
     shutil.move('goodProteins.fasta', good)
     shutil.move('poorProteins.fasta', poor)
 
-    #Ensure neither of the proteomes is suspicious according to min_length & max_percent_stop
+    # Ensure neither of the proteomes is suspicious according to min_length & max_percent_stop
     with open(report) as report_file:
         if 'Proteomes with > 10% poor proteins:' in report_file.read():  # OrthoMCL does NOT add actual min_length value
             msg = 'OrthomclFilterFasta found suspicious proteomes based on values for length'
             log.error(msg)
             assert False, msg
 
-    #Warn the user about the poor proteins found here, if they were found at all
+    # Warn the user about the poor proteins found here, if they were found at all
     poor_records = list(SeqIO.parse(poor, 'fasta'))
     if poor_records:
         log.warn('%i poor sequence records identified by orthomclFilterFasta:', len(poor_records))
         for seqr in poor_records:
             log.warn('>%s: %s', seqr.id, seqr.seq)
 
-    #Assert good exists and has some content
+    # Assert good exists and has some content
     assert os.path.isfile(good) and 0 < os.path.getsize(good), good + ' should exist and have some content'
 
-    #Only good and poor proteins
+    # Only good and poor proteins
     return good, poor
 
 
@@ -228,7 +228,7 @@ def _step7_blast_all_vs_all(good_proteins_file, fasta_files):
         from divergence.reciprocal_blast_lsgp import reciprocal_blast
         return reciprocal_blast(good_proteins_file, fasta_files)
     else:
-        #Run two genomes ourselves locally.
+        # Run two genomes ourselves locally.
         from divergence.reciprocal_blast_local import reciprocal_blast
         return reciprocal_blast(good_proteins_file, fasta_files)
     
@@ -255,12 +255,12 @@ def _step8_orthomcl_blast_parser(run_dir, blast_file, fasta_files_dir):
 
     EXAMPLE: orthomclSoftware/bin/orthomclBlastParser my_blast_results my_orthomcl_dir/compliantFasta >> my_orthomcl_dir/similar_sequences.txt
     """
-    #Run orthomclBlastParser
+    # Run orthomclBlastParser
     command = [ORTHOMCL_BLAST_PARSER, blast_file, fasta_files_dir]
     log.info('Executing: %s', ' '.join(command))
     similar_sequences = os.path.join(run_dir, 'similar_sequences.tsv')
     with open(similar_sequences, mode='w') as stdout_file:
-        #check_call(command, stdout = stdout_file, stderr = open('/dev/null', mode = 'w'))
+        # check_call(command, stdout = stdout_file, stderr = open('/dev/null', mode = 'w'))
         process = Popen(command, stdout=stdout_file, stderr=PIPE)
         retcode = process.wait()
         if retcode:
@@ -285,7 +285,7 @@ def _step9_orthomcl_load_blast(similar_seqs_file, config_file):
 
     EXAMPLE: orthomclSoftware/bin/orthomclLoadBlast my_orthomcl_dir/orthomcl.config my_orthomcl_dir/similar_sequences.txt
     """
-    #Run orthomclLoadBlast
+    # Run orthomclLoadBlast
     command = [ORTHOMCL_LOAD_BLAST, config_file, similar_seqs_file]
     log.info('Executing: %s', ' '.join(command))
     check_call(command)
@@ -296,7 +296,7 @@ def _step9_mysql_load_blast(similar_seqs_file, database):
     """Directly load results using MySQL, as Perl MySQL connection does not allow for load data local infile."""
     host, port, user, passwd = _get_root_credentials()
     
-    #Run orthomclLoadBlast
+    # Run orthomclLoadBlast
     command = ['mysql',
                '-h',host,
                '-u','orthomcl',
@@ -338,7 +338,7 @@ def _step10_orthomcl_pairs(run_dir, config_file):
 
     EXAMPLE: orthomclSoftware/bin/orthomclPairs my_orthomcl_dir/orthomcl.config my_orthomcl_dir/orthomcl_pairs.log cleanup=no
     """
-    #Run orthomclPairs
+    # Run orthomclPairs
     pairs_log = os.path.join(run_dir, 'orthomclPairs.log')
     command = [ORTHOMCL_PAIRS, config_file, pairs_log, 'cleanup=no']
     log.info('Executing: %s', ' '.join(command))
@@ -377,26 +377,26 @@ def _step11_orthomcl_dump_pairs(run_dir, config_file):
 
     EXAMPLE: orthomclSoftware/bin/orthomclDumpPairsFile out_dir/orthomcl.config
     """
-    #Run orthomclDumpPairsFile
+    # Run orthomclDumpPairsFile
     out_dir = create_directory('orthologs', inside_dir=run_dir)
     command = [ORTHOMCL_DUMP_PAIRS_FILES, config_file]
     log.info('Executing: %s', ' '.join(command))
     check_call(command, cwd=out_dir)
 
-    #Desired destination output file paths
+    # Desired destination output file paths
     mcl_dir = create_directory('mcl', inside_dir=run_dir)
     mclinput = os.path.join(mcl_dir, 'mclInput.tsv')
     orthologs = os.path.join(out_dir, 'potentialOrthologs.tsv')
     inparalogs = os.path.join(out_dir, 'potentialInparalogs.tsv')
     coorthologs = os.path.join(out_dir, 'potentialCoorthologs.tsv')
 
-    #Move output files to desired destinations
+    # Move output files to desired destinations
     shutil.move(os.path.join(out_dir, 'mclInput'), mclinput)
     shutil.move(os.path.join(out_dir, 'pairs/orthologs.txt'), orthologs)
     shutil.move(os.path.join(out_dir, 'pairs/inparalogs.txt'), inparalogs)
     shutil.move(os.path.join(out_dir, 'pairs/coorthologs.txt'), coorthologs)
 
-    #Assert mcl input file exists and has some content
+    # Assert mcl input file exists and has some content
     assert os.path.isfile(mclinput) and 0 < os.path.getsize(mclinput), mclinput + ' should exist and have some content'
 
     return mclinput, orthologs, inparalogs, coorthologs
@@ -412,7 +412,7 @@ def _step12_mcl(run_dir, mcl_input_file):
 
     mcl my_orthomcl_dir/mclInput --abc -I 1.5 -o my_orthomcl_dir/mclOutput
     """
-    #Run mcl
+    # Run mcl
     mcl_dir = create_directory('mcl', inside_dir=run_dir)
     mcl_output_file = os.path.join(mcl_dir, 'mclOutput.tsv')
     mcl_log = os.path.join(mcl_dir, 'mcl.log')
@@ -441,26 +441,26 @@ Usage: run_orthomcl.py
     protein_zipfile, limiter_file, poor_protein_length, evalue_exponent, target_poor_proteins, target_groups_path = \
         parse_options(usage, options, args)
 
-    #Extract files from zip archive
+    # Extract files from zip archive
     temp_dir = tempfile.mkdtemp(prefix='orthomcl_proteins_')
     proteome_files = extract_archive_of_files(protein_zipfile, temp_dir)
 
-    #If limiter file is defined, add it to the set op protein files
+    # If limiter file is defined, add it to the set op protein files
     if limiter_file:
-        #First format nucleotide fasta file to contain the correct fasta headers
+        # First format nucleotide fasta file to contain the correct fasta headers
         formatted_fasta_file = format_fasta_genome_headers('limiter', limiter_file)
-        #Then translate it from nucleotide to protein
+        # Then translate it from nucleotide to protein
         translated_limiter = translate_fasta_coding_regions(formatted_fasta_file)
-        #Then append it to the list op proteome files
+        # Then append it to the list op proteome files
         proteome_files.append(translated_limiter)
 
-    #Actually run orthomcl
+    # Actually run orthomcl
     run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_poor_proteins, target_groups_path)
 
-    #Remove unused files to free disk space
+    # Remove unused files to free disk space
     shutil.rmtree(temp_dir)
 
-    #Exit after a comforting log message
+    # Exit after a comforting log message
     log.info("Produced: \n%s\n%s", target_poor_proteins, target_groups_path)
 
 if __name__ == '__main__':

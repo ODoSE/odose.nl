@@ -42,7 +42,7 @@ def _get_root_credentials():
 
 def create_database():
     """Create database orthomcl_{random suffix}, grant rights to orthomcl user and return """
-    #Build a unique URL using todays date
+    # Build a unique URL using todays date
     dbname = 'orthomcl_{t.year}_{t.month}_{t.day}_at_{t.hour}_{t.minute}_{t.second}'.format(t=datetime.today())
     dbhost, port, user, passwd = _get_root_credentials()
     clhost = socket.gethostname()
@@ -76,7 +76,7 @@ percentMatchCutoff=50
 evalueExponentCutoff={evalue_exponent}
 oracleIndexTblSpc=NONE""".format(dbname=dbname, host=host, port=port, evalue_exponent=evalue_exponent)
 
-    #Write to file & return file
+    # Write to file & return file
     config_file = os.path.join(run_dir, '{0}.cfg'.format(dbname))
     with open(config_file, mode='w') as write_handle:
         write_handle.write(config)
