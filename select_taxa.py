@@ -73,7 +73,7 @@ def _parse_genomes_table(require_refseq=False):
 
     # Split file into individual lines
     contents = _parse_genomes_table.complete_genome_table
-    assert contents.startswith('# Organism/Name\t'), 'Unexpected file format:\n' + contents
+    assert contents.startswith('#Organism/Name\t'), 'Unexpected file format:\n' + contents.split('\n')[0]
 
     # Some columns contain lists of values separated by a delimiter themselves: We'll split their values accordingly
     splitable_columns = {'Chromosomes/RefSeq': ',',
