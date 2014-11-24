@@ -13,7 +13,7 @@ import sys
 import time
 
 from divergence import create_directory, parse_options
-from download_taxa_mrs import download_genome_files
+from download_taxa_ncbi import download_genome_files
 
 
 __author__ = "Tim te Beek"
