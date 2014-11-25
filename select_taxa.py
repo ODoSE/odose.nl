@@ -95,7 +95,7 @@ def _parse_genomes_table(require_refseq=False):
             genome[column] = [] if len(value) in (0, 1) else value.split(separator)
 
         # Any gaps might influence the core gene set
-        if genome['Status'] != 'Gapless Chromosome':
+        if genome['Status'] != 'Complete Genome':
             continue
 
         # Skip any genomes that don't point to chromosome files
