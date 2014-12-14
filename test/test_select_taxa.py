@@ -3,28 +3,30 @@ Created on Jun 8, 2014
 
 @author: tim
 '''
-import unittest
-import select_taxa
-import logging
 import datetime
+import logging
+import unittest
+
+import select_taxa
+
 
 class Test(unittest.TestCase):
+
     def setUp(self):
         self.longMessage = True
         logging.root.setLevel(logging.DEBUG)
 
     def test_parse_genomes_table(self):
-        
         # Parse all genomes
         genomes = select_taxa._parse_genomes_table()
         self.assertLess(2500, len(genomes), 'Enough genomes should be available')
-        
+
         # Ensure the Assembly accessions are unique
         assacc = sorted(gnm['Assembly Accession'] for gnm in genomes)
         for acc in set(assacc):
             assacc.remove(acc)
         self.assertFalse(assacc, 'Assembly Accession identifiers should be unique')
-        
+
         # Report how many records RefSeq / GenBank identifiers
         self.assertTrue(all(gnm['Chromosomes/RefSeq'] for gnm in genomes))
 

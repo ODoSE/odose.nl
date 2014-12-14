@@ -2,13 +2,15 @@
 """Module to download files from NCBI FTP."""
 from Bio import SeqIO
 from datetime import datetime, timedelta
-from shared import create_directory
 from ftplib import FTP, error_perm
-import logging as log
 import os.path
 import shutil
 import tempfile
 import time
+
+import logging as log
+from shared import create_directory
+
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -38,7 +40,7 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     for acc in accessioncodes:
         # Remove version suffixes to accessioncodes, such as NC_0012345.2
         acc = acc.split('.')[0]
-        
+
         # Try genbank file, which is always required
         try:
             gbk_file = _download_genome_file(ftp, folder, acc + '.gbk', target_dir, last_change_date)

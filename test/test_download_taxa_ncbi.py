@@ -51,7 +51,7 @@ class Test(unittest.TestCase):
                'SubGroup': 'Gammaproteobacteria',
                'TaxID': '331111',
                'WGS': '-'}
-        log= tempfile.mkstemp()[1]
+        log = tempfile.mkstemp()[1]
         try:
             download_taxa_ncbi.download_genome_files(gnm, download_log=log)
             with open(log) as reader:

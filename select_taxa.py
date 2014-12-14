@@ -12,8 +12,8 @@ import re
 import sys
 import time
 
-from shared import create_directory, parse_options
 from download_taxa_ncbi import download_genome_files
+from shared import create_directory, parse_options
 
 
 __author__ = "Tim te Beek"
@@ -256,7 +256,7 @@ Usage: select_taxa.py
     # Assert each clade contains enough IDs
     maximum = 100
     # TODO Move this test to translate, where we can see how many translations succeeded + how many externals there are
-    if  maximum < len(genome_ids):
+    if maximum < len(genome_ids):
         logging.error('Expected between two and {0} selected genomes, but was {1}'.format(maximum, len(genome_ids)))
         sys.exit(1)
 
