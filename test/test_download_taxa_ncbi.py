@@ -59,7 +59,3 @@ class Test(unittest.TestCase):
         finally:
             os.remove(log)
         self.assertNotIn('Genome skipped because of missing files', logcontent)
-
-if __name__ == "__main__":
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()

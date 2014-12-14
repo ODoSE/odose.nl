@@ -77,7 +77,3 @@ class Test(unittest.TestCase):
                'WGS': '-'}
         for prop in ['Organism/Name', 'FTP Path', 'BioProject ID', 'TaxID', 'Assembly Accession']:
             self.assertEqual(ref[prop], gnm[prop])
-
-if __name__ == "__main__":
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
