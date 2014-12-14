@@ -5,11 +5,11 @@ from __future__ import division
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
-from divergence import find_cogs_in_sequence_records, parse_options, create_directory, extract_archive_of_files, \
+from shared import find_cogs_in_sequence_records, parse_options, create_directory, extract_archive_of_files, \
     concatenate, CODON_TABLE_ID, get_most_recent_gene_name
-from divergence.run_codeml import run_codeml, parse_codeml_output
-from divergence.run_phipack import run_phipack
-from divergence.select_taxa import select_genomes_by_ids
+from shared.run_codeml import run_codeml, parse_codeml_output
+from shared.run_phipack import run_phipack
+from shared.select_taxa import select_genomes_by_ids
 from itertools import product
 from operator import itemgetter
 from random import choice
@@ -475,7 +475,7 @@ def _calc_pi(nr_of_strains, sequence_lengths, site_freq_spec):
 def _compute_values_from_statistics(nr_of_strains, sequence_lengths, codeml_values,
                                     synonymous_sfs, non_synonymous_sfs, four_fold_syn_sfs, four_fold_synonymous_sites):
     """Compute values (mostly from the site frequency spectra) that we'll output according to provided formula's."""
-    # 12. number of non-synonymous sites for divergence from PAML
+    # 12. number of non-synonymous sites for shared from PAML
     #(this might be different to 3, because this will come from two randomly chosen sequences) = LnD
     paml_non_synonymous_sites = codeml_values['N']
 

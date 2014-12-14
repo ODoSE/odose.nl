@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Module to compare filtered and unfiltered taxa deduced from their respective trees to assert that they match."""
 
-from divergence import parse_options
+from shared import parse_options
 import logging as log
 import sys
 

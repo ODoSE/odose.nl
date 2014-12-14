@@ -2,9 +2,9 @@
 """Module to create concatemer per genome of orthologs, create a phylogenetic tree and deduce taxa from that tree."""
 
 from Bio import AlignIO, Phylo, SeqIO
-from divergence import create_directory, parse_options, extract_archive_of_files, create_archive_of_files
-from divergence.select_taxa import select_genomes_by_ids
-from divergence.versions import DNADIST, NEIGHBOR
+from shared import create_directory, parse_options, extract_archive_of_files, create_archive_of_files
+from shared.select_taxa import select_genomes_by_ids
+from shared.versions import DNADIST, NEIGHBOR
 from subprocess import Popen, PIPE, STDOUT
 import logging as log
 import matplotlib

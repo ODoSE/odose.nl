@@ -3,7 +3,7 @@
 
 from ConfigParser import SafeConfigParser
 from datetime import datetime
-from divergence import resource_filename
+from shared import resource_filename
 import MySQLdb
 import logging as log
 import os

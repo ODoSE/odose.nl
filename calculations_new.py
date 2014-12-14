@@ -1,9 +1,9 @@
 #!/usr/local/bin/python2.7
 # encoding: utf-8
 '''
-divergence.calculations_new -- calculate some values for aligned single copy orthologs
+shared.calculations_new -- calculate some values for aligned single copy orthologs
 
-divergence.calculations_new is a module to calculate values for SICOs
+shared.calculations_new is a module to calculate values for SICOs
 
 @author:     Tim te Beek
 @contact:    tim.te.beek@nbic.nl
@@ -15,11 +15,11 @@ from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 from argparse import ArgumentParser, RawDescriptionHelpFormatter, ArgumentTypeError
 from collections import Counter, defaultdict
-from divergence import CODON_TABLE_ID, find_cogs_in_sequence_records, get_most_recent_gene_name, \
+from shared import CODON_TABLE_ID, find_cogs_in_sequence_records, get_most_recent_gene_name, \
     extract_archive_of_files, create_directory
-from divergence.run_codeml import run_codeml, parse_codeml_output
-from divergence.run_phipack import run_phipack
-from divergence.select_taxa import select_genomes_by_ids
+from shared.run_codeml import run_codeml, parse_codeml_output
+from shared.run_phipack import run_phipack
+from shared.select_taxa import select_genomes_by_ids
 from itertools import product
 from numpy import mean
 from random import choice

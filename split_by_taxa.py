@@ -3,7 +3,7 @@
 
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
-from divergence import parse_options, extract_archive_of_files, create_directory, create_archive_of_files
+from shared import parse_options, extract_archive_of_files, create_directory, create_archive_of_files
 import logging as log
 import os.path
 import re

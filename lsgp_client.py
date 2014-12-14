@@ -31,7 +31,7 @@ URLLIB2_OPENER = urllib2.build_opener(StreamingHTTPSHandler)
 def _load_lsg_credentials():
     """Read Life Science Grid Portal credentials from file and store in os.environ variables."""
     # Get path to credential file
-    from divergence import resource_filename
+    from shared import resource_filename
     lsgp_credentials_file = resource_filename(__name__, 'credentials/lsg-portal.cfg')
 
     # Copy template config file to actual search path when file can not be found

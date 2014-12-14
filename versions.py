@@ -2,7 +2,7 @@
 """Module to keep track of paths and versions of other software used within the workflow at various intervals."""
 
 from subprocess import Popen, PIPE
-import divergence  # @UnusedImport # pylint: disable=W0611
+import shared
 import Bio
 import getpass
 import logging

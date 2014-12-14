@@ -12,7 +12,7 @@ import re
 import sys
 import time
 
-from divergence import create_directory, parse_options
+from shared import create_directory, parse_options
 from download_taxa_ncbi import download_genome_files
 
 
@@ -79,8 +79,7 @@ def _parse_genomes_table(require_refseq=False):
     splitable_columns = {'Chromosomes/RefSeq': ',',
                          'Chromosomes/INSDC': ',',
                          'Plasmids/RefSeq': ',',
-                         'Plasmids/INSDC': ',',
-                         #'Center': '; ',
+                         'Plasmids/INSDC': ','
                          }
 
     # Convert string file contents to something readable by CSV DictReader

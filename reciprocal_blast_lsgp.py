@@ -2,9 +2,9 @@
 """Module for the reciprocal blast step using the SARA Life Science Grid Portal."""
 
 from datetime import timedelta
-from divergence import concatenate
-from divergence.lsgp_client import run_application, submit_application_run, retrieve_run_result, send_request
-from divergence.versions import LSGP_MAKEBLASTDB, LSGP_BLASTN, LSGP_BLASTP
+from shared import concatenate
+from shared.lsgp_client import run_application, submit_application_run, retrieve_run_result, send_request
+from shared.versions import LSGP_MAKEBLASTDB, LSGP_BLASTN, LSGP_BLASTP
 import os
 import shutil
 import tempfile

@@ -2,7 +2,7 @@
 """Module to download files from MRS."""
 from Bio import SeqIO
 from datetime import datetime, timedelta
-from divergence import create_directory
+from shared import create_directory
 from lxml import etree
 import logging
 import os.path

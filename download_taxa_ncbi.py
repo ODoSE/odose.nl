@@ -2,7 +2,7 @@
 """Module to download files from NCBI FTP."""
 from Bio import SeqIO
 from datetime import datetime, timedelta
-from divergence import create_directory
+from shared import create_directory
 from ftplib import FTP, error_perm
 import logging as log
 import os.path

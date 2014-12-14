@@ -6,10 +6,10 @@ from Bio.Alphabet.IUPAC import ambiguous_dna
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import TranslationError
 from Bio.SeqRecord import SeqRecord
-from divergence import create_directory, concatenate, create_archive_of_files, parse_options, \
+from shared import create_directory, concatenate, create_archive_of_files, parse_options, \
     extract_archive_of_files, CODON_TABLE_ID
-from divergence.select_taxa import select_genomes_by_ids
-from divergence.download_taxa_mrs import download_genome_files, download_plasmid_files
+from shared.select_taxa import select_genomes_by_ids
+from shared.download_taxa_mrs import download_genome_files, download_plasmid_files
 from multiprocessing import Pool
 from operator import itemgetter
 import logging as log
@@ -159,7 +159,7 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None, 
             # This means any extracted sequences will only consist of NN or XX, meaning we can't continue.
             str_seq = str(gb_recrd.seq)
             if re.match('^N+$', str_seq) or re.match('^X+$', str_seq):
-                log.error('No nucleic acid sequence found in file %s, meaning we can not determine divergence for %s.',
+                log.error('No nucleic acid sequence found in file %s, meaning we can not determine shared for %s.',
                           genbank_file, project_id)
 
             # Determine whether the source of this genbank file is core genome or plasmid

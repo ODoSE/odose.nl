@@ -5,9 +5,9 @@ from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 from collections import deque
-from divergence import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
+from shared import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
     CODON_TABLE_ID
-from divergence.versions import CODEML
+from shared.versions import CODEML
 from subprocess import check_call, STDOUT
 import logging as log
 import os.path
@@ -51,8 +51,8 @@ BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(CODON_TABLE_ID)
 def run_codeml(sub_dir, alignment_a, alignment_b):
     """Run codeml from PAML for selected sequence records from sico_file, returning main nexus output file."""
     # Note on whether or not I should be randomizing the below representative selection:
-    # "both alternatives have their advantages - just selecting one strain for the divergence calculation means that you
-    # know exactly which strains the divergence comes from - but if this strain is anomalous then you might get some
+    # "both alternatives have their advantages - just selecting one strain for the shared calculation means that you
+    # know exactly which strains the shared comes from - but if this strain is anomalous then you might get some
     # strange results. i think i would stick with a single strain" - AEW
 
     # Select first sequences from each clade as representatives

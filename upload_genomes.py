@@ -4,7 +4,7 @@
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from divergence import parse_options, create_archive_of_files
+from shared import parse_options, create_archive_of_files
 import logging as log
 import os
 import sys

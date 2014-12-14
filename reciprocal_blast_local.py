@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Module for the reciprocal blast step."""
 
-from divergence import create_directory, concatenate
-from divergence.versions import MAKEBLASTDB, BLASTN, BLASTP
+from shared import create_directory, concatenate
+from shared.versions import MAKEBLASTDB, BLASTN, BLASTP
 from subprocess import check_call, STDOUT
 import logging as log
 import os

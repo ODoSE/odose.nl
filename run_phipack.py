@@ -3,10 +3,10 @@
 
 from __future__ import division
 from Bio import SeqIO
-from divergence import create_directory, extract_archive_of_files, parse_options, get_most_recent_gene_name, \
+from shared import create_directory, extract_archive_of_files, parse_options, get_most_recent_gene_name, \
     find_cogs_in_sequence_records
-from divergence.select_taxa import select_genomes_by_ids
-from divergence.versions import PHIPACK
+from shared.select_taxa import select_genomes_by_ids
+from shared.versions import PHIPACK
 from subprocess import check_call, CalledProcessError
 import logging as log
 import os.path

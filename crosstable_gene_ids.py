@@ -2,8 +2,8 @@
 """Module to create a crosstable between orthologs & genomes showing gene IDs at intersections."""
 
 from Bio import SeqIO
-from divergence import find_cogs_in_sequence_records, get_most_recent_gene_name, parse_options, extract_archive_of_files
-from divergence.select_taxa import select_genomes_by_ids
+from shared import find_cogs_in_sequence_records, get_most_recent_gene_name, parse_options, extract_archive_of_files
+from shared.select_taxa import select_genomes_by_ids
 from operator import itemgetter
 import logging
 import os.path

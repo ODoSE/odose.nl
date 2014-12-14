@@ -2,11 +2,11 @@
 """Module to run orthoMCL. Steps in this module reflect the steps in the UserGuide.txt bundled with OrthoMCL."""
 
 from Bio import SeqIO
-from divergence import create_directory, extract_archive_of_files, parse_options
-from divergence.orthomcl_database import create_database, get_configuration_file, delete_database, _get_root_credentials
-from divergence.translate import translate_fasta_coding_regions
-from divergence.upload_genomes import format_fasta_genome_headers
-from divergence.versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
+from shared import create_directory, extract_archive_of_files, parse_options
+from shared.orthomcl_database import create_database, get_configuration_file, delete_database, _get_root_credentials
+from shared.translate import translate_fasta_coding_regions
+from shared.upload_genomes import format_fasta_genome_headers
+from shared.versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
     ORTHOMCL_BLAST_PARSER, ORTHOMCL_LOAD_BLAST, ORTHOMCL_PAIRS, ORTHOMCL_DUMP_PAIRS_FILES
 from subprocess import Popen, PIPE, CalledProcessError, check_call, STDOUT
 import logging as log
@@ -225,11 +225,11 @@ def _step7_blast_all_vs_all(good_proteins_file, fasta_files):
     """
     if 2 < len(fasta_files):
         # Send anything concerning more than two genomes to SARA.
-        from divergence.reciprocal_blast_lsgp import reciprocal_blast
+        from shared.reciprocal_blast_lsgp import reciprocal_blast
         return reciprocal_blast(good_proteins_file, fasta_files)
     else:
         # Run two genomes ourselves locally.
-        from divergence.reciprocal_blast_local import reciprocal_blast
+        from shared.reciprocal_blast_local import reciprocal_blast
         return reciprocal_blast(good_proteins_file, fasta_files)
     
 
