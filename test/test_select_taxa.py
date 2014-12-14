@@ -3,27 +3,32 @@ Created on Jun 8, 2014
 
 @author: tim
 '''
-import unittest
-import select_taxa
-import logging
 import datetime
+import logging
+import unittest
+
+import select_taxa
+
 
 class Test(unittest.TestCase):
+
     def setUp(self):
         self.longMessage = True
         logging.root.setLevel(logging.DEBUG)
 
     def test_parse_genomes_table(self):
-        
         # Parse all genomes
         genomes = select_taxa._parse_genomes_table()
         self.assertLess(2500, len(genomes), 'Enough genomes should be available')
-        
+
         # Ensure the Assembly accessions are unique
         assacc = sorted(gnm['Assembly Accession'] for gnm in genomes)
         for acc in set(assacc):
             assacc.remove(acc)
         self.assertFalse(assacc, 'Assembly Accession identifiers should be unique')
+
+        # Report how many records RefSeq / GenBank identifiers
+        self.assertTrue(all(gnm['Chromosomes/RefSeq'] for gnm in genomes))
 
         # Extract a particular record
         for gnm in genomes:
@@ -34,7 +39,7 @@ class Test(unittest.TestCase):
             self.fail('Escherichia coli E24377A not found!')
 
         # Assertions about particular record
-        #Escherichia coli E24377A    331111    PRJNA13960    13960    Proteobacteria    Gammaproteobacteria    5.24929    50.5414    NC_009801.1    CP000800.1    NC_009786.1,NC_009789.1,NC_009788.1,NC_009787.1,NC_009790.1,NC_009791.1    CP000795.1,CP000798.1,CP000797.1,CP000796.1,CP000799.1,CP000801.1    -    7    5258    4991    2007/09/11    2014/01/31    Gapless Chromosome    TIGR    SAMN02604038    GCA_000017745.1    -    Escherichia_coli/GCF_000017745    18676672
+        # Escherichia coli E24377A    331111    PRJNA13960    13960    Proteobacteria    Gammaproteobacteria    5.24929    50.5414    NC_009801.1    CP000800.1    NC_009786.1,NC_009789.1,NC_009788.1,NC_009787.1,NC_009790.1,NC_009791.1    CP000795.1,CP000798.1,CP000797.1,CP000796.1,CP000799.1,CP000801.1    -    7    5258    4991    2007/09/11    2014/01/31    Gapless Chromosome    TIGR    SAMN02604038    GCA_000017745.1    -    Escherichia_coli/GCF_000017745    18676672
         ref = {'Assembly Accession': '17745.1',
                'BioProject Accession': 'PRJNA13960',
                'BioProject ID': '13960',
@@ -72,7 +77,3 @@ class Test(unittest.TestCase):
                'WGS': '-'}
         for prop in ['Organism/Name', 'FTP Path', 'BioProject ID', 'TaxID', 'Assembly Accession']:
             self.assertEqual(ref[prop], gnm[prop])
-
-if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()

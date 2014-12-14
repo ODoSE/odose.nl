@@ -1,9 +1,9 @@
 #!/usr/local/bin/python2.7
 # encoding: utf-8
 '''
-divergence.calculations_new -- calculate some values for aligned single copy orthologs
+shared.calculations_new -- calculate some values for aligned single copy orthologs
 
-divergence.calculations_new is a module to calculate values for SICOs
+shared.calculations_new is a module to calculate values for SICOs
 
 @author:     Tim te Beek
 @contact:    tim.te.beek@nbic.nl
@@ -15,11 +15,11 @@ from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 from argparse import ArgumentParser, RawDescriptionHelpFormatter, ArgumentTypeError
 from collections import Counter, defaultdict
-from divergence import CODON_TABLE_ID, find_cogs_in_sequence_records, get_most_recent_gene_name, \
+from shared import CODON_TABLE_ID, find_cogs_in_sequence_records, get_most_recent_gene_name, \
     extract_archive_of_files, create_directory
-from divergence.run_codeml import run_codeml, parse_codeml_output
-from divergence.run_phipack import run_phipack
-from divergence.select_taxa import select_genomes_by_ids
+from run_codeml import run_codeml, parse_codeml_output
+from run_phipack import run_phipack
+from select_taxa import select_genomes_by_ids
 from itertools import product
 from numpy import mean
 from random import choice
@@ -237,23 +237,20 @@ def _calc_pi(nr_of_strains, nr_of_sites, site_freq_spec):
     """
     if not site_freq_spec:
         return 0.0
-    # logging.debug('args:\tstrains: %s,\tseqlen: %s,\tsfs: %s',
-    #              nr_of_strains,
-    #              nr_of_sites,
-    #              site_freq_spec)
     pi = (nr_of_strains
-                     / (nr_of_strains - 1)
-                     * sum(site_freq_spec.get(i, 0)
-                           * 2 * i / nr_of_strains
-                           * (1 - i / nr_of_strains)
-                           for i in range(1, (nr_of_strains - 1) // 2 + 1))  # +1 as range excludes stop value
-                     ) / nr_of_sites
+          / (nr_of_strains - 1)
+          * sum(site_freq_spec.get(i, 0)
+                * 2 * i / nr_of_strains
+                * (1 - i / nr_of_strains)
+                for i in range(1, (nr_of_strains - 1) // 2 + 1))  # +1 as range excludes stop value
+          ) / nr_of_sites
     # logging.debug('Gave a Pi value of: %s', pi)
     return pi
 
 
 # Using the standard NCBI Bacterial, Archaeal and Plant Plastid Code translation table (11)
 BACTERIAL_CODON_TABLE = CodonTable.unambiguous_dna_by_id.get(CODON_TABLE_ID)
+
 
 def _four_fold_degenerate_patterns():
     '''Find patterns of 4-fold degenerate codons, wherein all third site substitutions code for the same amino acid.'''
@@ -396,7 +393,6 @@ def _codon_site_freq_spec(clade_calcs):
     for nton, value in four_fold_syn_sfs.items():
         clade_calcs.values[_get_nton_name(nton, FOUR_FOLD_SYNONYMOUS_SFS + ' ')] = value
 
-
     # Add tallies to values dictionary
     clade_calcs.values[FOUR_FOLD_SYNONYMOUS_SITES] = four_fold_synonymous_sites
     clade_calcs.values[MULTIPLE_SITE_POLYMORPHISMS] = multiple_site_polymorphisms
@@ -427,7 +423,7 @@ def _add_combined_calculations(clade_calcs):
     # Prevent divide by zero by checking both values above are not null
     if paml_total_substitutions != 0 and total_polymorphisms != 0:
         clade_calcs.values[DOS] = (clade_calcs.values[DN] / paml_total_substitutions
-                                                 - clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS] / total_polymorphisms)
+                                   - clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS] / total_polymorphisms)
     else:
         # "the direction of selection is undefined if either Dn+Ds or Pn+Ps are zero": None or Not a Number?
         clade_calcs.values[DOS] = None
@@ -445,12 +441,12 @@ def _add_combined_calculations(clade_calcs):
     if ps_plus_ds:
         # X = Ds*Pn/(Ps+Ds)
         clade_calcs.values[DS_PN_PS_DS] = (clade_calcs.values[DS]
-                                               * clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS]
-                                               / ps_plus_ds)
+                                           * clade_calcs.values[NON_SYNONYMOUS_POLYMORPHISMS]
+                                           / ps_plus_ds)
         # Y = Dn*Ps/(Ps+Ds)
         clade_calcs.values[DN_PS_PS_DS] = (clade_calcs.values[DN]
-                                               * clade_calcs.values[SYNONYMOUS_POLYMORPHISMS]
-                                               / ps_plus_ds)
+                                           * clade_calcs.values[SYNONYMOUS_POLYMORPHISMS]
+                                           / ps_plus_ds)
     else:
         clade_calcs.values[DS_PN_PS_DS] = None
         clade_calcs.values[DN_PS_PS_DS] = None
@@ -460,7 +456,7 @@ class Statistic(object):
     '''Helper class for general statistics that mimics the characterics of clade_calcs.'''
     def __init__(self, name):
         '''The name argument is stored as ORTHOLOG in the values defaultdict, so it shows up correctly in output.'''
-        self.values = defaultdict(lambda:'')
+        self.values = defaultdict(lambda: '')
         self.values[ORTHOLOG] = name
 
 
@@ -473,7 +469,7 @@ def _calculcate_mean_and_averages(calculations, max_nton):
     for header in headers[5:-2]:
         sum_stats.values[header] = sum(clade_calcs.values[header]
                                        for clade_calcs in calculations
-                                       if clade_calcs.values[header] != None)
+                                       if clade_calcs.values[header] is not None)
 
     # calculate the average for a subset of headers
     mean_stats = Statistic('mean')
@@ -481,7 +477,7 @@ def _calculcate_mean_and_averages(calculations, max_nton):
         # XXX fromnumeric.py:37: RuntimeWarning: invalid value encountered in double_scalars
         mean_stats.values[header] = mean([clade_calcs.values[header]
                                           for clade_calcs in calculations
-                                          if clade_calcs.values[header] != None])
+                                          if clade_calcs.values[header] is not None])
 
     # append statistics now that we're no longer looping over them
     return sum_stats, mean_stats
@@ -520,10 +516,10 @@ def _neutrality_indices(calculations):
 
     x_values = [clade_calcs.values[DS_PN_PS_DS]
                 for clade_calcs in calculations
-                if clade_calcs.values[DS_PN_PS_DS] != None]
+                if clade_calcs.values[DS_PN_PS_DS] is not None]
     y_values = [clade_calcs.values[DN_PS_PS_DS]
                 for clade_calcs in calculations
-                if clade_calcs.values[DN_PS_PS_DS] != None]
+                if clade_calcs.values[DN_PS_PS_DS] is not None]
 
     sum_x = sum(x_values)
     sum_y = sum(y_values)
@@ -747,6 +743,7 @@ def _prepare_calculations(genomes_a_file,
     # clean up
     shutil.rmtree(rundir)
 
+
 def main(argv=None):  # IGNORE:C0111
     '''Command line options.'''
 
@@ -807,7 +804,6 @@ USAGE
 
         return 0
     except KeyboardInterrupt:
-        ### handle keyboard interrupt ###
         return 0
 
 if __name__ == "__main__":

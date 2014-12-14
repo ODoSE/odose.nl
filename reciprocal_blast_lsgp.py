@@ -2,9 +2,9 @@
 """Module for the reciprocal blast step using the SARA Life Science Grid Portal."""
 
 from datetime import timedelta
-from divergence import concatenate
-from divergence.lsgp_client import run_application, submit_application_run, retrieve_run_result, send_request
-from divergence.versions import LSGP_MAKEBLASTDB, LSGP_BLASTN, LSGP_BLASTP
+from shared import concatenate
+from lsgp_client import run_application, submit_application_run, retrieve_run_result, send_request
+from versions import LSGP_MAKEBLASTDB, LSGP_BLASTN, LSGP_BLASTP
 import os
 import shutil
 import tempfile
@@ -33,7 +33,7 @@ def reciprocal_blast(good_proteins_fasta, fasta_files):
     # Clean up local and remote
     for x_vs_all in x_vs_all_hits:
         os.remove(x_vs_all)
-    #Remote database_url port :444 requires certificate authentication, which we remove to use the basic authentication
+    # Remote database_url port :444 requires certificate authentication, which we remove to use the basic authentication
     database_url = database_url.replace(':444', '')
     send_request(database_url, method='DELETE')
 
@@ -45,7 +45,7 @@ def _create_blast_database(fasta_file, nucleotide=False):
     dbtype = 'nucl' if nucleotide else 'prot'
     db_name = '{0}_blast_db'.format(dbtype)
 
-    #Run MAKEBLASTDB remotely
+    # Run MAKEBLASTDB remotely
     params = {'dbtype': dbtype, 'out': db_name, 'portaldb': 1}
     files = {'in-file[]': fasta_file}
     db_dir = run_application(LSGP_MAKEBLASTDB,
@@ -53,11 +53,11 @@ def _create_blast_database(fasta_file, nucleotide=False):
                              files=files,
                              max_duration=timedelta(days=1).total_seconds())
 
-    #Upload database back to LSG Portal
+    # Upload database back to LSG Portal
     with open(os.path.join(db_dir, 'db_url.txt')) as read_handle:
         database_url = read_handle.read().strip()
 
-    #Remove local database directory
+    # Remove local database directory
     shutil.rmtree(db_dir)
 
     return database_url
@@ -100,7 +100,7 @@ def _retrieve_blast_hits(jobid, hits_file):
     @param jobid: jobid for which to retrieve the BLAST hits
     @param hits_file: name of the created BLAST hits file to retrieve
     """
-    #Wait for job to complete and retrieve results
+    # Wait for job to complete and retrieve results
     results_dir = retrieve_run_result(jobid,
                                       max_duration=timedelta(hours=12).total_seconds())
 

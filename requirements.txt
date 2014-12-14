@@ -1,0 +1,7 @@
+biopython>=1.64
+lxml>=3.3.3
+matplotlib>=1.4.2
+MySQL-python>=1.2.3
+numpy>=1.9.1
+poster>=0.8.1
+rpy2>=2.5.2

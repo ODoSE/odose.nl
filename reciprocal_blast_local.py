@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Module for the reciprocal blast step."""
 
-from divergence import create_directory, concatenate
-from divergence.versions import MAKEBLASTDB, BLASTN, BLASTP
+from shared import create_directory, concatenate
+from versions import MAKEBLASTDB, BLASTN, BLASTP
 from subprocess import check_call, STDOUT
 import logging as log
 import os
@@ -58,11 +58,11 @@ def _blast_file_against_database(db_dir, blast_db, fasta_file, nucleotide=False)
     blast_program = BLASTN if nucleotide else BLASTP
     assert os.path.exists(blast_program) and os.access(blast_program, os.X_OK), 'Could not find or run ' + blast_program
 
-    #Determine output file name
+    # Determine output file name
     basename = os.path.splitext(os.path.split(fasta_file)[1])[0]
     hits_file = os.path.join(db_dir, basename + '-vs-all.tsv')
 
-    #Actually run the blast program
+    # Actually run the blast program
     command = [blast_program,
                '-db', blast_db,
                '-query', fasta_file,
@@ -71,6 +71,6 @@ def _blast_file_against_database(db_dir, blast_db, fasta_file, nucleotide=False)
     log.info('Executing: %s', ' '.join(command))
     check_call(command, cwd=db_dir, stdout=open('/dev/null', mode='w'), stderr=STDOUT)
 
-    #Sanity check
+    # Sanity check
     assert os.path.isfile(hits_file) and 0 < os.path.getsize(hits_file), hits_file + ' should exist with some content'
     return hits_file

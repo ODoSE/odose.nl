@@ -17,21 +17,21 @@ import tempfile
 import time
 import urllib2
 
-#Verified to work with: X-Portal-Version: 3603
+# Verified to work with: X-Portal-Version: 3603
 HOSTNAME = 'apps.grid.sara.nl'
 BASE_URL = 'https://' + HOSTNAME + '/'
 URL_APPS = BASE_URL + 'applications/'
 URL_DBS = BASE_URL + 'databases/'
 URL_JOBS = BASE_URL + 'jobstates/'
 
-#URL opener with support for multipart file upload forms
+# URL opener with support for multipart file upload forms
 URLLIB2_OPENER = urllib2.build_opener(StreamingHTTPSHandler)
 
 
 def _load_lsg_credentials():
     """Read Life Science Grid Portal credentials from file and store in os.environ variables."""
-    #Get path to credential file
-    from divergence import resource_filename
+    # Get path to credential file
+    from shared import resource_filename
     lsgp_credentials_file = resource_filename(__name__, 'credentials/lsg-portal.cfg')
 
     # Copy template config file to actual search path when file can not be found
@@ -41,7 +41,7 @@ def _load_lsg_credentials():
 
     logging.info('Credentials not found on path: Reading credentials from %s', lsgp_credentials_file)
 
-    #Parse credential file
+    # Parse credential file
     from ConfigParser import SafeConfigParser
     parser = SafeConfigParser()
     parser.read(lsgp_credentials_file)
@@ -103,18 +103,18 @@ def upload_database(database, dbtype='formatdb', shared=False):
     @param dbtype: one of: FASTA, csbfa, formatdb
     @param shared: boolean to indicate whether this database should be shared with other users
     """
-    #Build a unique URL using todays date
+    # Build a unique URL using todays date
     today = datetime.today()
     # The trailing slash is key.. Time spent: ~2 hours
     version = str(today.date()) + '_' + str(today.time()).replace(':', '-') + '/'
     url_db_version = URL_DBS + 'www.odose.nl/' + version
 
-    #Build up parameters for send_request
+    # Build up parameters for send_request
     params = {'type': dbtype,
               'shared': 1 if shared else 0}
     files = {'dbfile': database}
 
-    #Upload
+    # Upload
     content = send_request(url_db_version, params=params, files=files)
     logging.info('Uploaded %s database %s to: ' + content, dbtype, database)
     return content
@@ -128,7 +128,7 @@ def send_request(url, params=None, files=None, method=None):
     @param files: dictionary of files that should be POSTed to the url (optional)
     @param method: string HTTP method (optional: POST when params of files are provided, GET otherwise)
     """
-    #Encode data
+    # Encode data
     data = None
     headers = {}
     multipart_params = []
@@ -141,7 +141,7 @@ def send_request(url, params=None, files=None, method=None):
     if multipart_params:
         data, headers = multipart_encode(multipart_params)
 
-    #Create request
+    # Create request
     headers.update(Accept='text/plain')
     request = urllib2.Request(url=url, headers=headers, data=data)
 
@@ -155,7 +155,7 @@ def send_request(url, params=None, files=None, method=None):
     base64string = base64.encodestring(os.environ['lsg_username'] + ':' + os.environ['lsg_password']).replace('\n', '')
     request.add_header("Authorization", "Basic %s" % base64string)
 
-    #Send request over opener and retrieve response
+    # Send request over opener and retrieve response
     try:
         response = URLLIB2_OPENER.open(request, timeout=180)
     except urllib2.HTTPError as err:
@@ -165,7 +165,7 @@ def send_request(url, params=None, files=None, method=None):
             print key, err.hdrs[key]
         raise err
 
-    #Retrieve
+    # Retrieve
     content = response.read()
     response.close()
     return content
@@ -182,11 +182,11 @@ def wait_for_job(jobid, max_duration=None):
     failures = 0
     while True:
         try:
-            #It would be a shame to lose a reference to all jobs, so we allow for more errors when retrieving jobstates
+            # It would be a shame to lose a reference to all jobs, so we allow for more errors when retrieving jobstates
             jobstates = send_request(URL_JOBS)
             failures = 0
 
-            #Retrieve state for all jobs, and convert to dictionary for easier lookup
+            # Retrieve state for all jobs, and convert to dictionary for easier lookup
             jobstates = dict(line.split('\t')[:2] for line in jobstates.strip().split('\r\n')[1:])
             if jobid not in jobstates:
                 logging.error('Life Science Grid Portal jobid %s not found in overview', jobid)
@@ -195,7 +195,7 @@ def wait_for_job(jobid, max_duration=None):
                 break
         except urllib2.URLError as err:
             failures += 1
-            #But after five consecutive failures we just plain give up
+            # But after five consecutive failures we just plain give up
             if 5 <= failures:
                 raise err
 
@@ -204,16 +204,16 @@ def wait_for_job(jobid, max_duration=None):
             assert duration < max_duration, 'Job {1} overran allotted time: {0}{1}'.format(URL_JOBS, jobid)
             duration += timetosleep
 
-        #If we're still here: Sleep for up to two minutes before trying again
+        # If we're still here: Sleep for up to two minutes before trying again
         time.sleep(timetosleep)
         if timetosleep < 120:
             timetosleep += 10
 
-    #Check job result
+    # Check job result
     if jobstates[jobid] == 'Error':
         raise IOError('Job {1} in error: {0}{1}'.format(URL_JOBS, jobid))
 
-    #Return url with job result
+    # Return url with job result
     return URL_JOBS + jobid
 
 
@@ -222,19 +222,19 @@ def _save_job_result(jobid):
     Save the job result gzipped tarfile and extract it's contents to a new temporary filename.
     @param jobid:
     """
-    #Retrieve the produced gzipped tarfile and write it to a tempdir
+    # Retrieve the produced gzipped tarfile and write it to a tempdir
     content = send_request(URL_JOBS + jobid)
     tempdir = tempfile.mkdtemp('_' + jobid, 'lsgp_jobid_')
     outputfile = os.path.join(tempdir, 'out.tgz')
     with open(outputfile, mode='wb') as write_handle:
         write_handle.write(content)
 
-    #Extract all files to tempdir
+    # Extract all files to tempdir
     tar = tarfile.open(outputfile)
     tar.extractall(path=tempdir)
     tar.close()
 
-    #Remove the out.tgz file we created above
+    # Remove the out.tgz file we created above
     os.remove(outputfile)
 
     return tempdir

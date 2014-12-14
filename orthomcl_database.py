@@ -2,13 +2,15 @@
 """Module to create, configure and dispose separate database instances for individual OrthoMCL runs."""
 
 from ConfigParser import SafeConfigParser
-from datetime import datetime
-from divergence import resource_filename
 import MySQLdb
-import logging as log
+from datetime import datetime
 import os
 import shutil
 import socket
+
+import logging as log
+from shared import resource_filename
+
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -42,14 +44,14 @@ def _get_root_credentials():
 
 def create_database():
     """Create database orthomcl_{random suffix}, grant rights to orthomcl user and return """
-    #Build a unique URL using todays date
+    # Build a unique URL using todays date
     dbname = 'orthomcl_{t.year}_{t.month}_{t.day}_at_{t.hour}_{t.minute}_{t.second}'.format(t=datetime.today())
     dbhost, port, user, passwd = _get_root_credentials()
     clhost = socket.gethostname()
     db_connection = MySQLdb.connect(host=dbhost, port=port, user=user, passwd=passwd)
     cursor = db_connection.cursor()
     cursor.execute('CREATE DATABASE ' + dbname)
-    cursor.execute('GRANT ALL on {0}.* TO orthomcl@{1} IDENTIFIED BY \'pass\';'.format(dbname, clhost))
+    cursor.execute('GRANT ALL on {0}.* TO orthomcl@\'{1}\' IDENTIFIED BY \'pass\';'.format(dbname, clhost))
     db_connection.commit()
     cursor.close()
     db_connection.close()
@@ -76,7 +78,7 @@ percentMatchCutoff=50
 evalueExponentCutoff={evalue_exponent}
 oracleIndexTblSpc=NONE""".format(dbname=dbname, host=host, port=port, evalue_exponent=evalue_exponent)
 
-    #Write to file & return file
+    # Write to file & return file
     config_file = os.path.join(run_dir, '{0}.cfg'.format(dbname))
     with open(config_file, mode='w') as write_handle:
         write_handle.write(config)

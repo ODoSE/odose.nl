@@ -2,8 +2,8 @@
 """Module to create a crosstable between orthologs & genomes showing gene IDs at intersections."""
 
 from Bio import SeqIO
-from divergence import find_cogs_in_sequence_records, get_most_recent_gene_name, parse_options, extract_archive_of_files
-from divergence.select_taxa import select_genomes_by_ids
+from shared import find_cogs_in_sequence_records, get_most_recent_gene_name, parse_options, extract_archive_of_files
+from select_taxa import select_genomes_by_ids
 from operator import itemgetter
 import logging
 import os.path
@@ -20,16 +20,16 @@ __license__ = "MIT"
 def create_crosstable(sico_files, target_crosstable):
     """Create crosstable with vertically the orthologs, horizontally the genomes, and gene IDs at intersections."""
     with open(target_crosstable, mode='w') as write_handle:
-        #Create dictionaries mapping genomes to gene IDs per sico file
+        # Create dictionaries mapping genomes to gene IDs per sico file
         row_data = [(sico_file, dict(itemgetter(0, 2)(fasta_record.id.split('|'))
                          for fasta_record in SeqIO.parse(sico_file, 'fasta')))
                     for sico_file in sico_files]
 
-        #Retrieve unique genomes across all sico files, just to be safe
+        # Retrieve unique genomes across all sico files, just to be safe
         genomes = sorted(set(key for row in row_data for key in row[1].keys()))
         genome_dicts = select_genomes_by_ids(genomes).values()
 
-        #Write out values to file
+        # Write out values to file
         write_handle.write('\t' + '\t'.join(genomes))
         write_handle.write('\tCOGs\tProduct\n')
         for sico_file, row in row_data:
@@ -37,18 +37,18 @@ def create_crosstable(sico_files, target_crosstable):
             write_handle.write(ortholog + '\t')
             write_handle.write('\t'.join(row.get(genome, '') for genome in genomes))
 
-            #Parse sequence records again, but now to retrieve cogs and products
+            # Parse sequence records again, but now to retrieve cogs and products
             seq_records = list(SeqIO.parse(sico_file, 'fasta'))
 
-            #COGs
+            # COGs
             cogs = find_cogs_in_sequence_records(seq_records)
             write_handle.write('\t' + ','.join(cogs))
 
-            #Product
+            # Product
             product = get_most_recent_gene_name(genome_dicts, seq_records)
             write_handle.write('\t' + product)
 
-            #New line
+            # New line
             write_handle.write('\n')
 
 
@@ -62,17 +62,17 @@ Usage: crosstable_gene_ids.py
     options = ['sico-zip', 'crosstable']
     sizo_zip, target_crosstable = parse_options(usage, options, args)
 
-    #Create tempdir
+    # Create tempdir
     run_dir = tempfile.mkdtemp(prefix='crosstable_')
     sico_files = extract_archive_of_files(sizo_zip, run_dir)
 
-    #Create crosstable
+    # Create crosstable
     create_crosstable(sico_files, target_crosstable)
 
-    #Remove extracted files to free disk space
+    # Remove extracted files to free disk space
     shutil.rmtree(run_dir)
 
-    #Exit after a comforting log message
+    # Exit after a comforting log message
     logging.info("Produced: \n%s", target_crosstable)
 
 if __name__ == '__main__':
