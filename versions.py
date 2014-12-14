@@ -2,12 +2,13 @@
 """Module to keep track of paths and versions of other software used within the workflow at various intervals."""
 
 import Bio
+import argparse
 import getpass
 import logging
 import os
 from subprocess import Popen, PIPE
+import sys
 
-import shared  # Setup logging output
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -74,8 +75,29 @@ def _grep_version(path, pattern='version'):
     return stdout.split('\n')[0]
 
 
+def _parse_args():
+    '''
+    Parse required arguments.
+    '''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('target', help='Target output file for version numbers', type=lambda path: logging.FileHandler(path, mode='w'))
+    args = parser.parse_args()
+
+    # Directly configure logging through args
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    args.target.setFormatter(logging.Formatter())
+    logging.root.addHandler(args.target)
+
+    # Return any other args
+    return args
+
+
 def main():
     """Method intended to be run when __name-- == '__main__'."""
+
+    # Parse arguments to setup logging
+    _parse_args()
+
     # BioPython
     logging.info('BioPython: ' + Bio.__version__)
 
@@ -89,7 +111,7 @@ def main():
 
     # OrthoMCL & mcl
     logging.info('OrthoMCL: ' + _grep_version(ORTHOMCL_DIR + '../doc/OrthoMCLEngine/Main/UserGuide.txt'))
-    logging.info(_call_program(MCL, '--version'))
+    logging.info('MCL: ' + _call_program(MCL, '--version').split('\n')[0])
 
     # PAML codeml
     logging.info('PAML codeml: ' + _grep_version(PAML_DIR + 'src/paml.h'))
