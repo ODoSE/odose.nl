@@ -2,13 +2,15 @@
 """Module to create, configure and dispose separate database instances for individual OrthoMCL runs."""
 
 from ConfigParser import SafeConfigParser
-from datetime import datetime
-from shared import resource_filename
 import MySQLdb
-import logging as log
+from datetime import datetime
 import os
 import shutil
 import socket
+
+import logging as log
+from shared import resource_filename
+
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -49,7 +51,7 @@ def create_database():
     db_connection = MySQLdb.connect(host=dbhost, port=port, user=user, passwd=passwd)
     cursor = db_connection.cursor()
     cursor.execute('CREATE DATABASE ' + dbname)
-    cursor.execute('GRANT ALL on {0}.* TO orthomcl@{1} IDENTIFIED BY \'pass\';'.format(dbname, clhost))
+    cursor.execute('GRANT ALL on {0}.* TO orthomcl@\'{1}\' IDENTIFIED BY \'pass\';'.format(dbname, clhost))
     db_connection.commit()
     cursor.close()
     db_connection.close()
