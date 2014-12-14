@@ -1,12 +1,18 @@
-language: python
+language:
+  - python
+
 python:
   - "2.7"
-# install dependencies
-install: pip install -r requirements-travis.txt
+
+install:
+  - pip install -r requirements-travis.txt
+
+services:
+  - mysql  # for orthomcl
+
 script:
-  # run tests
   - nosetests
+
 after_script:
-  # static analysis
   - pep8 --ignore="E501" *.py
   - pylint --max-line-length=120 --disable="E0602,W0511,R0801,I0011" --include-ids=y *.py
