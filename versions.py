@@ -1,21 +1,23 @@
 #!/usr/bin/env python
 """Module to keep track of paths and versions of other software used within the workflow at various intervals."""
 
-from subprocess import Popen, PIPE
-import shared
 import Bio
 import getpass
 import logging
 import os
+from subprocess import Popen, PIPE
+
+import shared  # Setup logging output
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
+
 SOFTWARE_DIR = '/work/odosenl/software/'
-if getpass.getuser() == 'tbeek':
-    SOFTWARE_DIR = '/data/projects/odosenl/software/'
+if getpass.getuser() == 'tim':
+    SOFTWARE_DIR = '/home/tim/Documents/dev/odosenl/software/'
 assert os.path.isdir(SOFTWARE_DIR), 'Software directory is missing'
 
 # Blast
@@ -60,10 +62,10 @@ CODEML = PAML_DIR + 'bin/codeml'
 
 def _call_program(*command):
     """Execute command and return the standard output returned by the program. Standard error is caught and ignored."""
-    print ' '.join(command)
+    logging.debug(' '.join(command))
     process = Popen(command, stdout=PIPE, stderr=PIPE)
     process.wait()
-    return process.communicate()[0]
+    return process.communicate()[0].strip()
 
 
 def _grep_version(path, pattern='version'):
@@ -75,7 +77,7 @@ def _grep_version(path, pattern='version'):
 def main():
     """Method intended to be run when __name-- == '__main__'."""
     # BioPython
-    logging.info('BioPython: ' + Bio.__version__ + '\n')
+    logging.info('BioPython: ' + Bio.__version__)
 
     # Blast
     logging.info(_call_program(MAKEBLASTDB, '-version'))
@@ -86,18 +88,18 @@ def main():
     logging.info('Life Science Grid Portal BLAST applications: ' + LSGP_BLAST_VERSION)
 
     # OrthoMCL & mcl
-    logging.info('OrthoMCL: ' + _grep_version(ORTHOMCL_DIR + '../doc/OrthoMCLEngine/Main/UserGuide.txt') + '\n')
+    logging.info('OrthoMCL: ' + _grep_version(ORTHOMCL_DIR + '../doc/OrthoMCLEngine/Main/UserGuide.txt'))
     logging.info(_call_program(MCL, '--version'))
 
     # PAML codeml
-    logging.info('PAML codeml: ' + _grep_version(PAML_DIR + 'src/paml.h') + '\n')
+    logging.info('PAML codeml: ' + _grep_version(PAML_DIR + 'src/paml.h'))
 
     # PHYLIP dnadist & neighbor
-    logging.info('PHYLIP dnadist: ' + _grep_version(PHYLIP_DIR + 'src/dnadist.c')[3:] + '\n')
-    logging.info('PHYLIP neighbor: ' + _grep_version(PHYLIP_DIR + 'src/neighbor.c')[3:] + '\n')
+    logging.info('PHYLIP dnadist: ' + _grep_version(PHYLIP_DIR + 'src/dnadist.c')[3:])
+    logging.info('PHYLIP neighbor: ' + _grep_version(PHYLIP_DIR + 'src/neighbor.c')[3:])
 
     # TranslatorX calls muscle internally
-    logging.info('translatorx: ' + _grep_version(TRANSLATORX, pattern='TranslatorX v')[28:-6] + '\n')
+    logging.info('translatorx: ' + _grep_version(TRANSLATORX, pattern='TranslatorX v')[28:-6])
     logging.info(_call_program('muscle', '-version'))
 
 if __name__ == '__main__':
