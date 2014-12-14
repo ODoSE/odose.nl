@@ -99,30 +99,30 @@ def main():
     _parse_args()
 
     # BioPython
-    logging.info('BioPython: ' + Bio.__version__)
+    logging.info('BioPython\t' + Bio.__version__)
 
     # Blast
-    logging.info(_call_program(MAKEBLASTDB, '-version'))
-    logging.info(_call_program(BLASTP, '-version'))
-    logging.info(_call_program(BLASTN, '-version'))
+    logging.info('makeblastdb\t' + _call_program(MAKEBLASTDB, '-version').split('\n')[1])
+    logging.info('makeblastdb\t' + _call_program(BLASTP, '-version').split('\n')[1])
+    logging.info('makeblastdb\t' + _call_program(BLASTN, '-version').split('\n')[1])
 
     # Life Science Grid Portal
-    logging.info('Life Science Grid Portal BLAST applications: ' + LSGP_BLAST_VERSION)
+    logging.info('LSGP BLAST\t' + LSGP_BLAST_VERSION)
 
     # OrthoMCL & mcl
-    logging.info('OrthoMCL: ' + _grep_version(ORTHOMCL_DIR + '../doc/OrthoMCLEngine/Main/UserGuide.txt'))
-    logging.info('MCL: ' + _call_program(MCL, '--version').split('\n')[0])
+    logging.info('OrthoMCL\t' + _grep_version(ORTHOMCL_DIR + '../doc/OrthoMCLEngine/Main/UserGuide.txt'))
+    logging.info('MCL\t' + _call_program(MCL, '--version').split('\n')[0])
 
     # PAML codeml
-    logging.info('PAML codeml: ' + _grep_version(PAML_DIR + 'src/paml.h'))
+    logging.info('PAML codeml\t' + _grep_version(PAML_DIR + 'src/paml.h'))
 
     # PHYLIP dnadist & neighbor
-    logging.info('PHYLIP dnadist: ' + _grep_version(PHYLIP_DIR + 'src/dnadist.c')[3:])
-    logging.info('PHYLIP neighbor: ' + _grep_version(PHYLIP_DIR + 'src/neighbor.c')[3:])
+    logging.info('PHYLIP dnadist\t' + _grep_version(PHYLIP_DIR + 'src/dnadist.c')[3:])
+    logging.info('PHYLIP neighbor\t' + _grep_version(PHYLIP_DIR + 'src/neighbor.c')[3:])
 
     # TranslatorX calls muscle internally
-    logging.info('translatorx: ' + _grep_version(TRANSLATORX, pattern='TranslatorX v')[28:-6])
-    logging.info(_call_program('muscle', '-version'))
+    logging.info('translatorx\t' + _grep_version(TRANSLATORX, pattern='TranslatorX v')[28:-6])
+    logging.info('Muscle\t' + _call_program('muscle', '-version'))
 
 if __name__ == '__main__':
     main()
