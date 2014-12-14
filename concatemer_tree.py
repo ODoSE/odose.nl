@@ -3,8 +3,8 @@
 
 from Bio import AlignIO, Phylo, SeqIO
 from shared import create_directory, parse_options, extract_archive_of_files, create_archive_of_files
-from shared.select_taxa import select_genomes_by_ids
-from shared.versions import DNADIST, NEIGHBOR
+from select_taxa import select_genomes_by_ids
+from versions import DNADIST, NEIGHBOR
 from subprocess import Popen, PIPE, STDOUT
 import logging as log
 import matplotlib

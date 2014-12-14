@@ -5,8 +5,8 @@ from __future__ import division
 from Bio import SeqIO
 from shared import create_directory, extract_archive_of_files, parse_options, get_most_recent_gene_name, \
     find_cogs_in_sequence_records
-from shared.select_taxa import select_genomes_by_ids
-from shared.versions import PHIPACK
+from select_taxa import select_genomes_by_ids
+from versions import PHIPACK
 from subprocess import check_call, CalledProcessError
 import logging as log
 import os.path

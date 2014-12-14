@@ -17,9 +17,9 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter, ArgumentTypeEr
 from collections import Counter, defaultdict
 from shared import CODON_TABLE_ID, find_cogs_in_sequence_records, get_most_recent_gene_name, \
     extract_archive_of_files, create_directory
-from shared.run_codeml import run_codeml, parse_codeml_output
-from shared.run_phipack import run_phipack
-from shared.select_taxa import select_genomes_by_ids
+from run_codeml import run_codeml, parse_codeml_output
+from run_phipack import run_phipack
+from select_taxa import select_genomes_by_ids
 from itertools import product
 from numpy import mean
 from random import choice

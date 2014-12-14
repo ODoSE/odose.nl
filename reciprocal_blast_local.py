@@ -2,7 +2,7 @@
 """Module for the reciprocal blast step."""
 
 from shared import create_directory, concatenate
-from shared.versions import MAKEBLASTDB, BLASTN, BLASTP
+from versions import MAKEBLASTDB, BLASTN, BLASTP
 from subprocess import check_call, STDOUT
 import logging as log
 import os

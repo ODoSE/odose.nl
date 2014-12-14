@@ -7,9 +7,9 @@ from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 from shared import find_cogs_in_sequence_records, parse_options, create_directory, extract_archive_of_files, \
     concatenate, CODON_TABLE_ID, get_most_recent_gene_name
-from shared.run_codeml import run_codeml, parse_codeml_output
-from shared.run_phipack import run_phipack
-from shared.select_taxa import select_genomes_by_ids
+from run_codeml import run_codeml, parse_codeml_output
+from run_phipack import run_phipack
+from select_taxa import select_genomes_by_ids
 from itertools import product
 from operator import itemgetter
 from random import choice

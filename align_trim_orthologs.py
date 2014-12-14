@@ -5,8 +5,8 @@ from __future__ import division
 from Bio import AlignIO
 from shared import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
     CODON_TABLE_ID
-from shared.scatterplot import scatterplot
-from shared.versions import TRANSLATORX
+from scatterplot import scatterplot
+from versions import TRANSLATORX
 from operator import itemgetter
 from subprocess import check_call, STDOUT
 import logging as log

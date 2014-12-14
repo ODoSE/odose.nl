@@ -7,7 +7,7 @@ from Bio.Data import CodonTable
 from collections import deque
 from shared import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
     CODON_TABLE_ID
-from shared.versions import CODEML
+from versions import CODEML
 from subprocess import check_call, STDOUT
 import logging as log
 import os.path

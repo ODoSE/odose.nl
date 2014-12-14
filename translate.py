@@ -8,8 +8,8 @@ from Bio.Data.CodonTable import TranslationError
 from Bio.SeqRecord import SeqRecord
 from shared import create_directory, concatenate, create_archive_of_files, parse_options, \
     extract_archive_of_files, CODON_TABLE_ID
-from shared.select_taxa import select_genomes_by_ids
-from shared.download_taxa_mrs import download_genome_files, download_plasmid_files
+from select_taxa import select_genomes_by_ids
+from download_taxa_mrs import download_genome_files, download_plasmid_files
 from multiprocessing import Pool
 from operator import itemgetter
 import logging as log

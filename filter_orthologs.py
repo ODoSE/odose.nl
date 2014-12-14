@@ -6,9 +6,9 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from shared import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
     find_cogs_in_sequence_records
-from shared.compare_taxa import main as ctaxa_main
-from shared.concatemer_tree import _run_dna_dist, _run_neighbor, _read_taxa_from_tree, main as ctree_main
-from shared.crosstable_gene_ids import create_crosstable
+from compare_taxa import main as ctaxa_main
+from concatemer_tree import _run_dna_dist, _run_neighbor, _read_taxa_from_tree, main as ctree_main
+from crosstable_gene_ids import create_crosstable
 import logging as log
 import os.path
 import shutil

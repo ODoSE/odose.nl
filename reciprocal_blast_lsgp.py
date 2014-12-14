@@ -3,8 +3,8 @@
 
 from datetime import timedelta
 from shared import concatenate
-from shared.lsgp_client import run_application, submit_application_run, retrieve_run_result, send_request
-from shared.versions import LSGP_MAKEBLASTDB, LSGP_BLASTN, LSGP_BLASTP
+from lsgp_client import run_application, submit_application_run, retrieve_run_result, send_request
+from versions import LSGP_MAKEBLASTDB, LSGP_BLASTN, LSGP_BLASTP
 import os
 import shutil
 import tempfile
