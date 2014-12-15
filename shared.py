@@ -86,6 +86,7 @@ def create_archive_of_files(archive_file, file_iterable):
 
 def extract_archive_of_files(archive_file, target_dir):
     """Extract all files from archive to target directory, and return list of files extracted."""
+    assert 0 < os.path.getsize(archive_file), 'Zipfile was zero bytes!'
     extracted_files = []
     read_handle = ZipFile(archive_file, mode='r')
     for zipinfo in read_handle.infolist():
