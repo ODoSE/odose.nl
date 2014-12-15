@@ -43,6 +43,9 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+# Gedit
+*~
+
 # Eclipse
 .project
 .pydevproject
