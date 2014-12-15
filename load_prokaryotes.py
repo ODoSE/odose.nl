@@ -83,12 +83,12 @@ def _parse_genomes_table(require_refseq=False):
 
         # Skip any genomes that don't point to chromosome files
         if not genome['Chromosomes/RefSeq']:
-            logging.debug('Missing Chromosomes/RefSeq identifiers for: %s', genome)
+            logging.debug('Missing Chromosomes/RefSeq identifiers for: %s', genome['BioProject ID'])
             continue
 
         # Skip any genomes that do not provide an FTP path to download
         if genome['FTP Path'] == '-':
-            logging.debug('Missing FTP path for: %s', genome)
+            logging.debug('Missing FTP path for: %s', genome['BioProject ID'])
             continue
 
         # Convert date columns to actual dates
@@ -207,7 +207,8 @@ def _parse_args():
     parser.add_argument('target',
                         help='Target output file for table',
                         type=argparse.FileType('w'),
-                        default=sys.stdout)
+                        default=sys.stdout,
+                        nargs='?')
     return parser.parse_args()
 
 
