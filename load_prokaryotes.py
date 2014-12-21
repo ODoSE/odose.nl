@@ -83,12 +83,12 @@ def _parse_genomes_table(require_refseq=False):
 
         # Skip any genomes that don't point to chromosome files
         if not genome['Chromosomes/RefSeq']:
-            logging.debug('Missing Chromosomes/RefSeq identifiers for: %s', genome['BioProject ID'])
+            logging.debug('Missing Chromosomes/RefSeq identifiers for: %s', genome['Assembly Accession'])
             continue
 
         # Skip any genomes that do not provide an FTP path to download
         if genome['FTP Path'] == '-':
-            logging.debug('Missing FTP path for: %s', genome['BioProject ID'])
+            logging.debug('Missing FTP path for: %s', genome['Assembly Accession'])
             continue
 
         # Convert date columns to actual dates
@@ -159,7 +159,7 @@ def get_complete_genomes(genomes=_parse_genomes_table()):
 
     for genome in sorted_genomes:
         name = '{project} - {group} > {subgroup} > {firstname} > {fullname}'.format(
-            project=genome['BioProject ID'],
+            project=genome['Assembly Accession'],
             group=genome['Group'],
             subgroup=genome['SubGroup'],
             firstname=genome['Organism/Name'].split()[0],
@@ -169,7 +169,7 @@ def get_complete_genomes(genomes=_parse_genomes_table()):
             name += ' - ' + labels
 
         # Yield the composed name and the project ID
-        yield name, genome['BioProject ID']
+        yield name, genome['Assembly Accession']
 
 
 def _get_labels(genome):

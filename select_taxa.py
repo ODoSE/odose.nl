@@ -17,9 +17,9 @@ __license__ = "MIT"
 
 
 def select_genomes_by_ids(genome_ids):
-    """Return list of genomes from complete genomes table whose GenBank Project ID is in genome_ids."""
+    """Return list of genomes from complete genomes table whose Assembly Accession is in genome_ids."""
     # Loop over genomes and return any genomes whose GenBank Project ID is in genome_ids
-    refseq_genomes = dict((genome['BioProject ID'], genome) for genome in _parse_genomes_table())
+    refseq_genomes = dict((genome['Assembly Accession'], genome) for genome in _parse_genomes_table())
 
     # Match genomes_ids to genomes
     matches = dict((queryid, refseq_genomes[queryid]) for queryid in genome_ids if queryid in refseq_genomes)

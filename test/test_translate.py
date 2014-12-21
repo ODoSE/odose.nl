@@ -14,7 +14,7 @@ class Test(unittest.TestCase):
 
     def test_translate_genomes(self):
         # Select genomes
-        genomes = select_genomes_by_ids(['16235']).values()
+        genomes = select_genomes_by_ids(['13305.1']).values()
 
         # Call translate
         dnafiles, aafiles = translate.translate_genomes(genomes)

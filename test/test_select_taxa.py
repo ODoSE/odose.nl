@@ -19,7 +19,7 @@ class Test(unittest.TestCase):
         # Setup arguments
         target = tempfile.mktemp()[1]
         try:
-            args = ('--genomes=13960 --genomes-file=' + target).split()
+            args = ('--genomes=17745.1 --genomes-file=' + target).split()
 
             # Write to argument file
             select_taxa.main(args)
