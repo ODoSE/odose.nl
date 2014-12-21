@@ -3,6 +3,7 @@
 
 from ConfigParser import SafeConfigParser
 import MySQLdb
+import collections
 from datetime import datetime
 import os
 import shutil
@@ -16,6 +17,9 @@ __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
+
+
+Credentials = collections.namedtuple('Credentials', ['host', 'port', 'user', 'passwd'])
 
 
 def _get_root_credentials():
@@ -39,7 +43,7 @@ def _get_root_credentials():
     if passwd == 'pass' and 'mysql_password' in os.environ:
         passwd = os.environ['mysql_password']
 
-    return host, port, user, passwd
+    return Credentials(host, port, user, passwd)
 
 
 def create_database():
@@ -47,7 +51,7 @@ def create_database():
     # Build a unique URL using todays date
     dbname = 'orthomcl_{t.year}_{t.month}_{t.day}_at_{t.hour}_{t.minute}_{t.second}'.format(t=datetime.today())
     dbhost, port, user, passwd = _get_root_credentials()
-    clhost = socket.gethostname()
+    clhost = socket.gethostname() if dbhost not in ['127.0.0.1', 'localhost'] else dbhost
     db_connection = MySQLdb.connect(host=dbhost, port=port, user=user, passwd=passwd)
     cursor = db_connection.cursor()
     cursor.execute('CREATE DATABASE ' + dbname)
