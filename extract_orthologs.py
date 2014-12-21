@@ -2,16 +2,19 @@
 """Module to extract from DNA files orthologous sequences according to groups found through OrthoMCL step."""
 
 from __future__ import division
+
 from Bio import SeqIO
-from shared import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
-    get_most_recent_gene_name, find_cogs_in_sequence_records
-from select_taxa import select_genomes_by_ids
 from itertools import chain
-import logging as log
 import os
 import shutil
 import sys
 import tempfile
+
+import logging as log
+from select_taxa import select_genomes_by_ids
+from shared import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
+    get_most_recent_gene_name, find_cogs_in_sequence_records
+
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -71,7 +74,7 @@ def _append_orfans_to_heatmap(orfans_file, genomes, heatmap_file):
     """
     with open(heatmap_file, mode='a') as append_handle:
         for seq in SeqIO.parse(orfans_file, 'fasta'):
-            genome, accession, gene, cog, product = seq.id.split('|')  #@UnusedVariable # pylint: disable=W0612
+            genome, accession, gene, cog, product = seq.id.split('|')  # @UnusedVariable # pylint: disable=W0612
             for gid in genomes:
                 append_handle.write('{}\t'.format(1 if gid == genome else 0))
             append_handle.write('\t'.join((gene, cog if cog != 'None' else '', product)))
@@ -136,7 +139,7 @@ def _extract_shared_orthologs(selected_genome_ids, groups_file, require_limiter_
         # The ortholog is shared if all selected ids are present in the keys from the prot_per_genomes dictionary
         # While this still allows the selected_genome_ids to be a subset of all genome ids present in these orthologs
         is_shared_ortholog = all(selected_id in prot_per_genomes
-                               for selected_id in selected_genome_ids)
+                                 for selected_id in selected_genome_ids)
 
         # If limiter presence is required, only mark orthologs as shared if they contain also limiter
         if require_limiter_presence:
@@ -205,7 +208,7 @@ def _write_record_to_ortholog_file(directory, ortholog_dictionaries, record):
     # Sample header line:    >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
     # Corresponding ortholog: {'58191': ['YP_001569097.1'], ...}
     split_header = record.id.split('|')
-    project_id = split_header[0]
+    project_id = split_header[0].replace('.', '_')
     protein_id = split_header[2]
 
     affected_ortholog_files = set()
@@ -284,8 +287,8 @@ Usage: extract_orthologs.py
     options = ['genomes', 'dna-zip', 'groups', 'require-limiter?',
                'sico-zip', 'muco-zip=?', 'subset-zip=?', 'stats', 'heatmap', 'orfans']
     genome_ids_file, dna_zip, groups_file, require_limiter, \
-    target_sico, target_muco, target_subset, target_stats_path, target_heat, target_orfans = \
-    parse_options(usage, options, args)
+        target_sico, target_muco, target_subset, target_stats_path, target_heat, target_orfans = \
+        parse_options(usage, options, args)
 
     # Parse file extract GenBank Project IDs
     with open(genome_ids_file) as read_handle:

@@ -2,19 +2,20 @@
 """Module to run orthoMCL. Steps in this module reflect the steps in the UserGuide.txt bundled with OrthoMCL."""
 
 from Bio import SeqIO
-from shared import create_directory, extract_archive_of_files, parse_options
+import multiprocessing
+import os
+import shutil
+from subprocess import Popen, PIPE, CalledProcessError, check_call, STDOUT
+import sys
+import tempfile
+
+import logging as log
 from orthomcl_database import create_database, get_configuration_file, delete_database, _get_root_credentials
+from shared import create_directory, extract_archive_of_files, parse_options
 from translate import translate_fasta_coding_regions
 from upload_genomes import format_fasta_genome_headers
 from versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
     ORTHOMCL_BLAST_PARSER, ORTHOMCL_LOAD_BLAST, ORTHOMCL_PAIRS, ORTHOMCL_DUMP_PAIRS_FILES
-from subprocess import Popen, PIPE, CalledProcessError, check_call, STDOUT
-import logging as log
-import multiprocessing
-import os
-import shutil
-import sys
-import tempfile
 
 
 __author__ = "Tim te Beek"
@@ -122,7 +123,7 @@ def _step5_orthomcl_adjust_fasta(run_dir, proteome_files, id_field=3):
         taxon_code = None
         # Use first part of header of first entry as taxon code
         for record in SeqIO.parse(proteome_file, 'fasta'):
-            taxon_code = record.id.split('|')[0]
+            taxon_code = record.id.split('|')[0].replace('.', '_')
             break
 
         # If we failed to extract a taxon_code, proteome file must have been empty
@@ -231,7 +232,6 @@ def _step7_blast_all_vs_all(good_proteins_file, fasta_files):
         # Run two genomes ourselves locally.
         from reciprocal_blast_local import reciprocal_blast
         return reciprocal_blast(good_proteins_file, fasta_files)
-    
 
 
 def _step8_orthomcl_blast_parser(run_dir, blast_file, fasta_files_dir):
@@ -295,12 +295,12 @@ def _step9_orthomcl_load_blast(similar_seqs_file, config_file):
 def _step9_mysql_load_blast(similar_seqs_file, database):
     """Directly load results using MySQL, as Perl MySQL connection does not allow for load data local infile."""
     host, port, user, passwd = _get_root_credentials()
-    
+
     # Run orthomclLoadBlast
     command = ['mysql',
-               '-h',host,
-               '-u','orthomcl',
-               '--port='+str(port),
+               '-h', host,
+               '-u', 'orthomcl',
+               '--port=' + str(port),
                '--password=pass',
                '--local-infile=1',
                '-e', 'LOAD DATA LOCAL INFILE "{0}" REPLACE INTO TABLE SimilarSequences FIELDS TERMINATED BY \'\\t\';'.format(similar_seqs_file),
