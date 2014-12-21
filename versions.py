@@ -81,7 +81,9 @@ def _parse_args():
     Parse required arguments.
     '''
     parser = argparse.ArgumentParser()
-    parser.add_argument('target', help='Target output file for version numbers', type=lambda path: logging.FileHandler(path, mode='w'))
+    parser.add_argument('target',
+                        help='Target output file for version numbers',
+                        type=lambda path: logging.FileHandler(path, mode='w'))
     args = parser.parse_args()
 
     # Directly configure logging through args
@@ -95,10 +97,6 @@ def _parse_args():
 
 def main():
     """Method intended to be run when __name-- == '__main__'."""
-
-    # Parse arguments to setup logging
-    _parse_args()
-
     # BioPython
     logging.info('BioPython\t' + Bio.__version__)
 
@@ -126,4 +124,7 @@ def main():
     logging.info('Muscle\t' + _call_program('muscle', '-version'))
 
 if __name__ == '__main__':
+    # Parse arguments to setup logging; not in main for testing
+    _parse_args()
+    # Log software versions
     main()

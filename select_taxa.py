@@ -63,7 +63,7 @@ Usage: select_taxa.py
     maximum = 100
     # TODO Move this test to translate, where we can see how many translations succeeded + how many externals there are
     if maximum < len(genome_ids):
-        logging.error('Expected between two and {0} selected genomes, but was {1}'.format(maximum, len(genome_ids)))
+        logging.error('Expected between two and %s selected genomes, but was %s', maximum, len(genome_ids))
         sys.exit(1)
 
     # Retrieve genome dictionaries to get to Organism Name
