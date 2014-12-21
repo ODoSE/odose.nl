@@ -62,11 +62,13 @@ class Test(unittest.TestCase):
         genomes = load_prokaryotes._parse_genomes_table()
         self.assertLess(2500, len(genomes), 'Enough genomes should be available')
 
+        # Determine the unique columns
+        keys = genomes[0].keys()
+        uniq = [key for key in keys if len(set(str(gnm[key]) for gnm in genomes)) == len([gnm[key] for gnm in genomes])]
+        logging.debug('Unique columns: %s', uniq)
+
         # Ensure the Assembly accessions are unique
-        assacc = sorted(gnm['Assembly Accession'] for gnm in genomes)
-        for acc in set(assacc):
-            assacc.remove(acc)
-        self.assertFalse(assacc, 'Assembly Accession identifiers should be unique')
+        self.assertIn('Assembly Accession', uniq)
 
         # Report how many records RefSeq / GenBank identifiers
         self.assertTrue(all(gnm['Chromosomes/RefSeq'] for gnm in genomes))
