@@ -3,6 +3,7 @@
 from Bio import SeqIO
 from datetime import datetime, timedelta
 from ftplib import FTP, error_perm
+import logging
 import os.path
 import shutil
 import tempfile
@@ -10,16 +11,20 @@ import time
 
 import logging as log
 from shared import create_directory
-
-
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
 
-def download_genome_files(genome, download_log=None, require_ptt=False):
+def download_plasmid_files(genome):
+    return download_genome_files(genome, refseq_column='Plasmids/RefSeq', embl_column='Plasmids/INSDC')
+
+
+def download_genome_files(genome, download_log=None, require_ptt=False, refseq_column='Chromosomes/RefSeq', embl_column='Chromosomes/INSDC'):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples of three."""
+    logging.debug('Downloading: %s', genome)
+
     # ftp://ftp.ncbi.nih.gov/genbank/genomes/Bacteria/Sulfolobus_islandicus_M_14_25_uid18871/CP001400.ffn
     # Download using FTP
     ftp = FTP('ftp.ncbi.nlm.nih.gov')
@@ -28,7 +33,7 @@ def download_genome_files(genome, download_log=None, require_ptt=False):
     # Try to find project directory in RefSeq curated listing
     projectid = genome['Assembly Accession']
     folder = '/genomes/ASSEMBLY_BACTERIA/{}'.format(genome['FTP Path'])
-    accessioncodes = genome['Chromosomes/RefSeq']
+    accessioncodes = genome[refseq_column]
     target_dir = create_directory('genomes/' + projectid)
 
     # Determine last modified date to see if we should redownload the file following changes
