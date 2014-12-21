@@ -6,24 +6,7 @@ import unittest
 
 import run_orthomcl
 from shared import resource_filename
-
-
-def which(program):
-    '''
-    Find a program on the path, and see if we can execute it.
-    :param program:
-    '''
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    if os.path.dirname(program) and is_exe(program):
-        return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            exe_file = os.path.join(path.strip('"'), program)
-            if is_exe(exe_file):
-                return exe_file
-    return None
+from versions import SOFTWARE_DIR
 
 
 class Test(unittest.TestCase):
@@ -32,7 +15,7 @@ class Test(unittest.TestCase):
         self.longMessage = True
         logging.root.setLevel(logging.DEBUG)
 
-    @unittest.skipIf(which('mcl'), 'We need to be able to run mcl for this test')
+    @unittest.skipUnless(os.path.isdir(SOFTWARE_DIR), 'We need to be able to run mcl for this test')
     def test_run_orthomcl(self):
         '''
         Run run_orthomcl.run_orthomcl on two genomes and verify the poor proteins and identified groups
