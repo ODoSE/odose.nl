@@ -294,13 +294,13 @@ def _step9_orthomcl_load_blast(similar_seqs_file, config_file):
 
 def _step9_mysql_load_blast(similar_seqs_file, database):
     """Directly load results using MySQL, as Perl MySQL connection does not allow for load data local infile."""
-    host, port, user, passwd = _get_root_credentials()
+    credentials = _get_root_credentials()
 
     # Run orthomclLoadBlast
     command = ['mysql',
-               '-h', host,
+               '-h', credentials.host,
                '-u', 'orthomcl',
-               '--port=' + str(port),
+               '--port=' + str(credentials.port),
                '--password=pass',
                '--local-infile=1',
                '-e', 'LOAD DATA LOCAL INFILE "{0}" REPLACE INTO TABLE SimilarSequences FIELDS TERMINATED BY \'\\t\';'.format(similar_seqs_file),
