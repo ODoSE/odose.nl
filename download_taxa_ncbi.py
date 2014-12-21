@@ -9,8 +9,9 @@ import shutil
 import tempfile
 import time
 
-import logging as log
 from shared import create_directory
+
+
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
@@ -18,10 +19,14 @@ __license__ = "MIT"
 
 
 def download_plasmid_files(genome):
-    return download_genome_files(genome, refseq_column='Plasmids/RefSeq', embl_column='Plasmids/INSDC')
+    '''
+    Download plasmid files from FTP site, by taking accession codes from other columns.
+    :param genome:
+    '''
+    return download_genome_files(genome, refseq_column='Plasmids/RefSeq')
 
 
-def download_genome_files(genome, download_log=None, require_ptt=False, refseq_column='Chromosomes/RefSeq', embl_column='Chromosomes/INSDC'):
+def download_genome_files(genome, download_log=None, require_ptt=False, refseq_column='Chromosomes/RefSeq'):
     """Download genome .gbk & .ptt files from ncbi ftp and return pairs per accessioncode in tuples of three."""
     logging.debug('Downloading: %s', genome)
 
@@ -54,18 +59,18 @@ def download_genome_files(genome, download_log=None, require_ptt=False, refseq_c
             features = SeqIO.read(gbk_file, 'genbank').features
             if not any(feature.type == 'CDS' for feature in features):
                 # Skip when genbank file does not contain any coding sequence features
-                log.warn('GenBank file %s did not contain any coding sequence features', acc)
+                logging.warn('GenBank file %s did not contain any coding sequence features', acc)
                 continue
         except error_perm as err:
             if 'No such file or directory' not in str(err):
                 raise err
-            log.warn(err)
-            log.warn('GenBank file %s missing for %s', acc, projectid)
+            logging.warn(err)
+            logging.warn('GenBank file %s missing for %s', acc, projectid)
             continue
         except IOError as err:
             if 'Target file was empty after download' not in str(err):
                 raise err
-            log.warn(err)
+            logging.warn(err)
             continue
 
         # Try protein table file, which could be optional
@@ -75,14 +80,14 @@ def download_genome_files(genome, download_log=None, require_ptt=False, refseq_c
         except error_perm as err:
             if 'No such file or directory' not in str(err):
                 raise err
-            log.warn(err)
+            logging.warn(err)
             if require_ptt:
-                log.warn('Protein table file %s missing for %s: Probably no coding sequences', acc, projectid)
+                logging.warn('Protein table file %s missing for %s: Probably no coding sequences', acc, projectid)
                 continue
         except IOError as err:
             if 'Target file was empty after download' not in str(err):
                 raise err
-            log.warn(err)
+            logging.warn(err)
             continue
         genome_files.append((projectid, gbk_file, ptt_file))
 
@@ -141,7 +146,7 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_dat
         tmp_file = tempfile.mkstemp(prefix=filename + '_')[1]
 
         # Retrieve genbank & protein table files from FTP
-        log.info('Retrieving genome file %s%s/%s to %s', ftp.host, remote_dir, filename, target_dir)
+        logging.info('Retrieving genome file %s%s/%s to %s', ftp.host, remote_dir, filename, target_dir)
 
         # Write retrieved contents to file
         with open(tmp_file, mode='wb') as writer:
@@ -154,6 +159,6 @@ def _download_genome_file(ftp, remote_dir, filename, target_dir, last_change_dat
         # Actually move now that we've finished downloading files
         shutil.move(tmp_file, out_file)
     else:
-        log.info('Cache hit on file %s dated %s', out_file, datetime.fromtimestamp(os.path.getmtime(out_file)))
+        logging.info('Cache hit on file %s dated %s', out_file, datetime.fromtimestamp(os.path.getmtime(out_file)))
 
     return out_file
