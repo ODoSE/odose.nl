@@ -19,7 +19,8 @@ __license__ = "MIT"
 SOFTWARE_DIR = '/work/odosenl/software/'
 if getpass.getuser() == 'tim':
     SOFTWARE_DIR = '/home/tim/Documents/dev/odosenl/software/'
-assert os.path.isdir(SOFTWARE_DIR), 'Software directory is missing'
+if not os.path.isdir(SOFTWARE_DIR):
+    logging.error('Software directory is missing: %s', SOFTWARE_DIR)
 
 # Blast
 NCBI_BLAST_DIR = SOFTWARE_DIR + 'ncbi-blast-2.2.28+/bin/'
