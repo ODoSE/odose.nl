@@ -5,15 +5,17 @@ from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 from collections import deque
+import logging
+import os.path
+import shutil
+from subprocess import check_call, STDOUT
+import sys
+import tempfile
+
 from shared import create_directory, extract_archive_of_files, create_archive_of_files, parse_options, \
     CODON_TABLE_ID
 from versions import CODEML
-from subprocess import check_call, STDOUT
-import logging as log
-import os.path
-import shutil
-import sys
-import tempfile
+
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -23,7 +25,7 @@ __license__ = "MIT"
 
 def run_codeml_for_sicos(codeml_dir, genome_ids_a, genome_ids_b, sico_files):
     """Run codeml for representatives of clades A and B in each of the SICO files, to calculate dN/dS."""
-    log.info('Running codeml for {0} aligned and trimmed SICOs'.format(len(sico_files)))
+    logging.info('Running codeml for %s aligned and trimmed SICOs', len(sico_files))
 
     codeml_files = []
     for sico_file in sico_files:
@@ -243,7 +245,7 @@ Usage: run_codeml.py
     shutil.rmtree(run_dir)
 
     # Exit after a comforting log message
-    log.info("Produced: \n%s\n%s", codeml_zip, dnds_file)
+    logging.info("Produced: \n%s\n%s", codeml_zip, dnds_file)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
