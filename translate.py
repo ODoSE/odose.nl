@@ -6,18 +6,20 @@ from Bio.Alphabet.IUPAC import ambiguous_dna
 from Bio.Data import CodonTable
 from Bio.Data.CodonTable import TranslationError
 from Bio.SeqRecord import SeqRecord
-from shared import create_directory, concatenate, create_archive_of_files, parse_options, \
-    extract_archive_of_files, CODON_TABLE_ID
-from select_taxa import select_genomes_by_ids
-from download_taxa_mrs import download_genome_files, download_plasmid_files
 from multiprocessing import Pool
 from operator import itemgetter
-import logging as log
 import os
 import re
 import shutil
 import sys
 import tempfile
+
+from download_taxa_ncbi import download_genome_files, download_plasmid_files
+import logging as log
+from select_taxa import select_genomes_by_ids
+from shared import create_directory, concatenate, create_archive_of_files, parse_options, \
+    extract_archive_of_files, CODON_TABLE_ID
+
 
 __author__ = "Tim te Beek"
 __contact__ = "brs@nbic.nl"
@@ -71,7 +73,7 @@ def _map_protein_cog_and_gene(ptt_file):
             assert pid not in product_mapping, 'Protein identifier was already assigned value: ' + product_mapping[pid]
             # Assign None if value of COG does not start with COG (such as when it's '-')
             cog_mapping[pid] = values[7] if values[7].startswith('COG') else None
-            product_mapping[pid] = values[8].replace('<', '_').replace('>', '_').replace('|', '_').replace(';','_')
+            product_mapping[pid] = values[8].replace('<', '_').replace('>', '_').replace('|', '_').replace(';', '_')
     return cog_mapping, product_mapping
 
 
@@ -122,10 +124,10 @@ def _extract_gene_and_protein(out_dir, project_id, genbank_file, ptt_file=None, 
 
     # Check if destination output files already exist and have content, and if so return them
     if (os.path.isfile(aa_file_dest) and 0 < os.path.getsize(aa_file_dest) and
-        os.path.isfile(dna_file_dest) and 0 < os.path.getsize(dna_file_dest)):
+            os.path.isfile(dna_file_dest) and 0 < os.path.getsize(dna_file_dest)):
         # But only if the output files are newer than the genbank file, otherwise translate the newer file & overwrite
         if (os.path.getmtime(genbank_file) < os.path.getmtime(aa_file_dest) and
-            os.path.getmtime(genbank_file) < os.path.getmtime(dna_file_dest)):
+                os.path.getmtime(genbank_file) < os.path.getmtime(dna_file_dest)):
             return dna_file_dest, aa_file_dest
 
     # Use temporary files as write handles when translating, so we can not pollute cache with incomplete files
@@ -212,10 +214,10 @@ def _extract_and_translate_cds(cog_mapping, product_mapping, aa_writer, dna_writ
     if len(extracted_seq) % 3:
         # Skip CDS feature if length of extracted_seq is not a multiple of three
         log.warn('Length of extracted coding sequence %s not a multiple of 3: %i\n%s',
-                  protein_id, len(extracted_seq), extracted_seq)
+                 protein_id, len(extracted_seq), extracted_seq)
         return
 
-    # Some records do not contain nucleic acids, but rather refer to other files for their contigs: We can't handle that 
+    # Some records do not contain nucleic acids, but rather refer to other files for their contigs: We can't handle that
     str_seq = str(extracted_seq)
     if re.match('^X+$', str_seq) or re.match('^N+$', str_seq):
         # Skip CDS feature if length of extracted_seq is not a multiple of three
