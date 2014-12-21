@@ -63,8 +63,7 @@ def _parse_genomes_table(require_refseq=False):
     splitable_columns = {'Chromosomes/RefSeq': ',',
                          'Chromosomes/INSDC': ',',
                          'Plasmids/RefSeq': ',',
-                         'Plasmids/INSDC': ','
-                         }
+                         'Plasmids/INSDC': ','}
 
     # Convert string file contents to something readable by CSV DictReader
     from StringIO import StringIO
@@ -213,6 +212,9 @@ def _parse_args():
 
 
 def main():
+    '''
+    Write prokaryotes to target argument, or sys.stdout.
+    '''
     # Parse arguments
     args = _parse_args()
 
