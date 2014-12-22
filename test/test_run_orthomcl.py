@@ -6,7 +6,7 @@ import unittest
 
 import run_orthomcl
 from shared import resource_filename
-from versions import SOFTWARE_DIR
+from versions import ORTHOMCL_DIR
 
 
 class Test(unittest.TestCase):
@@ -15,7 +15,13 @@ class Test(unittest.TestCase):
         self.longMessage = True
         logging.root.setLevel(logging.DEBUG)
 
-    @unittest.skipUnless(os.path.isdir(SOFTWARE_DIR), 'We need to be able to run mcl for this test')
+    def test_parse_args(self):
+        args = run_orthomcl._parse_args(['proteins.zip', '-e', '4', 'target-poor.fasta', 'target-groups.tsv'])
+        logging.debug(args)
+        self.assertEqual(4, args.evalue)
+        self.assertEqual(30, args.poorlength)
+
+    @unittest.skipUnless(os.path.isdir(ORTHOMCL_DIR))
     def test_run_orthomcl(self):
         '''
         Run run_orthomcl.run_orthomcl on two genomes and verify the poor proteins and identified groups
@@ -76,3 +82,14 @@ class Test(unittest.TestCase):
         finally:
             os.remove(target_groups_file)
             os.remove(target_poor_proteins_file)
+
+    @unittest.skipUnless(os.path.isdir(ORTHOMCL_DIR))
+    def test_main(self):
+        proteins = resource_filename(__name__, 'data/run_orthomcl/proteins.zip')
+        poor = tempfile.mkstemp(suffix='.faa', prefix='poor_')[1]
+        groups = tempfile.mkstemp(suffix='.tsv', prefix='groups_')[1]
+        try:
+            run_orthomcl.main([proteins, poor, groups])
+        finally:
+            os.remove(poor)
+            os.remove(groups)

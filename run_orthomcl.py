@@ -2,18 +2,16 @@
 """Module to run orthoMCL. Steps in this module reflect the steps in the UserGuide.txt bundled with OrthoMCL."""
 
 from Bio import SeqIO
+import argparse
 import multiprocessing
 import os
 import shutil
 from subprocess import Popen, PIPE, CalledProcessError, check_call, STDOUT
-import sys
 import tempfile
 
 import logging as log
 from orthomcl_database import create_database, get_configuration_file, delete_database, _get_root_credentials
 from shared import create_directory, extract_archive_of_files, parse_options
-from translate import translate_fasta_coding_regions
-from upload_genomes import format_fasta_genome_headers
 from versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
     ORTHOMCL_BLAST_PARSER, ORTHOMCL_LOAD_BLAST, ORTHOMCL_PAIRS, ORTHOMCL_DUMP_PAIRS_FILES
 
@@ -424,44 +422,40 @@ def _step12_mcl(run_dir, mcl_input_file):
     return mcl_output_file
 
 
-def main(args):
+def main(argv=None):
     """Main function called when run from command line or as part of pipeline."""
-    usage = """
-Usage: run_orthomcl.py
---protein-zip=FILE           zip archive of translated protein files
---ortholog-limiter=FILE      nucleotide fasta file containing coding regions in individual records. this file will be
-                             translated to protein and fed into orthomcl along with files in protein - zip to influence
-                             the clustering of orthologs, and (optionally) later the extraction of orthologs [OPTIONAL]
---poor-protein-length=INT    filter poor proteins when smaller than poor-protein-length
---evalue-exponent=INT        filter OrthoMCL BLAST similarities with Expect value exponents greater than this value
---poor-proteins=FILE         destination file path for filtered poor proteins
---groups=FILE                destination file path for file listing groups of orthologous proteins
-"""
-    options = ['protein-zip', 'ortholog-limiter=?', 'poor-protein-length', 'evalue-exponent', 'poor-proteins', 'groups']
-    protein_zipfile, limiter_file, poor_protein_length, evalue_exponent, target_poor_proteins, target_groups_path = \
-        parse_options(usage, options, args)
+    args = _parse_args(argv)
 
     # Extract files from zip archive
     temp_dir = tempfile.mkdtemp(prefix='orthomcl_proteins_')
-    proteome_files = extract_archive_of_files(protein_zipfile, temp_dir)
-
-    # If limiter file is defined, add it to the set op protein files
-    if limiter_file:
-        # First format nucleotide fasta file to contain the correct fasta headers
-        formatted_fasta_file = format_fasta_genome_headers('limiter', limiter_file)
-        # Then translate it from nucleotide to protein
-        translated_limiter = translate_fasta_coding_regions(formatted_fasta_file)
-        # Then append it to the list op proteome files
-        proteome_files.append(translated_limiter)
+    proteome_files = extract_archive_of_files(args.proteinzip, temp_dir)
 
     # Actually run orthomcl
-    run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_poor_proteins, target_groups_path)
+    run_orthomcl(proteome_files, args.poorlength, args.evalue, args.poorfasta, args.groupstsv)
 
     # Remove unused files to free disk space
     shutil.rmtree(temp_dir)
 
     # Exit after a comforting log message
-    log.info("Produced: \n%s\n%s", target_poor_proteins, target_groups_path)
+    log.info("Produced: \n%s\n%s", args.poorfasta, args.groupstsv)
+
+
+def _parse_args(argv=None):
+    '''
+    Parse the commandline arguments with argparse, and return the result.
+    '''
+    if argv is None:
+        import sys
+        argv = sys.argv[1:]
+    parser = argparse.ArgumentParser()
+    parser.add_argument('proteinzip', help='Zip archive of protein FASTA files')
+    parser.add_argument('-p', '--poorlength', type=int, default=30,
+                        help='Filter out proteins shorter than argument length')
+    parser.add_argument('-e', '--evalue', type=int, default=-5,
+                        help='Filter out BLAST hits with greater expect-value exponent')
+    parser.add_argument('poorfasta', help='Destination for filtered out poor proteins FASTA file')
+    parser.add_argument('groupstsv', help='Destination for orthologous groups tsv file')
+    return parser.parse_args(argv)
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()
