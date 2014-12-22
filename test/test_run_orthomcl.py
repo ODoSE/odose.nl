@@ -21,7 +21,7 @@ class Test(unittest.TestCase):
         self.assertEqual(4, args.evalue)
         self.assertEqual(30, args.poorlength)
 
-    @unittest.skipUnless(os.path.isdir(ORTHOMCL_DIR))
+    @unittest.skipUnless(os.path.isdir(ORTHOMCL_DIR), 'We need OrthoMCL')
     def test_run_orthomcl(self):
         '''
         Run run_orthomcl.run_orthomcl on two genomes and verify the poor proteins and identified groups
@@ -83,7 +83,7 @@ class Test(unittest.TestCase):
             os.remove(target_groups_file)
             os.remove(target_poor_proteins_file)
 
-    @unittest.skipUnless(os.path.isdir(ORTHOMCL_DIR))
+    @unittest.skipUnless(os.path.isdir(ORTHOMCL_DIR), 'We need OrthoMCL')
     def test_main(self):
         proteins = resource_filename(__name__, 'data/run_orthomcl/proteins.zip')
         poor = tempfile.mkstemp(suffix='.faa', prefix='poor_')[1]

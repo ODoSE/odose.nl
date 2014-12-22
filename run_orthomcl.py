@@ -11,7 +11,7 @@ import tempfile
 
 import logging as log
 from orthomcl_database import create_database, get_configuration_file, delete_database, _get_root_credentials
-from shared import create_directory, extract_archive_of_files, parse_options
+from shared import create_directory, extract_archive_of_files
 from versions import MCL, ORTHOMCL_INSTALL_SCHEMA, ORTHOMCL_ADJUST_FASTA, ORTHOMCL_FILTER_FASTA, \
     ORTHOMCL_BLAST_PARSER, ORTHOMCL_LOAD_BLAST, ORTHOMCL_PAIRS, ORTHOMCL_DUMP_PAIRS_FILES
 
@@ -29,32 +29,41 @@ def run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_po
 
     # Steps leading up to and performing the reciprocal blast, as well as minor post processing
     adjusted_fasta_dir, fasta_files = _step5_orthomcl_adjust_fasta(run_dir, proteome_files)
+
     good, poor = _step6_orthomcl_filter_fasta(run_dir, adjusted_fasta_dir, min_length=poor_protein_length)
+    # Move poor proteins file to expected output path
+    shutil.move(poor, target_poor_proteins_file)
+
     allvsall = _step7_blast_all_vs_all(good, fasta_files)
+
     similar_sequences = _step8_orthomcl_blast_parser(run_dir, allvsall, adjusted_fasta_dir)
-    # Clean up all vs all blast results file
-    os.remove(allvsall)
 
     # Create new database and install database schema in it, so individual runs do not interfere with each other
     dbname = create_database()
-    config_file = get_configuration_file(run_dir, dbname, evalue_exponent)
-    _step4_orthomcl_install_schema(run_dir, config_file)
+    try:
+        # Steps that occur in database, and thus do little to produce output files
+        config_file = get_configuration_file(run_dir, dbname, evalue_exponent)
+        _step4_orthomcl_install_schema(run_dir, config_file)
 
-    # Steps that occur in database, and thus do little to produce output files
-    _step9_mysql_load_blast(similar_sequences, dbname)  # Workaround for Perl not being able to use load data local infile
-    # _step9_orthomcl_load_blast(similar_sequences, config_file)
-    _step10_orthomcl_pairs(run_dir, config_file)
-    mcl_input = _step11_orthomcl_dump_pairs(run_dir, config_file)[0]
+        # Workaround for Perl not being able to use load data local infile
+        _step9_mysql_load_blast(similar_sequences, dbname)
+        # _step9_orthomcl_load_blast(similar_sequences, config_file)
 
-    # Trash database now that we're done with it
-    delete_database(dbname)
+        _step10_orthomcl_pairs(run_dir, config_file)
+
+        mcl_input = _step11_orthomcl_dump_pairs(run_dir, config_file)[0]
+    finally:
+        # Trash database now that we're done with it
+        delete_database(dbname)
 
     # MCL related steps: run MCL on mcl_input resulting in the groups.txt file
     groups = _step12_mcl(run_dir, mcl_input)
-
-    # Move poor proteins file & groups file outside run_dir ahead of removing run_dir
-    shutil.move(poor, target_poor_proteins_file)
+    # Move groups file outside run_dir ahead of removing run_dir
     shutil.move(groups, target_groups_file)
+
+    # Clean up all vs all blast results file
+    os.remove(allvsall)
+
     # Remove run_dir to free disk space
     shutil.rmtree(run_dir)
 

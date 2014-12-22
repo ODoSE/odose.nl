@@ -141,6 +141,7 @@ def _extract_shared_orthologs(selected_genome_ids, groups_file, require_limiter_
         is_shared_ortholog = all(selected_id in prot_per_genomes
                                  for selected_id in selected_genome_ids)
 
+        # FIXME remove limiter references
         # If limiter presence is required, only mark orthologs as shared if they contain also limiter
         if require_limiter_presence:
             is_shared_ortholog = is_shared_ortholog and 'limiter' in prot_per_genomes
