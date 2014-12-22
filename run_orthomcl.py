@@ -22,7 +22,7 @@ __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
 
-def run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_poor_proteins_file, target_groups_file):
+def run_orthomcl(proteome_files, args):
     """Run all the steps in the orthomcl pipeline, starting with a set of proteomes and ending up with groups.txt."""
     # Delete orthomcl directory to prevent lingering files from previous runs to influence new runs
     run_dir = tempfile.mkdtemp(prefix='orthomcl_run_')
@@ -30,19 +30,21 @@ def run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_po
     # Steps leading up to and performing the reciprocal blast, as well as minor post processing
     adjusted_fasta_dir, fasta_files = _step5_orthomcl_adjust_fasta(run_dir, proteome_files)
 
-    good, poor = _step6_orthomcl_filter_fasta(run_dir, adjusted_fasta_dir, min_length=poor_protein_length)
+    good, poor = _step6_orthomcl_filter_fasta(run_dir, adjusted_fasta_dir, min_length=args.poorlength)
     # Move poor proteins file to expected output path
-    shutil.move(poor, target_poor_proteins_file)
+    shutil.move(poor, args.poorfasta)
 
     allvsall = _step7_blast_all_vs_all(good, fasta_files)
 
     similar_sequences = _step8_orthomcl_blast_parser(run_dir, allvsall, adjusted_fasta_dir)
+    # Clean up all vs all blast results file early, since it gets large quickly
+    os.remove(allvsall)
 
     # Create new database and install database schema in it, so individual runs do not interfere with each other
     dbname = create_database()
     try:
         # Steps that occur in database, and thus do little to produce output files
-        config_file = get_configuration_file(run_dir, dbname, evalue_exponent)
+        config_file = get_configuration_file(run_dir, dbname, args.evalue)
         _step4_orthomcl_install_schema(run_dir, config_file)
 
         # Workaround for Perl not being able to use load data local infile
@@ -59,15 +61,12 @@ def run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_po
     # MCL related steps: run MCL on mcl_input resulting in the groups.txt file
     groups = _step12_mcl(run_dir, mcl_input)
     # Move groups file outside run_dir ahead of removing run_dir
-    shutil.move(groups, target_groups_file)
-
-    # Clean up all vs all blast results file
-    os.remove(allvsall)
+    shutil.move(groups, args.groupstsv)
 
     # Remove run_dir to free disk space
     shutil.rmtree(run_dir)
 
-    return target_groups_file, target_poor_proteins_file
+    return args.groupstsv, args.poorfasta
 
 
 def _step4_orthomcl_install_schema(run_dir, config_file):
@@ -440,7 +439,7 @@ def main(argv=None):
     proteome_files = extract_archive_of_files(args.proteinzip, temp_dir)
 
     # Actually run orthomcl
-    run_orthomcl(proteome_files, args.poorlength, args.evalue, args.poorfasta, args.groupstsv)
+    run_orthomcl(proteome_files, args)
 
     # Remove unused files to free disk space
     shutil.rmtree(temp_dir)

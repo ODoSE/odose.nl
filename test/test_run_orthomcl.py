@@ -16,10 +16,12 @@ class Test(unittest.TestCase):
         logging.root.setLevel(logging.DEBUG)
 
     def test_parse_args(self):
-        args = run_orthomcl._parse_args(['proteins.zip', '-e', '4', 'target-poor.fasta', 'target-groups.tsv'])
+        target_poor = 'target-poor.fasta'
+        args = run_orthomcl._parse_args(['proteins.zip', '-e', '4', target_poor, 'target-groups.tsv'])
         logging.debug(args)
         self.assertEqual(4, args.evalue)
         self.assertEqual(30, args.poorlength)
+        self.assertEqual(target_poor, args.poorfasta)
 
     @unittest.skipUnless(os.path.isdir(ORTHOMCL_DIR), 'We need OrthoMCL')
     def test_run_orthomcl(self):
@@ -28,14 +30,13 @@ class Test(unittest.TestCase):
         '''
         # Setup
         proteome_files = [resource_filename(__name__, 'data/run_orthomcl/' + acc + '.1.faa') for acc in ['13305', '17745']]
-        poor_protein_length = 30
-        evalue_exponent = -5
         target_poor_proteins_file = tempfile.mkstemp(suffix='.txt', prefix='poor_proteins_')[1]
         target_groups_file = tempfile.mkstemp(suffix='.txt', prefix='groups_')[1]
+        args = run_orthomcl._parse_args(['', target_poor_proteins_file, target_groups_file])
 
         try:
             # Exercise
-            run_orthomcl.run_orthomcl(proteome_files, poor_protein_length, evalue_exponent, target_poor_proteins_file, target_groups_file)
+            run_orthomcl.run_orthomcl(proteome_files, args)
 
             # Verify
             # Poor proteins that must be skipped
