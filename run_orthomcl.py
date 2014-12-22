@@ -22,24 +22,20 @@ __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
 
-def run_orthomcl(proteome_files, args):
-    """Run all the steps in the orthomcl pipeline, starting with a set of proteomes and ending up with groups.txt."""
-    # Delete orthomcl directory to prevent lingering files from previous runs to influence new runs
-    run_dir = tempfile.mkdtemp(prefix='orthomcl_run_')
-
+def _steps_6_7_8(run_dir, args, proteome_files):
     # Steps leading up to and performing the reciprocal blast, as well as minor post processing
     adjusted_fasta_dir, fasta_files = _step5_orthomcl_adjust_fasta(run_dir, proteome_files)
-
     good, poor = _step6_orthomcl_filter_fasta(run_dir, adjusted_fasta_dir, min_length=args.poorlength)
     # Move poor proteins file to expected output path
     shutil.move(poor, args.poorfasta)
-
     allvsall = _step7_blast_all_vs_all(good, fasta_files)
-
     similar_sequences = _step8_orthomcl_blast_parser(run_dir, allvsall, adjusted_fasta_dir)
     # Clean up all vs all blast results file early, since it gets large quickly
     os.remove(allvsall)
+    return similar_sequences
 
+
+def _steps_9_10_11_12(run_dir, args, similar_sequences):
     # Create new database and install database schema in it, so individual runs do not interfere with each other
     dbname = create_database()
     try:
@@ -63,10 +59,19 @@ def run_orthomcl(proteome_files, args):
     # Move groups file outside run_dir ahead of removing run_dir
     shutil.move(groups, args.groupstsv)
 
-    # Remove run_dir to free disk space
-    shutil.rmtree(run_dir)
 
-    return args.groupstsv, args.poorfasta
+def run_orthomcl(args, proteome_files):
+    """Run all the steps in the orthomcl pipeline, starting with a set of proteomes and ending up with groups.txt."""
+
+    # Delete orthomcl directory to prevent lingering files from previous runs to influence new runs
+    run_dir = tempfile.mkdtemp(prefix='orthomcl_run_')
+    try:
+        # Split between before and after BLAST run, for easier/faster debugging using cached all-vs-all BLAST results
+        similar_sequences = _steps_6_7_8(run_dir, args, proteome_files)
+        _steps_9_10_11_12(run_dir, args, similar_sequences)
+    finally:
+        # Remove run_dir to free disk space
+        shutil.rmtree(run_dir)
 
 
 def _step4_orthomcl_install_schema(run_dir, config_file):
@@ -439,7 +444,7 @@ def main(argv=None):
     proteome_files = extract_archive_of_files(args.proteinzip, temp_dir)
 
     # Actually run orthomcl
-    run_orthomcl(proteome_files, args)
+    run_orthomcl(args, proteome_files)
 
     # Remove unused files to free disk space
     shutil.rmtree(temp_dir)

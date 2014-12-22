@@ -1,6 +1,7 @@
 from Bio import SeqIO
 import logging
 import os
+import shutil
 import tempfile
 import unittest
 
@@ -36,7 +37,7 @@ class Test(unittest.TestCase):
 
         try:
             # Exercise
-            run_orthomcl.run_orthomcl(proteome_files, args)
+            run_orthomcl.run_orthomcl(args, proteome_files)
 
             # Verify
             # Poor proteins that must be skipped
@@ -94,3 +95,15 @@ class Test(unittest.TestCase):
         finally:
             os.remove(poor)
             os.remove(groups)
+
+    @unittest.skipUnless(os.path.isdir(ORTHOMCL_DIR), 'We need OrthoMCL')
+    def test_steps_9_10_11_12(self):
+        run_dir = tempfile.mkdtemp()
+        args = run_orthomcl._parse_args(['', 'target-poor.fasta', 'target-groups.tsv'])
+        similar_sequences = resource_filename(__name__, 'data/run_orthomcl/similar_sequences.tsv')
+        try:
+            run_orthomcl._steps_9_10_11_12(run_dir, args, similar_sequences)
+        finally:
+            shutil.rmtree(run_dir)
+            if os.path.isfile(args.groupstsv):
+                os.remove(args.groupstsv)
