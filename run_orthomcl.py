@@ -224,7 +224,7 @@ def _step7_blast_all_vs_all(good_proteins_file, fasta_files):
 
     Time estimate: highly dependent on your data and hardware
     """
-    if 2 < len(fasta_files):
+    if 5 < len(fasta_files):
         # Send anything concerning more than two genomes to SARA.
         from reciprocal_blast_lsgp import reciprocal_blast
         return reciprocal_blast(good_proteins_file, fasta_files)
