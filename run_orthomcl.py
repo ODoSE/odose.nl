@@ -68,15 +68,6 @@ def run_orthomcl(args, proteome_files):
     try:
         # Split between before and after BLAST run, for easier/faster debugging using cached all-vs-all BLAST results
         similar_sequences = _steps_6_7_8(run_dir, args, proteome_files)
-
-        # Remove duplicate rows from similar_sequences naively
-        with open(similar_sequences) as reader:
-            lines = set(line for line in reader)
-        with open(similar_sequences, mode='w') as writer:
-            for line in lines:
-                writer.write(line)
-
-        # Resume with OrthoMCL
         _steps_9_10_11_12(run_dir, args, similar_sequences)
     finally:
         # Remove run_dir to free disk space
