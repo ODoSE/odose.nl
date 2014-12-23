@@ -23,7 +23,7 @@ def download_plasmid_files(genome):
     Download plasmid files from FTP site, by taking accession codes from other columns.
     :param genome:
     '''
-    return download_genome_files(genome, refseq_column='Plasmids/RefSeq')
+    return download_genome_files(genome, download_log=None, refseq_column='Plasmids/RefSeq')
 
 
 def download_genome_files(genome, download_log=None, require_ptt=False, refseq_column='Chromosomes/RefSeq'):
@@ -112,6 +112,10 @@ def download_genome_files(genome, download_log=None, require_ptt=False, refseq_c
     if download_log:
         with open(download_log, mode='a') as append_handle:
             append_handle.write('{0}\t{1}\t{2}{3}\n'.format(projectid, genome['Organism/Name'], ftp.host, folder))
+
+    # Extend with
+    if refseq_column == 'Chromosomes/RefSeq':
+        genome_files.extend(download_plasmid_files(genome))
 
     # Return genome files
     return genome_files

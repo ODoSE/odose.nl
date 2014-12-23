@@ -84,7 +84,6 @@ def translate_genomes(genomes):
     # Use a pool to download files in the background while translating
     pool = Pool()
     futures = [pool.apply_async(download_genome_files, (genome,)) for genome in genomes]
-    futures.extend([pool.apply_async(download_plasmid_files, (genome,)) for genome in genomes])
     dna_aa_pairs = [_translate_genome(gbk_ptt_pairs.get()) for gbk_ptt_pairs in futures if gbk_ptt_pairs.get() != None]
 
     # Extract DNA & Protein files separately from dna_aa_pairs
