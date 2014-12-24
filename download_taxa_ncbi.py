@@ -115,7 +115,9 @@ def download_genome_files(genome, download_log=None, require_ptt=False, refseq_c
 
     # Extend with
     if refseq_column == 'Chromosomes/RefSeq':
-        genome_files.extend(download_plasmid_files(genome))
+        plasmid_files = download_plasmid_files(genome)
+        if plasmid_files:
+            genome_files.extend(plasmid_files)
 
     # Return genome files
     return genome_files

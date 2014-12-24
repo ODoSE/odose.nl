@@ -14,7 +14,7 @@ import shutil
 import sys
 import tempfile
 
-from download_taxa_ncbi import download_genome_files, download_plasmid_files
+from download_taxa_ncbi import download_genome_files
 import logging as log
 from select_taxa import select_genomes_by_ids
 from shared import create_directory, concatenate, create_archive_of_files, parse_options, \
