@@ -14,7 +14,7 @@ class Test(unittest.TestCase):
         '''
         target_dir = tempfile.mkdtemp()
         try:
-            archive_file = shared.resource_filename(__name__, 'data/sample.txt.zip')
+            archive_file = shared.resource_filename(__name__, 'data/shared/sample.txt.zip')
             files = shared.extract_archive_of_files(archive_file, target_dir)
             with open(files[0]) as reader:
                 contents = reader.read()
