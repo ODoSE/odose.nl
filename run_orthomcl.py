@@ -71,7 +71,8 @@ def run_orthomcl(args, proteome_files):
         _steps_9_10_11_12(run_dir, args, similar_sequences)
     finally:
         # Remove run_dir to free disk space
-        shutil.rmtree(run_dir)
+        # XXX shutil.rmtree fails on the server, and I fail to understand why. Ensure this does not grow too big
+        shutil.rmtree(run_dir, ignore_errors=True)
 
 
 def _step4_orthomcl_install_schema(run_dir, config_file):
