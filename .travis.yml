@@ -16,6 +16,7 @@ script:
 after_script:
   - grep -i fixme *.py
   - grep -i todo *.py
+  - grep XXX *.py
   - pep8 --ignore="E501" *.py
   - pylint --max-line-length=120 --disable="E0602,W0511,R0801,I0011" --include-ids=y *.py
 
