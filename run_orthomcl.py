@@ -56,6 +56,15 @@ def _steps_9_10_11_12(run_dir, args, similar_sequences):
 
     # MCL related steps: run MCL on mcl_input resulting in the groups.txt file
     groups = _step12_mcl(run_dir, mcl_input)
+
+    # Post process the groups file to re-replace underscores with dots in taxon_code / accession
+    with open(groups) as reader:
+        lines = [line for line in reader]
+    with open(groups, 'w') as writer:
+        for line in lines:
+            writer.write('\t'.join('{}|{}'.format(seqid.split('|')[0].replace('_', '.'), seqid.split('|')[1])
+                                   for seqid in line.split('\t')))
+
     # Move groups file outside run_dir ahead of removing run_dir
     shutil.move(groups, args.groupstsv)
 

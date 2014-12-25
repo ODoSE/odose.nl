@@ -209,7 +209,7 @@ def _write_record_to_ortholog_file(directory, ortholog_dictionaries, record):
     # Sample header line:    >58191|NC_010067.1|YP_001569097.1|COG4948MR|core
     # Corresponding ortholog: {'58191': ['YP_001569097.1'], ...}
     split_header = record.id.split('|')
-    project_id = split_header[0].replace('.', '_')
+    project_id = split_header[0]
     protein_id = split_header[2]
 
     affected_ortholog_files = set()
