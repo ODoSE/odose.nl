@@ -40,9 +40,9 @@ except AssertionError:
     raise
 except:
     # Should any other error occur, report it to FogBugz automatically
-    # TODO from bugzscout import report_error_to_email
-    #MESSAGE = report_error_to_email()
-    #logging.info('Automatic bug submission reported: %s', MESSAGE)
+    from bugzscout import report_error_to_email
+    MESSAGE = report_error_to_email()
+    logging.info('Automatic bug submission reported: %s', MESSAGE)
     logging.exception('An error occurred')
     raise
 finally:
