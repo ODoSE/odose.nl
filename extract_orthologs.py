@@ -17,7 +17,6 @@ from shared import create_directory, extract_archive_of_files, create_archive_of
 
 
 __author__ = "Tim te Beek"
-__contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 

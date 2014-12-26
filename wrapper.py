@@ -5,7 +5,6 @@ Second command line argument is a file to log any output to.
 Further arguments are passed to the named module's main method."""
 
 __author__ = "Tim te Beek"
-__contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 

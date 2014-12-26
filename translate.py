@@ -22,7 +22,6 @@ from shared import create_directory, concatenate, create_archive_of_files, parse
 
 
 __author__ = "Tim te Beek"
-__contact__ = "brs@nbic.nl"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
 
