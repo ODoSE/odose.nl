@@ -244,14 +244,14 @@ def _step7_blast_all_vs_all(good_proteins_file, fasta_files):
 
     Time estimate: highly dependent on your data and hardware
     """
-    if 5 < len(fasta_files):
-        # Send anything concerning more than two genomes to SARA.
-        from reciprocal_blast_lsgp import reciprocal_blast
-        return reciprocal_blast(good_proteins_file, fasta_files)
-    else:
-        # Run two genomes ourselves locally.
-        from reciprocal_blast_local import reciprocal_blast
-        return reciprocal_blast(good_proteins_file, fasta_files)
+    #if 5 < len(fasta_files):
+    #    # Send anything concerning more than two genomes to SARA.
+    #    from reciprocal_blast_lsgp import reciprocal_blast
+    #    return reciprocal_blast(good_proteins_file, fasta_files)
+    #else:
+    # Run blast ourselves locally.
+    from reciprocal_blast_local import reciprocal_blast
+    return reciprocal_blast(good_proteins_file, fasta_files)
 
 
 def _step8_orthomcl_blast_parser(run_dir, blast_file, fasta_files_dir):
