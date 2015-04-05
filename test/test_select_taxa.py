@@ -27,6 +27,6 @@ class Test(unittest.TestCase):
             # Assert contents
             with open(target) as reader:
                 contents = reader.read()
-            self.assertIn('17745.1\tEscherichia coli E24377A', contents)
+            self.assertIn('17745.1\tEscherichia coli O139:H28 str. E24377A', contents)
         finally:
             os.remove(target)

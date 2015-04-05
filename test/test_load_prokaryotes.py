@@ -29,7 +29,7 @@ class Test(unittest.TestCase):
            'Genes': '5258',
            'Group': 'Proteobacteria',
            'Modify Date': datetime.datetime(2014, 1, 31, 0, 0),
-           'Organism/Name': 'Escherichia coli E24377A',
+           'Organism/Name': 'Escherichia coli O139:H28 str. E24377A',
            'Plasmids/INSDC': ['CP000795.1',
                               'CP000798.1',
                               'CP000797.1',
