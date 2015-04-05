@@ -73,6 +73,10 @@ class Test(unittest.TestCase):
         # Report how many records RefSeq / GenBank identifiers
         self.assertTrue(all(gnm['Chromosomes/RefSeq'] for gnm in genomes))
 
+        # Ensure there are no duplicates in Chromosomes/RefSeq
+        for gnm in genomes:
+            self.assertEqual(len(gnm['Chromosomes/RefSeq']), len(set(gnm['Chromosomes/RefSeq'])))
+
         # Extract a particular record
         for gnm in genomes:
             if gnm['BioProject ID'] == '13960':

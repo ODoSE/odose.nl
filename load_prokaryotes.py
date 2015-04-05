@@ -73,7 +73,7 @@ def _parse_genomes_table(require_refseq=False):
         # Split values based on separator mapping for column name in splitable_columns
         for column, separator in splitable_columns.iteritems():
             value = genome[column]
-            genome[column] = [] if len(value) in (0, 1) else value.split(separator)
+            genome[column] = [] if len(value) in (0, 1) else set(value.split(separator))
 
         # Any gaps might influence the core gene set
         if genome['Status'] != 'Complete Genome':
