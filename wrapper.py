@@ -3,11 +3,12 @@
 First command line argument is a module, e.g: "translate".
 Second command line argument is a file to log any output to.
 Further arguments are passed to the named module's main method."""
-from ftplib import error_temp
 
 __author__ = "Tim te Beek"
 __copyright__ = "Copyright 2011, Netherlands Bioinformatics Centre"
 __license__ = "MIT"
+
+import ftplib 
 
 # First argument contains fully qualified name of module to be imported
 import logging
@@ -38,7 +39,7 @@ except AssertionError:
     # Do not report AssertionErrors to FogBugz: Not a bug we care about
     logging.exception('An assumption failed')
     raise
-except error_temp:
+except ftplib.error_temp:
     logging.exception('NCBI FTP timed out')
     raise
 except:
