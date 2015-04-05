@@ -50,6 +50,9 @@ def get_error_trace_lines():
                 value = frame.f_locals[key]
             except:
                 value = "<ERROR CALLING STR() ON %s>" % key  # pylint: disable=W0702
+            # Trim to keep the email readable
+            if 1000 < len(value):
+                value = value[:1000] + "[trimmed]"
             lines.append("\t%20s = %s" % (key, value))
         # Separator between this frame and the next
         lines.append('\n')
