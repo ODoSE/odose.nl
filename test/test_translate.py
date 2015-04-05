@@ -25,3 +25,18 @@ class Test(unittest.TestCase):
         self.assertEqual(first_header, first.id)
         first = next(SeqIO.parse(aafiles[0], 'fasta'))
         self.assertEqual(first_header, first.id)
+
+        # Verify no header appears twice
+        headers = [record.id for record in SeqIO.parse(aafiles[0], 'fasta')]
+        self.assertEqual(len(headers), len(set(headers)))
+
+    def test_translate_93125_2(self):
+        # Select genomes
+        genomes = select_genomes_by_ids(['93125.2']).values()
+
+        # Call translate
+        aafiles = translate.translate_genomes(genomes)[1]
+
+        # Verify no header appears twice
+        headers = [record.id for record in SeqIO.parse(aafiles[0], 'fasta')]
+        self.assertEqual(len(headers), len(set(headers)))
