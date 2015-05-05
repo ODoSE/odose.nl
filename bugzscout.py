@@ -47,7 +47,7 @@ def get_error_trace_lines():
         for key in sorted(frame.f_locals.keys()):
             # Calling str() on an unknown object could cause an error we don't want: Prevent that.
             try:
-                value = frame.f_locals[key]
+                value = str(frame.f_locals[key])
             except:
                 value = "<ERROR CALLING STR() ON %s>" % key  # pylint: disable=W0702
             # Trim to keep the email readable
