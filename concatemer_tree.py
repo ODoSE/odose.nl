@@ -69,7 +69,7 @@ def concatemer_per_genome(run_dir, genome_coding_regions_files):
     for coding_region_file in genome_coding_regions_files:
         # Determine output file name
         filename = os.path.split(coding_region_file)[1]
-        basename = filename[:filename.find('.')]
+        basename = filename[:filename.find('.coding-regions')]
         concatemer_file = os.path.join(concatemer_dir, basename + '.concatemer.fna')
         concatemer_files.append(concatemer_file)
 
@@ -148,7 +148,7 @@ def _fix_misinterpreted_names(tree):
     """Bio.Phylo.read(file, 'newick') misinterprets numerical names as confidence scores. Fix that here in place."""
     for leaf in tree.get_terminals():
         if leaf.name == None and leaf.confidence != None:
-            leaf.name = str(int(leaf.confidence))
+            leaf.name = str(float(leaf.confidence))
             leaf.confidence = None
 
 
