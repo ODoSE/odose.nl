@@ -86,6 +86,7 @@ def send_as_email(subject='', content=''):
         s.sendmail(me, [you], msg.as_string())
         s.quit()
     except:
+        logging.error('Failed to send email: %s', subject)
         # Do not mask original error by an error in sending email
         return
 
