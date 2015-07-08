@@ -100,6 +100,6 @@ class Test(unittest.TestCase):
             # Assert contents
             with open(target) as reader:
                 contents = reader.read()
-            self.assertIn('Proteobacteria > Gammaproteobacteria > Salmonella > Salmonella enterica subsp. arizonae serovar 62:z4,z23:-', contents)
+            self.assertIn('439255.1 - Proteobacteria > Gammaproteobacteria > Salmonella > Salmonella bongori N268-08', contents)
         finally:
             os.remove(target)
