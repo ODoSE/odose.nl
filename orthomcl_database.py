@@ -7,7 +7,6 @@ import collections
 from datetime import datetime
 import os
 import shutil
-import socket
 
 import logging as log
 from shared import resource_filename
@@ -50,7 +49,7 @@ def create_database():
     # Build a unique URL using todays date
     dbname = 'orthomcl_{t.year}_{t.month}_{t.day}_at_{t.hour}_{t.minute}_{t.second}'.format(t=datetime.today())
     dbhost, port, user, passwd = _get_root_credentials()
-    clhost = socket.gethostname() if dbhost not in ['127.0.0.1', 'localhost'] else dbhost
+    clhost = 'odose.nl' if dbhost not in ['127.0.0.1', 'localhost'] else dbhost
     db_connection = MySQLdb.connect(host=dbhost, port=port, user=user, passwd=passwd)
     cursor = db_connection.cursor()
     cursor.execute('CREATE DATABASE ' + dbname)
