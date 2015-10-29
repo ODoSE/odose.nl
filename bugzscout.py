@@ -82,7 +82,7 @@ def send_as_email(subject='', content=''):
         msg["From"] = me
         msg["To"] = you
         msg["Subject"] = subject
-        s = smtplib.SMTP('192.168.10.1')
+        s = smtplib.SMTP('192.168.1.14')
         s.sendmail(me, [you], msg.as_string())
         s.quit()
     except:
