@@ -77,7 +77,7 @@ def send_as_email(subject='', content=''):
     import smtplib
     try:
         me = 'admin@odose.nl'
-        you = 'timtebeek+odose@gmail.com'
+        you = 'odose@bioinformatics.nl'
         msg = MIMEText(content)
         msg["From"] = me
         msg["To"] = you
