@@ -4,7 +4,7 @@
 import Bio
 import argparse
 import getpass
-import logging as log
+import logging
 import os
 from subprocess import Popen, PIPE, check_call
 import sys
@@ -99,16 +99,15 @@ def _parse_args():
 def _check_package(pkg_name):
     command = ['which', pkg_name]
 
-    log.info('Executing: %s', ' '.join(command))
+    logging.info('Executing: %s', ' '.join(command))
     check_call(command, stdout=None)
 
 def main():
     """Method intended to be run when __name-- == '__main__'."""
     # BioPython
-    log.info('BioPython\t%s', Bio.__version__)
+    logging.info('BioPython\t%s', Bio.__version__)
 
     # Blast
-    print(MAKEBLASTDB)
     _check_package(MAKEBLASTDB)
     _check_package(BLASTP)
     _check_package(BLASTN)
@@ -146,6 +145,6 @@ def main():
 
 if __name__ == '__main__':
     # Parse arguments to setup logging; not in main for testing
-    #_parse_args()
+    _parse_args()
     # Log software versions
     main()
